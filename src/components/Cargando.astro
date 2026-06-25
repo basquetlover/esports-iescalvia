@@ -1,0 +1,26 @@
+<div id="loader" class="fixed z-100 w-full h-screen flex flex-col gap-y-10 items-center place-content-center">
+    <div class="w-120 h-120 degradado absolute rounded-full  -top-30 -left-30">
+        &nbsp;
+    </div>
+    <div class="w-150 h-150 degradado absolute rounded-full  -bottom-40 -right-40">
+        &nbsp;
+    </div>
+
+    <p class="uppercase font-bold text-center text-5xl text-secondary flex flex-col ">
+        Esports
+        <span class="text-[42px] font-semibold text-primary">IES Calvià</span>
+    </p>
+
+    <div class="space-y-1">
+        <p class="text-neutral">A punt per començar!</p>
+        <div class="w-full h-1 bg-primary relative overflow-hidden rounded-full">
+            <div class="loading-fill"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.addEventListener('load', function(){
+        document.getElementById('loader')?.classList.toggle('hidden')
+    })
+</script>

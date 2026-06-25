@@ -1,0 +1,45 @@
+---
+import Layout from "@layouts/Layout.astro";
+---
+
+<Layout title="Pàgina no trobada">
+    <div class="max-w-4xl w-full flex mt-10 flex-col items-center mx-auto p-4">
+        <h3 class="text-neutral/40 text-9xl">404</h3>
+        <h1 class="text-2xl font-bold text-secondary">Pàgina no trobada</h1>
+        <p class="text-neutral text-center my-5 max-w-2xl">Sembla que t'has desviat del terreny de joc. El contingut que busques no existeix o ha estat mogut a un altre sector de les nostres instal·lacions digitals.</p>
+
+        <a href="/" class="text-white bg-secondary rounded-lg px-8 py-3 flex items-center gap-x-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-white" viewBox="0 -960 960 960">
+                <path d="M240-200h120v-240h240v240h120v-360L480-740 240-560zm-80 80v-480l320-240 320 240v480H520v-240h-80v240zm320-350"/>
+            </svg>
+            Tornar a la pàgina principal
+        </a>
+
+        <div class="w-full flex flex-wrap gap-5 items-center place-content-center mt-10">
+            <!-- Torneos -->
+            <a href="/tornejos" class="bg-card w-60 h-30 rounded-xl p-4 border border-border">
+                <svg xmlns="http://www.w3.org/2000/svg"class="w-6 h-6 fill-secondary" viewBox="0 -960 960 960">
+                    <path d="M280-120v-80h160v-124q-49-11-87.5-41.5T296-442q-75-9-125.5-65.5T120-640v-40q0-33 23.5-56.5T200-760h80v-80h400v80h80q33 0 56.5 23.5T840-680v40q0 76-50.5 132.5T664-442q-18 46-56.5 76.5T520-324v124h160v80zm0-408v-152h-80v40q0 38 22 68.5t58 43.5m285 93q35-35 35-85v-240H360v240q0 50 35 85t85 35 85-35m115-93q36-13 58-43.5t22-68.5v-40h-80zm-200-52"/>
+                </svg>
+                <h3 class="text-lg font-medium text-primary">Tornejos</h3>
+                <p class="text-neutral">Consulta tots els tornejos disponibles.</p>
+            </a>
+            <!-- Calendario -->
+            <a href="/calendari" class="bg-card w-60 h-30 rounded-xl p-4 border border-border">
+                <svg xmlns="http://www.w3.org/2000/svg"class="w-6 h-6 fill-secondary" viewBox="0 -960 960 960">
+                    <path d="M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-80h80v80h320v-80h80v80h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80zm0-80h560v-400H200zm0-480h560v-80H200zm0 0v-80z"/>
+                </svg>
+                <h3 class="text-lg font-medium text-primary">Calendari</h3>
+                <p class="text-neutral">Consulta les properes competicions i horaris.</p>
+            </a>
+            <!-- Ayuda -->
+            <a href="/contacte" class="bg-card w-60 h-30 rounded-xl p-4 border border-border">
+                <svg xmlns="http://www.w3.org/2000/svg"class="w-6 h-6 fill-secondary" viewBox="0 -960 960 960">
+                    <path d="M440-120v-80h320v-284q0-117-81.5-198.5T480-764t-198.5 81.5T200-484v244h-40q-33 0-56.5-23.5T80-320v-80q0-21 10.5-39.5T120-469l3-53q8-68 39.5-126t79-101 109-67T480-840t129 24 109 66.5T797-649t40 126l3 52q19 9 29.5 27t10.5 38v92q0 20-10.5 38T840-249v49q0 33-23.5 56.5T760-120zM331.5-411.5Q320-423 320-440t11.5-28.5T360-480t28.5 11.5T400-440t-11.5 28.5T360-400t-28.5-11.5m240 0Q560-423 560-440t11.5-28.5T600-480t28.5 11.5T640-440t-11.5 28.5T600-400t-28.5-11.5M241-462q-7-106 64-182t177-76q89 0 156.5 56.5T720-519q-91-1-167.5-49T435-698q-16 80-67.5 142.5T241-462"/>
+                </svg>
+                <h3 class="text-lg font-medium text-primary">Ajuda</h3>
+                <p class="text-neutral">Contacta amb l'equip tècnic de Esports IES Calvià.</p>
+            </a>
+        </div>
+    </div>
+</Layout>

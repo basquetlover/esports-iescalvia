@@ -1,0 +1,26 @@
+---
+const now = new Date();
+const month = now.getMonth(); // 0 = enero, 8 = septiembre
+const year = now.getFullYear();
+
+// Si aún no es septiembre, la temporada empezó el año anterior.
+const startYear = month >= 8 ? year : year - 1;
+
+const TEMPORADA = `${startYear}-${startYear + 1}`;
+
+
+
+---
+<div class="w-full h-150 degradado2 flex items-center place-content-center p-4">
+    <div class="max-w-2xl flex flex-col gap-y-5 items-center place-content-center">
+        <!-- <p class="w-max h-max py-1 px-4 rounded-2xl bg-secondary text-primary">Temporada {TEMPORADA}</p> -->
+        <h2 class="font-bold text-neutral-titulos text-5xl text-center">Benvinguts al <span class="text-primary">Portal Esportiu</span> de l'IES Calvià</h2>
+        <p class="text-neutral text-lg text-center">La plataforma central per a totes les competicions, resultats i estadístiques del nostre centre. Viu l'esport com mai.</p>
+
+        <div class="flex flex-wrap items-center place-content-center gap-10 mt-5">
+            <a class="w-max h-max py-3 px-8 rounded-lg bg-primary text-white text-lg font-semibold cursor-pointer hover:bg-primary/80 duration-300">Veure Tornejos</a>
+            <a class="w-max h-max py-3 px-8 rounded-lg bg-transparent text-secondary text-lg font-semibold border-2 border-secondary hover:bg-secondary/10 cursor-pointer duration-300">Inscriure Equip</a>
+        </div>
+    </div>
+    
+</div>

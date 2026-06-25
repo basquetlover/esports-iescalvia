@@ -1,0 +1,159 @@
+---
+import ModoOscuro from "@components/ModoOscuro.astro"
+
+import {MENU} from '@const/Menu'
+
+const url = Astro.url;
+const pathname = url.pathname
+
+---
+<div class="w-full py-2 px-4 grid grid-cols-[auto_1fr_auto] place-items-center max-md:hidden">
+    <div class="flex items-center gap-2">
+        <img src="/logo-temporal.png" class="h-12"/>
+        <p class="uppercase font-bold text-center text-xl text-secondary flex flex-col ">
+            Esports
+            <span class="text-[17px] font-semibold text-primary">IES Calvià</span>
+        </p>
+    </div>
+
+    <nav class="text-neutral flex flex-row gap-10">
+        {
+            MENU.map((ruta) =>(
+                <a href={ruta.enlace} class={`relative flex flex-col items-center text-center ${pathname === ruta.enlace && 'text-secondary'}`}>
+                    {ruta.nombre}
+                        {
+                            ruta.estado === "Pròximament" ? (
+                                <span class=" absolute -bottom-4 text-xs text-primary ">{ruta.estado}</span>
+                            ):(
+                                <div class={`absolute w-full h-px rounded -bottom-0.5 bg-secondary ${pathname !== ruta.enlace && 'hidden'}`}>&nbsp;</div>
+                            )
+                        }
+                </a>
+            ))
+        }
+    </nav>
+    <ModoOscuro />
+</div>
+
+<div class="w-full py-1 px-2 grid grid-cols-[auto_1fr_1fr] items-center gap-x-2  md:hidden">
+    <div data-menu-toggle="main-menu">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 fill-primary" viewBox="0 -960 960 960">
+            <path d="M120-240v-80h720v80zm0-200v-80h720v80zm0-200v-80h720v80z"/>
+        </svg>
+    </div>
+    <div class="flex items-center gap-2">
+        <img src="/logo-temporal.png" class="h-11"/>
+        <p class="uppercase font-bold text-center text-lg text-secondary flex flex-col w-max">
+            Esports
+            <span class="text-[16px] font-semibold text-primary">IES Calvià</span>
+        </p>
+    </div>
+
+    <div class="w-full flex items-center gap-x-2 place-content-end">
+        <a class="text-secondary hover:underline">
+            Iniciar Sessió
+        </a>
+        <div class="w-px rounded h-full bg-primary">&nbsp;</div>
+        <ModoOscuro />
+    </div>
+    
+</div>
+
+<div data-menu-panel="main-menu" class="hidden fixed w-full h-full z-10 top-0 left-0 bg-background/80  md:hidden ">
+    <div class="w-80 h-full bg-background p-4">
+        <div class="flex place-content-between items-center">
+            <div class="flex items-center gap-2">
+                <img src="/logo-temporal.png" class="h-12"/>
+                <p class="uppercase font-bold text-center text-xl text-secondary flex flex-col ">
+                    Esports
+                    <span class="text-[17px] font-semibold text-primary">IES Calvià</span>
+                </p>
+            </div>
+            <div data-menu-toggle="main-menu">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 fill-primary" viewBox="0 -960 960 960">
+                    <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224z"/>
+                </svg>
+            </div>
+        </div>
+
+        <div class="w-full h-full flex flex-col place-content-between">
+            <nav class="text-neutral flex flex-col mt-10 gap-10">
+                {
+                    MENU.map((ruta) =>(
+                        <a href={ruta.enlace} class={`w-max relative flex flex-col   ${pathname === ruta.enlace && 'text-secondary'}`}>
+                            {ruta.nombre}
+                                {
+                                    ruta.estado === "Pròximament" ? (
+                                        <span class=" absolute -bottom-4 text-xs text-primary ">{ruta.estado}</span>
+                                    ):(
+                                        <div class={`absolute w-full h-px rounded -bottom-0.5 bg-secondary ${pathname !== ruta.enlace && 'hidden'}`}>&nbsp;</div>
+                                    )
+                                }
+                        </a>
+                    ))
+                }
+            </nav>
+
+            <div class="mb-12 flex flex-col gap-5">
+                <a class="w-full h-10 bg-primary rounded-lg flex items-center place-content-center gap-x-2 text-white fill-white">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 -960 960 960">
+                        <path d="M480-120v-80h280v-560H480v-80h280q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120zm-80-160-55-58 102-102H120v-80h327L345-622l55-58 200 200z"/>
+                    </svg>
+                    Iniciar Sessió
+                </a>
+                <a class="w-full h-10 bg-transparent rounded-lg flex items-center place-content-center gap-x-2 border-2 border-secondary text-secondary fill-secondary">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 -960 960 960">
+                        <path d="M720-400v-120H600v-80h120v-120h80v120h120v80H800v120zM247-527q-47-47-47-113t47-113 113-47 113 47 47 113-47 113-113 47-113-47M40-160v-112q0-34 17.5-62.5T104-378q62-31 126-46.5T360-440t130 15.5T616-378q29 15 46.5 43.5T680-272v112zm80-80h480v-32q0-11-5.5-20T580-306q-54-27-109-40.5T360-360t-111 13.5T140-306q-9 5-14.5 14t-5.5 20zm296.5-343.5Q440-607 440-640t-23.5-56.5T360-720t-56.5 23.5T280-640t23.5 56.5T360-560t56.5-23.5M360-240"/>
+                    </svg>
+                    Registrar-se
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+  function setMenuState(menuId, open) {
+    const panel = document.querySelector(`[data-menu-panel="${menuId}"]`);
+    if (!panel) return;
+
+    panel.classList.toggle("hidden", !open);
+  }
+
+  function getMenuState(menuId) {
+    const panel = document.querySelector(`[data-menu-panel="${menuId}"]`);
+    if (!panel) return false;
+
+    return !panel.classList.contains("hidden");
+  }
+
+  document.querySelectorAll("[data-menu-toggle]").forEach((toggle) => {
+    const menuId = toggle.getAttribute("data-menu-toggle");
+    if (!menuId) return;
+
+    toggle.addEventListener("click", () => {
+      const isOpen = getMenuState(menuId);
+      setMenuState(menuId, !isOpen);
+    });
+  });
+
+  document.querySelectorAll("[data-menu-panel]").forEach((panel) => {
+    panel.addEventListener("click", (e) => {
+      const menuId = panel.getAttribute("data-menu-panel");
+      if (!menuId) return;
+
+      if (e.target === panel) {
+        setMenuState(menuId, false);
+      }
+    });
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      document.querySelectorAll("[data-menu-panel]").forEach((panel) => {
+        panel.classList.add("hidden");
+      });
+    }
+  });
+</script>
+

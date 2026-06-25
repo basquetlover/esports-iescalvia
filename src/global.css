@@ -1,0 +1,117 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=Geist:ital,wght@0,100..900;1,100..900&display=swap');
+
+@theme inline {
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-neutral: var(--neutral);
+  --color-neutral-titulos: var(--neutral-titulos);
+
+  --color-background: var(--background);
+  --color-card: var(--card);
+
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+
+  --color-border: var(--border);
+
+  --color-error: var(--error);
+  --color-error-container: var(--error-container);
+  --color-error-foreground: var(--error-foreground);
+}
+
+:root {
+  --primary: #0f766e;
+  --secondary: #14b8a6;
+  --neutral: #64748B;
+  --neutral-titulos: #0b1c30;
+
+  --background: #f8f9ff;
+  --card: #eff4ff;
+
+  --foreground: #0b1c30;
+  --muted: #64748b;
+
+
+  --border: #d3e4fe;
+
+  --error: #ba1a1a;
+  --error-container: #ffdad6;
+  --error-foreground: #93000a;
+}
+
+.oscuro {
+  --primary: #0f766e;
+  --secondary: #14b8a6;
+  --neutral: #D3E4FE;
+  --neutral-titulos: #f8f9ff;
+
+  --background: #0b1c30;
+  --card: #213145;
+
+  --foreground: #eaf1ff;
+  --muted: #bdc9c6;
+
+  --border: #3e4947;
+
+  --error: #ffb4ab;
+  --error-container: #93000a;
+  --error-foreground: #ffdad6;
+}
+
+* {
+  font-family: "Geist", sans-serif;
+  font-optical-sizing: auto;
+}
+
+.degradado{
+  background: #0F766E;
+  background: radial-gradient(circle,rgba(15, 118, 110, 0.5) 0%, rgba(15, 118, 110, 0) 60%); 
+}
+
+.degradado2{
+  background: #0F766E;
+  background: linear-gradient(180deg,rgba(15, 118, 110, 0.2) 0%, var(--color-background) 40%);
+}
+
+
+.animation-pulse {
+  animation: pulse 1.5s infinite;
+}
+
+.loading-fill {
+  position: absolute;
+  height: 100%;
+  width: 30%;
+  background-color: var(--secondary);
+  border-radius: 999px;
+  transform: translateX(-100%);
+  animation: indeterminate-loading 1.5s ease-in-out infinite;
+}
+
+
+/* Animaciones */
+@keyframes indeterminate-loading {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
