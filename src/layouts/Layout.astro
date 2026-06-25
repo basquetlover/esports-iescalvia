@@ -17,14 +17,14 @@ const {title} = Astro.props;
 		<meta name="generator" content={Astro.generator} />
 		<title>{`${title} `}Esports IES Calvià</title>
 	</head>
-	<body class="bg-background">
+	<body class="bg-background text-neutral">
     <Cargando />
 
     <div class="w-full min-h-screen grid grid-rows-[auto_1fr_auto]">
       <header>
         <NavBar />
       </header>
-      
+
       <slot />
 
       <Footer />

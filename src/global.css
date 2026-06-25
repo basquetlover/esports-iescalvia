@@ -8,7 +8,9 @@
   --color-neutral: var(--neutral);
   --color-neutral-titulos: var(--neutral-titulos);
 
+
   --color-background: var(--background);
+  --color-on-background: var(--on-background);
   --color-card: var(--card);
 
   --color-foreground: var(--foreground);
@@ -28,6 +30,7 @@
   --neutral-titulos: #0b1c30;
 
   --background: #f8f9ff;
+  --on-background: #0b1c30;
   --card: #eff4ff;
 
   --foreground: #0b1c30;
@@ -48,6 +51,7 @@
   --neutral-titulos: #f8f9ff;
 
   --background: #0b1c30;
+  --on-background: #f8f9ff;
   --card: #213145;
 
   --foreground: #eaf1ff;
@@ -73,6 +77,27 @@
 .degradado2{
   background: #0F766E;
   background: linear-gradient(180deg,rgba(15, 118, 110, 0.2) 0%, var(--color-background) 40%);
+}
+
+.degradado-card{
+  background: var(--color-card);
+  background: linear-gradient(180deg,var(--color-card) 0%, var(--color-background) 98%);
+}
+
+.degradado-img {
+    mask-image: linear-gradient(
+        to bottom,
+        black 0%,
+        black 40%,
+        transparent 100%
+    );
+
+    -webkit-mask-image: linear-gradient(
+        to bottom,
+        black 0%,
+        black 40%,
+        transparent 100%
+    );
 }
 
 
