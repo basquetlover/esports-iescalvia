@@ -5,6 +5,7 @@
 @theme inline {
   --color-primary: var(--primary);
   --color-secondary: var(--secondary);
+  --color-secondary2: var(--secondary2);
   --color-neutral: var(--neutral);
   --color-neutral-titulos: var(--neutral-titulos);
 
@@ -26,6 +27,7 @@
 :root {
   --primary: #0f766e;
   --secondary: #14b8a6;
+  --secondary2: (#71F8E4);
   --neutral: #64748B;
   --neutral-titulos: #0b1c30;
 
@@ -33,8 +35,8 @@
   --on-background: #0b1c30;
   --card: #eff4ff;
 
-  --foreground: #0b1c30;
-  --muted: #64748b;
+  --foreground: #eaf1ff;
+  --muted: #bdc9c6;
 
 
   --border: #d3e4fe;
@@ -47,6 +49,7 @@
 .oscuro {
   --primary: #0f766e;
   --secondary: #14b8a6;
+  --secondary2: (#71F8E4);
   --neutral: #D3E4FE;
   --neutral-titulos: #f8f9ff;
 
@@ -54,8 +57,8 @@
   --on-background: #f8f9ff;
   --card: #213145;
 
-  --foreground: #eaf1ff;
-  --muted: #bdc9c6;
+  --foreground: #0b1c30;
+  --muted: #64748b;
 
   --border: #3e4947;
 
