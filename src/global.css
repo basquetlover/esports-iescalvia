@@ -5,7 +5,7 @@
 @theme inline {
   --color-primary: var(--primary);
   --color-secondary: var(--secondary);
-  --color-secondary2: var(--secondary2);
+  --color-secondary-variant: var(--secondary-variant);
   --color-neutral: var(--neutral);
   --color-neutral-titulos: var(--neutral-titulos);
 
@@ -27,7 +27,7 @@
 :root {
   --primary: #0f766e;
   --secondary: #14b8a6;
-  --secondary2: (#71F8E4);
+  --secondary-variant: #71F8E4;
   --neutral: #64748B;
   --neutral-titulos: #0b1c30;
 
@@ -49,7 +49,7 @@
 .oscuro {
   --primary: #0f766e;
   --secondary: #14b8a6;
-  --secondary2: (#71F8E4);
+  --secondary-variant: #71F8E4;
   --neutral: #D3E4FE;
   --neutral-titulos: #f8f9ff;
 
@@ -101,6 +101,30 @@
         black 40%,
         transparent 100%
     );
+}
+
+.scroll-personalizada {
+    scrollbar-width: thin;                 /* Firefox */
+    scrollbar-color: var(--color-secondary) var(--color-background);      /* thumb track */
+}
+
+/* Chrome, Edge y Safari */
+.scroll-personalizada::-webkit-scrollbar {
+    width: 8px;
+}
+
+.scroll-personalizada::-webkit-scrollbar-track {
+    background: var(--color-background);
+    border-radius: 9999px;
+}
+
+.scroll-personalizada::-webkit-scrollbar-thumb {
+    background: var(--color-secondary);
+    border-radius: 9999px;
+}
+
+.scroll-personalizada::-webkit-scrollbar-thumb:hover {
+    background: var(--color-secondary-variant);
 }
 
 
