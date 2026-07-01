@@ -102,7 +102,7 @@ export default function Registro() {
     const [cursosList, setCursosList] = useState(cursosDefault);
     const [cursosToggle, setCursosToggle] = useState(false);
     const [mostrarPassword, setMostrarPassword] = useState(false);
-const [mostrarPassword2, setMostrarPassword2] = useState(false);
+    const [mostrarPassword2, setMostrarPassword2] = useState(false);
 
     const [terminos, setTerminos] = useState(false);
     const [data, setData] = useState(defaultData);
