@@ -53,7 +53,7 @@ if(token){
                 </a>
             ) : (
                 <div class="flex flex-row gap-2 items-center">
-                    <a href="/iniciar-sessio" class="w-max px-2 h-8 bg-primary rounded-lg text-sm flex items-center place-content-center gap-x-2 text-white fill-white">
+                    <a href={`/iniciar-sessio?redireccio=${pathname}`} class="w-max px-2 h-8 bg-primary rounded-lg text-sm flex items-center place-content-center gap-x-2 text-white fill-white">
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 max-lg:hidden" viewBox="0 -960 960 960">
                             <path d="M480-120v-80h280v-560H480v-80h280q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120zm-80-160-55-58 102-102H120v-80h327L345-622l55-58 200 200z"/>
                         </svg>
@@ -101,7 +101,7 @@ if(token){
                     </div>
                 </a>
             ):(
-                <a href="/iniciar-sessio" class="text-secondary hover:underline">
+                <a href={`/iniciar-sessio?redireccio=${pathname}`} class="text-secondary hover:underline">
                     Iniciar Sessió
                 </a>
             )
@@ -162,7 +162,7 @@ if(token){
                             </span>
                         </a>
                     ):(
-                       <a href="/iniciar-sessio" class="w-full h-10 bg-primary rounded-lg flex items-center place-content-center gap-x-2 text-white fill-white">
+                       <a href={`/iniciar-sessio?redireccio=${pathname}`} class="w-full h-10 bg-primary rounded-lg flex items-center place-content-center gap-x-2 text-white fill-white">
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 -960 960 960">
                                 <path d="M480-120v-80h280v-560H480v-80h280q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120zm-80-160-55-58 102-102H120v-80h327L345-622l55-58 200 200z"/>
                             </svg>
