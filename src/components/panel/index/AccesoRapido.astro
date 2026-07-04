@@ -10,7 +10,7 @@ const ACCESO_RAPIDO = [
         nombre: "Gestionar usuaris",
         enlace: "/usuaris",
         icono: '<path d="M287-527q-47-47-47-113t47-113 113-47 113 47 47 113-47 113-113 47-113-47M80-160v-112q0-33 17-62t47-44q51-26 115-44t141-18h14q6 0 12 2-8 18-13.5 37.5T404-360h-4q-71 0-127.5 18T180-306q-9 5-14.5 14t-5.5 20v32h252q6 21 16 41.5t22 38.5zm560 40-12-60q-12-5-22.5-10.5T584-204l-58 18-40-68 46-40q-2-14-2-26t2-26l-46-40 40-68 58 18q11-8 21.5-13.5T628-460l12-60h80l12 60q12 5 22.5 11t21.5 15l58-20 40 70-46 40q2 12 2 25t-2 25l46 40-40 68-58-18q-11 8-21.5 13.5T732-180l-12 60zm96.5-143.5Q760-287 760-320t-23.5-56.5T680-400t-56.5 23.5T600-320t23.5 56.5T680-240t56.5-23.5m-280-320Q480-607 480-640t-23.5-56.5T400-720t-56.5 23.5T320-640t23.5 56.5T400-560t56.5-23.5M412-240"/>',
-        descripcion: "Llista d'alumnes i professors amb accés a la plataforma.",
+        descripcion: "Llista d'alumnes amb accés a la plataforma.",
     },
     {
         nombre: "Gestionar permisos",
@@ -26,15 +26,15 @@ const ACCESO_RAPIDO = [
     },
 ]
 ---
-
+<h2 class="ml-4 text-3xl font-bold text-neutral-titulos">Accés ràpid</h2>
 <div class="w-full p-4 flex flex-wrap gap-4 items-center place-content-around ">
     {ACCESO_RAPIDO.map((acceso) => (
-        <a href={acceso.enlace} class="w-60 h-40 rounded-lg bg-card border-border hover:bg-secondary/40 transition-all duration-200 flex flex-col  justify-center gap-y-2 p-4">
+        <a href={acceso.enlace} class="w-52 h-42 max-md:w-42 rounded-lg bg-card border-border hover:bg-secondary/40 transition-all duration-200 flex flex-col  justify-center gap-y-2 p-4">
             <span class="w-12 h-12 fill-primary">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-full h-full fill-secondary" viewBox="0 -960 960 960" set:html={acceso.icono} ></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-full h-full fill-secondary max-md:w-10 max-md:h-10" viewBox="0 -960 960 960" set:html={acceso.icono} ></svg>
             </span>
-            <h3 class="text-lg font-semibold text-neutral-titulos">{acceso.nombre}</h3>
-            <p class="text-sm text-on-surface-variant ">{acceso.descripcion}</p>
+            <h3 class="text-lg max-md:text-base font-semibold text-neutral-titulos">{acceso.nombre}</h3>
+            <p class="text-sm max-md:text-xs text-on-surface-variant ">{acceso.descripcion}</p>
         </a>
     ))}
 
