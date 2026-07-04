@@ -29,9 +29,9 @@ const ACCESO_RAPIDO = [
 <h2 class="ml-4 text-3xl font-bold text-neutral-titulos">Accés ràpid</h2>
 <div class="w-full p-4 flex flex-wrap gap-4 items-center place-content-around ">
     {ACCESO_RAPIDO.map((acceso) => (
-        <a href={acceso.enlace} class="w-52 h-42 max-md:w-42 rounded-lg bg-card border-border hover:bg-secondary/40 transition-all duration-200 flex flex-col  justify-center gap-y-2 p-4">
+        <a href={acceso.enlace} class="w-52 h-42 max-md:w-40 rounded-lg bg-card border-border hover:bg-secondary/40 transition-all duration-200 flex flex-col  justify-center gap-y-2 p-4">
             <span class="w-12 h-12 fill-primary">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-full h-full fill-secondary max-md:w-10 max-md:h-10" viewBox="0 -960 960 960" set:html={acceso.icono} ></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-full h-full fill-secondary max-md:w-8 max-md:h-8" viewBox="0 -960 960 960" set:html={acceso.icono} ></svg>
             </span>
             <h3 class="text-lg max-md:text-base font-semibold text-neutral-titulos">{acceso.nombre}</h3>
             <p class="text-sm max-md:text-xs text-on-surface-variant ">{acceso.descripcion}</p>
