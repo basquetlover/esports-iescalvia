@@ -1,0 +1,182 @@
+---
+import NavBar from "@components/panel/NavBar.astro";
+import Cargando from "@components/Cargando.astro";
+import "../global.css";
+import Footer from "@components/Footer.astro";
+import Hero from "@components/panel/Hero.astro";
+import { obtenerUsuarioPorToken } from "@pages/api/sesiones/sesiones";
+
+const {title} = Astro.props;
+let tituloCompleto = title ? `${title} | ` : "";
+
+const token = Astro.cookies.get("token_sesion")?.value;
+let usuario = null;
+if(token){
+    usuario = await obtenerUsuarioPorToken(token);
+    // console.log("Usuario obtenido:", usuario);
+}
+---
+<!doctype html>
+<html lang="ca">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width" />
+		<!-- <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="icon" href="/favicon.ico" /> -->
+    <link rel="icon" type="image/png" sizes="any" href="/logo-temporal.png" />
+		<meta name="generator" content={Astro.generator} />
+		<title>{tituloCompleto}Esports IES Calvià</title>
+	</head>
+	<body class="bg-background text-neutral">
+    <Cargando />
+
+    {
+        usuario ? (
+            <div id="layout" class="h-dvh grid grid-cols-[auto_1fr] overflow-hidden">
+                <div>
+                    <div id="MenuDesktop" class="overflow-hidden max-md:absolute max-md:bg-background/60 max-md:z-50 max-md:w-0 w-56 transition-all duration-300 ease-in-out">
+                        <div class="h-[98%]">
+                            {/* <NavBar usuario={usuario} /> */}
+                            <NavBar usuario={usuario} client:load />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-rows-[auto_auto_1fr_auto] overflow-hidden h-dvh min-h-0">
+                    <div class="flex  items-center gap-x-4 w-full bg-card border-b border-on-background">
+                        <span class="btn-MenuDesktop w-max h-max p-2 hover:bg-rosa/50 rounded-full cursor-pointer">
+                            
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-9 h-9 fill-secondary" viewBox="0 -960 960 960">
+                                <path d="M120-240v-80h720v80H120Zm0-200v-80h720v80H120Zm0-200v-80h720v80H120Z"/>
+                            </svg>
+                        </span>
+                        <Hero />
+                    </div>
+                    <!-- NOTIFICACIONES -->
+                
+                    <!-- CONTENIDO (ÚNICO SCROLL) -->
+                        <main class="w-full mx-auto min-h-0 overflow-y-auto ">
+                            
+                            <slot />
+                        </main>
+
+                    <!-- FOOTER -->
+                    {/* <Footer /> */}
+
+                </div>
+            </div>
+        ):(
+            <div class="w-full h-screen p-4 flex items-center place-content-center">
+                <div class="z-10 w-full max-w-md bg-card rounded-xl shadow-lg p-xl border border-border/30 text-center hover-lift p-4">
+                        {/* <!-- Icon/Illustration Section --> */}
+                        <div class="mb-lg flex justify-center">
+                        <div class="relative w-32 h-32 bg-surface-container rounded-full flex items-center justify-center">
+                        <div class="absolute inset-0 border-4 border-dashed border-primary/20 rounded-full animate-[spin_10s_linear_infinite]"></div>
+                        <span class="fill-secondary">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-20 h-20" viewBox="0 -960 960 960">
+                                <path d="M440-480q-66 0-113-47t-47-113 47-113 113-47 113 47 47 113-47 113-113 47m0-80q33 0 56.5-23.5T520-640t-23.5-56.5T440-720t-56.5 23.5T360-640t23.5 56.5T440-560M884-20 756-148q-21 12-45 20t-51 8q-75 0-127.5-52.5T480-300t52.5-127.5T660-480t127.5 52.5T840-300q0 27-8 51t-20 45L940-76zM731-229q29-29 29-71t-29-71-71-29-71 29-29 71 29 71 71 29 71-29m-611 69v-111q0-34 17-63t47-44q51-26 115-44t142-18q-12 18-20.5 38.5T407-359q-60 5-107 20.5T221-306q-10 5-15.5 14.5T200-271v31h207q5 22 13.5 42t20.5 38zm287-80"/>
+                            </svg>
+                        </span>
+                        </div>
+                        </div>
+                        {/* <!-- Text Content --> */}
+                        <h2 class="text-2xl text-neutral-titulos font-semibold mb-md">Usuari no trobat</h2>
+                        <p class="font-body-md text-body-md text-on-surface-variant mb-xl leading-relaxed">
+                                        No hem pogut trobar cap compte associat a aquestes credencials. Si us plau, verifica que el correu i la contrasenya siguin correctes o crea un compte nou per començar.
+                                    </p>
+                        {/* <!-- Actions --> */}
+                        <div class="flex flex-col gap-2 mt-5">
+                        <a href={`/iniciar-sessio`} class="bg-primary text-neutral hover:bg-primary transition-all duration-200 py-3 px-4 rounded-lg  active:scale-[0.98] flex items-center justify-center gap-x-2">
+                            <span class="fill-neutral">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 -960 960 960">
+                                    <path d="M480-120v-80h280v-560H480v-80h280q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120zm-80-160-55-58 102-102H120v-80h327L345-622l55-58 200 200z"/>
+                                </svg>
+                            </span>
+                                            Tornar a iniciar sessió
+                                        </a>
+                        <a class="border border-primary text-primary hover:bg-primary/10 transition-all duration-200 py-3 px-4 rounded-lg active:scale-[0.98] flex items-center justify-center gap-x-2" >
+                            <span class="fill-primary">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 -960 960 960">
+                                    <path d="M720-400v-120H600v-80h120v-120h80v120h120v80H800v120zM247-527q-47-47-47-113t47-113 113-47 113 47 47 113-47 113-113 47-113-47M40-160v-112q0-34 17.5-62.5T104-378q62-31 126-46.5T360-440t130 15.5T616-378q29 15 46.5 43.5T680-272v112zm80-80h480v-32q0-11-5.5-20T580-306q-54-27-109-40.5T360-360t-111 13.5T140-306q-9 5-14.5 14t-5.5 20zm296.5-343.5Q440-607 440-640t-23.5-56.5T360-720t-56.5 23.5T280-640t23.5 56.5T360-560t56.5-23.5M360-240"/>
+                                </svg>
+                            </span>
+                            Registra't ara
+                        </a>
+                        </div>
+                        {/* <!-- Helpful Hint --> */}
+                        <div class="mt-5 pt-2 border-t border-border/30 flex items-center justify-center gap-1 text-sm">
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-neutral" viewBox="0 -960 960 960">
+                                <path d="M513.5-254.5Q528-269 528-290t-14.5-35.5T478-340t-35.5 14.5T428-290t14.5 35.5T478-240t35.5-14.5M442-394h74q0-33 7.5-52t42.5-52q26-26 41-49.5t15-56.5q0-56-41-86t-97-30q-57 0-92.5 30T342-618l66 26q5-18 22.5-39t53.5-21q32 0 48 17.5t16 38.5q0 20-12 37.5T506-526q-44 39-54 59t-10 73m38 314q-83 0-156-31.5T197-197t-85.5-127T80-480t31.5-156T197-763t127-85.5T480-880t156 31.5T763-763t85.5 127T880-480t-31.5 156T763-197t-127 85.5T480-80m0-80q134 0 227-93t93-227-93-227-227-93-227 93-93 227 93 227 227 93m0-320"/>
+                            </svg>
+                        
+                        <span>Necessites ajuda? <a href="/contact" class="text-primary hover:underline">Contacta amb el suport.</a></span>
+                        </div>
+                        </div>
+            </div>
+            <Footer />
+        )
+    }
+    
+    
+	</body>
+</html>
+
+<style>
+	html,
+	body {
+		margin: 0;
+		width: 100%;
+		height: 100%;
+	}
+</style>
+
+<script is:inline>
+  (() => {
+    const savedTheme = localStorage.getItem("theme");
+
+    if (savedTheme) {
+      document.documentElement.classList.toggle(
+        "oscuro",
+        savedTheme === "dark"
+      );
+      return;
+    }
+
+    const prefersDark = window.matchMedia(
+      "(prefers-color-scheme: dark)"
+    ).matches;
+
+    document.documentElement.classList.toggle(
+      "oscuro",
+      prefersDark
+    );
+  })();
+</script>
+
+<script>
+const btnsMenuDesktop = document.querySelectorAll('.btn-MenuDesktop');
+const menuDesktop = document.getElementById('MenuDesktop');
+
+let abierto = true;
+
+btnsMenuDesktop.forEach(btn => {
+    btn.addEventListener('click', () => {
+        abierto = !abierto;
+
+        if (abierto) {
+            menuDesktop?.classList.remove('w-0');
+            menuDesktop?.classList.add('w-56');
+
+            menuDesktop?.classList.remove('max-md:w-0');
+            menuDesktop?.classList.add('max-md:w-full');
+        } else {
+            menuDesktop?.classList.remove('w-56');
+            menuDesktop?.classList.add('w-0');
+
+            menuDesktop?.classList.remove('max-md:w-full');
+            menuDesktop?.classList.add('max-md:w-0');
+        }
+    });
+});
+</script>

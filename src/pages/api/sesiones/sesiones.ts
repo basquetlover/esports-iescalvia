@@ -221,7 +221,7 @@ export async function obtenerUsuarioPorToken(token_sesion: string) {
     // 3. Buscar usuario
     const { data: usuario, error: usuarioError } = await supabaseAdmin
         .from("users")
-        .select("id, nombre, apellido1, apellido2, email, curso, ano_academico, activa")
+        .select("id, nombre, apellido1, apellido2, email, curso, ano_academico, activa, rol, permisos")
         .eq("id", sesion.id_usuario)
         .single();
 
@@ -244,6 +244,8 @@ export async function obtenerUsuarioPorToken(token_sesion: string) {
         curso: usuario.curso,
         ano_academico: usuario.ano_academico,
         activa: usuario.activa,
+        rol: usuario.rol,
+        permisos: usuario.permisos,
         sesion: {
             id: sesion.id,
             estado: sesion.estado,
