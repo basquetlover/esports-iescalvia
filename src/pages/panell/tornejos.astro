@@ -1,0 +1,11 @@
+---
+import Lista from "@components/panel/torneos/Lista";
+import LayoutPanel from "@layouts/LayoutPanel.astro";
+---
+<LayoutPanel>
+    <div class="w-full p-4">
+        <h1 class="text-5xl max-md:text-4xl font-bold text-neutral-titulos">Tornejos</h1>
+        <p>Gestiona els teus tornejos.</p>
+    </div>
+    <Lista client:load />
+</LayoutPanel>

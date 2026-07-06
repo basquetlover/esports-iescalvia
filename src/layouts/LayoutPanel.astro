@@ -2,7 +2,7 @@
 import NavBar from "@components/panel/NavBar.astro";
 import Cargando from "@components/Cargando.astro";
 import "../global.css";
-import Footer from "@components/Footer.astro";
+import Footer from "@components/panel/Footer.astro";
 import Hero from "@components/panel/Hero.astro";
 import { obtenerUsuarioPorToken } from "@pages/api/sesiones/sesiones";
 
@@ -42,7 +42,7 @@ if(token){
                     </div>
                 </div>
 
-                <div class="grid grid-rows-[auto_auto_1fr_auto] overflow-hidden h-dvh min-h-0">
+                <div class="grid grid-rows-[auto_1fr_auto] overflow-hidden h-dvh min-h-0">
                     <div class="flex  items-center gap-x-4 w-full bg-card border-b border-on-background">
                         <span class="btn-MenuDesktop w-max h-max p-2 hover:bg-rosa/50 rounded-full cursor-pointer">
                             
@@ -52,15 +52,15 @@ if(token){
                         </span>
                         <Hero />
                     </div>
-                    <!-- NOTIFICACIONES -->
+                    {/* <!-- NOTIFICACIONES --> */}
                 
-                    <!-- CONTENIDO (ÚNICO SCROLL) -->
-                        <main class="w-full mx-auto min-h-0 overflow-y-auto ">
+                    {/* <!-- CONTENIDO (ÚNICO SCROLL) --> */}
+                        <main class="w-full mx-auto h-screen overflow-y-auto scroll-personalizada">
                             
                             <slot />
                         </main>
 
-                    <!-- FOOTER -->
+                    {/* <!-- FOOTER --> */}
                     {/* <Footer /> */}
 
                 </div>

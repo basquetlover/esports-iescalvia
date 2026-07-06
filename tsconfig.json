@@ -22,8 +22,8 @@
       "@layouts/*": [
         "src/layouts/*"
       ],
-      "@icons/*": [
-        "src/icons/*"
+      "@utils/*": [
+        "src/utils/*"
       ]
     },
     "jsx": "react-jsx",

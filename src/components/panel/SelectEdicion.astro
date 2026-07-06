@@ -1,0 +1,101 @@
+---
+import { supabaseAdmin } from "src/utils/supabase";
+
+// import { proyectosUsuario } from "@utils/proyectoSeleccionado";
+
+const { data: ediciones, error: usuarioError } = await supabaseAdmin
+    .from("ediciones")
+    .select("*");
+// asegurar tipo para evitar 'implicit any' en los callbacks
+const edicionesAny: any[] = (ediciones as any[]) ?? [];
+const url = new URL(Astro.request.url);
+const torneoSeleccionadoID = url.searchParams.get("torneoID");
+const edicionSeleccionadoID = url.searchParams.get("edicionID");
+// Separar seleccionado y resto
+
+ const edicionSeleccionada = edicionesAny.find((p: any) => p.id === edicionSeleccionadoID) ?? null;
+ const otrasEdiciones = edicionesAny.filter((p: any) => p.id !== edicionSeleccionadoID);
+
+---
+{
+    torneoSeleccionadoID ? (
+        <div class="w-max relative" id="edicionDropdown">
+            <div class="bg-background border border-border p-1.5 rounded-md cursor-pointer flex items-center justify-between w-56 hover:bg-background/30 duration-300">
+                <div class="flex items-center gap-x-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-neutral" viewBox="0 -960 960 960">
+                        <path d="M509-269q-29-29-29-71t29-71 71-29 71 29 29 71-29 71-71 29-71-29M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-80h80v80h320v-80h80v80h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80zm0-80h560v-400H200zm0-480h560v-80H200zm0 0v-80z"/>
+                    </svg>
+                    {edicionSeleccionada ? (<>
+                            <img src={edicionSeleccionada.logo} alt={`${edicionSeleccionada.nombre} favicon`} class="inline-block w-5 h-5  align-middle"/>
+                            <p class="w-40 text-sm salto-de-linea">{edicionSeleccionada.nombre} </p>
+                            {/* <p class={`text-xs w-20 py-0.5 flex items-center place-content-center capitalize px-2 border rounded-full ${edicionSeleccionada.rolUsuario === 'propietario' ? 'bg-rol-propietario/30 border-rol-propietario text-rol-propietario' : edicionSeleccionada.rolUsuario === 'admin' ? 'bg-rol-administracion/30 border-rol-administracion text-rol-administracion' : edicionSeleccionada.rolUsuario === 'visitante' ? 'bg-rol-visitante/30 border-rol-visitante text-rol-visitante' : 'bg-rol-colaborador/30 text-rol-colaborador border-rol-colaborador'}`}>{edicionSeleccionada.rolUsuario?.trim()}</p> */}
+                    </>):(<>
+                        <p>Selecciona una edició</p>
+                    </>)}
+                </div>
+                
+                
+                
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-neutral" viewBox="0 -960 960 960">
+                    <path d="M480-120 300-300l58-58 122 122 122-122 58 58-180 180ZM358-598l-58-58 180-180 180 180-58 58-122-122-122 122Z"/>
+                </svg>
+            </div>
+            <div id="edicionesContDropdown" class="absolute left-0 mt-1 w-56 bg-background border border-magenta rounded-md shadow-lg max-h-60 z-60  overflow-y-auto hidden">
+                {otrasEdiciones.length > 0
+                ? otrasEdiciones.map(p => (
+                    <a
+                        href={`?torneoID=${torneoSeleccionadoID}&edicionID=${p.id}`}
+                        class="flex flex-row items-center w-full h-auto p-2 text-blanco hover:bg-rosa/40 hover:text-blanco duration-200"
+                    >
+                        <img src={p.logo} alt={`${p.nombre} favicon`} class="inline-block w-4 h-4 mr-2 align-middle"/>
+                        <p class="w-46 salto-de-linea">{p.nombre} </p>
+                        {/* <p class={`text-xs w-20 py-0.5 flex items-center place-content-center capitalize px-2 border rounded-full ${p.rolUsuario === 'propietario' ? 'bg-rol-propietario/30 border-rol-propietario text-rol-propietario' : p.rolUsuario === 'admin' ? 'bg-rol-administracion/30 border-rol-administracion text-rol-administracion' : p.rolUsuario === 'visitante' ? 'bg-rol-visitante/30 border-rol-visitante text-rol-visitante' : 'bg-rol-colaborador/30 text-rol-colaborador border-rol-colaborador'}`}>{p.rolUsuario?.trim()}</p> */}
+                    </a>
+                    ))
+                : <div class="px-4 py-2 text-gray-500">No hi ha altres edicions</div>}
+            </div>
+            </div>
+
+            
+    ):(
+        <div class="bg-background text-muted border border-border p-1.5 rounded-md cursor-pointer flex items-center justify-between w-56 hover:bg-background/30 duration-300">
+            <div class="flex items-center gap-x-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-muted" viewBox="0 -960 960 960">
+                    <path d="M509-269q-29-29-29-71t29-71 71-29 71 29 29 71-29 71-71 29-71-29M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-80h80v80h320v-80h80v80h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80zm0-80h560v-400H200zm0-480h560v-80H200zm0 0v-80z"/>
+                </svg>
+                    <p>Selecciona una edició</p>
+            </div>
+            
+            
+            
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-muted" viewBox="0 -960 960 960">
+                <path d="M480-120 300-300l58-58 122 122 122-122 58 58-180 180ZM358-598l-58-58 180-180 180 180-58 58-122-122-122 122Z"/>
+            </svg>
+        </div>
+    )
+}
+
+<script type="module">
+            const dropdown = document.getElementById("edicionDropdown");
+            const contenido = document.getElementById("edicionesContDropdown");
+
+            dropdown.addEventListener("click", () => {
+                contenido.classList.toggle("hidden");
+            });
+
+            // Cerrar al hacer clic fuera
+            document.addEventListener("click", (e) => {
+                if (!dropdown.contains(e.target)) {
+                contenido.classList.add("hidden");
+                }
+            });
+            </script>
+
+<style>
+    .salto-de-linea {
+        white-space: nowrap;       /* No permite saltos de línea */
+        overflow: hidden;          /* Oculta el texto que se desborda */
+        text-overflow: ellipsis;   /* Muestra los puntos suspensivos */
+    }
+    
+</style>
