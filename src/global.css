@@ -70,7 +70,10 @@
 * {
   font-family: "Geist", sans-serif;
   font-optical-sizing: auto;
+
+  transition-duration: .3s;
 }
+
 
 .degradado{
   background: #0F766E;

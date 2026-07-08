@@ -1,0 +1,47 @@
+---
+const {atras, inicio} = Astro.props;
+---
+<div class="max-w-lg p-4 w-full mx-auto min-h-screen flex flex-col items-center place-content-center">
+    <div class="relative inline-block mb-10">
+        <!-- <div class="absolute inset-0 bg-primary/10 rounded-full blur-2xl transform scale-150 animate-pulse"></div> -->
+        <div class="relative flex items-center justify-center w-48 h-48 mx-auto bg-card/10 glass-card rounded-full shadow-xl">
+        <span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-20 h-20 fill-primary" viewBox="0 -960 960 960">
+                <path d="M280-120v-80h160v-124q-49-11-87.5-41.5T296-442q-75-9-125.5-65.5T120-640v-40q0-33 23.5-56.5T200-760h80v-80h400v80h80q33 0 56.5 23.5T840-680v40q0 76-50.5 132.5T664-442q-18 46-56.5 76.5T520-324v124h160v80zm0-408v-152h-80v40q0 38 22 68.5t58 43.5m285 93q35-35 35-85v-240H360v240q0 50 35 85t85 35 85-35m115-93q36-13 58-43.5t22-68.5v-40h-80zm-200-52"/>
+            </svg>
+        </span>
+        <div class="absolute top-2 right-2 flex items-center justify-center w-16 h-16 bg-error-container rounded-full shadow-lg border-4 border-background ring-4 ring-error/60">
+        <span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 fill-error" viewBox="0 -960 960 960">
+                <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224z"/>
+            </svg>
+        </span>
+        </div>
+        </div>
+    </div>
+    <h1 class="text-3xl font-bold text-neutral-titulos text-center">Contingut no trobat</h1>
+    <p class="text-center">No hem pogut el torneig o l'edició que busques. És possible que hagi estat eliminat o que l'enllaç sigui incorrecte.</p>
+    <div class="w-full flex flex-wrap gap-4 mt-5 items-center place-content-center">
+        {
+            atras && (
+                <a href={atras} class="w-max h-max px-3 py-2 flex items-center gap-x-2 bg-primary hover:bg-primary/80 text-white fill-white rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 -960 960 960">
+                        <path d="m313-440 224 224-57 56-320-320 320-320 57 56-224 224h487v80z"/>
+                    </svg>
+                    Tornar enrere
+                </a>
+            )
+        }
+
+        {
+            inicio && (
+                <a href={inicio} class="w-max h-max px-3 py-2 flex items-center gap-x-2 bg-background border border-secondary text-secondary fill-secondary hover:bg-card rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 -960 960 960">
+                        <path d="M240-200h120v-240h240v240h120v-360L480-740 240-560zm-80 80v-480l320-240 320 240v480H520v-240h-80v240zm320-350"/>
+                    </svg>
+                    Anar a l'inici
+                </a>
+            )
+        }
+    </div>
+</div>

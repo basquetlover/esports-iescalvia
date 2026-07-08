@@ -109,7 +109,7 @@ export default function Lista() {
                         
                         
 
-                        <a href={`/panell`} className=" mx-auto w-max h-max px-4 py-2 bg-background/80 border-primary rounded-lg border text-secondary hover:bg-background/60 duration-300">
+                        <a href={`/panell/info/torneig?accio=crear`} className=" mx-auto w-max h-max px-4 py-2 bg-background/80 border-primary rounded-lg border text-secondary hover:bg-background/60 duration-300">
                             Començar
                         </a>
 

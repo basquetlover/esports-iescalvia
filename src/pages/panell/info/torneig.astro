@@ -1,0 +1,25 @@
+---
+import Error404 from "@components/panel/Error404.astro";
+import CrearTorneo from "@components/panel/torneos/CrearTorneo";
+import LayoutPanel from "@layouts/LayoutPanel.astro";
+
+const url = Astro.url;
+
+const accio = url.searchParams.get("accio");
+
+---
+
+<LayoutPanel title={`Torneig`}>
+    {
+        accio === "crear" && (
+            <CrearTorneo client:load />
+        )
+    }
+
+    {
+        accio !== "crear" && (
+            <Error404 atras="/panell/tornejos" inicio="/panell" />
+        )
+    }
+    
+</LayoutPanel>
