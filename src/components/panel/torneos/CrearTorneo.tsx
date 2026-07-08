@@ -47,7 +47,7 @@ export default function CrearTorneo() {
             <h1 className="text-3xl font-bold text-neutral-titulos">Crear nou torneig</h1>
             <p>Configura la informació general del torneig. Posteriorment podràs crear tantes edicions com necessitis.</p>
 
-            <div className='w-full md:grid max-md:flex flex-col grid-cols-[2fr_1fr] gap-4 mt-5 max-md:mb-20'>
+            <div className='w-full md:grid max-md:flex flex-col grid-cols-[2fr_1fr] gap-4 mt-5 max-md:mb-26'>
                 <div className="max-w-xl w-full h-auto p-4 rounded-lg bg-card border border-border/50 flex flex-col gap-y-4 ">
                     <p className="text-xl font-semibold text-neutral-titulos flex items-center gap-x-2">
                         <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 fill-secondary" viewBox="0 -960 960 960">
