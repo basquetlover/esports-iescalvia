@@ -29,7 +29,7 @@ export function obtenerIconoDeporte(deporte: string, className: string): JSX.Ele
         default:
             return (
                 <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 -960 960 960">
-                    
+                    <path d="m260-520 220-360 220 360zM700-80q-75 0-127.5-52.5T520-260t52.5-127.5T700-440t127.5 52.5T880-260t-52.5 127.5T700-80m-580-20v-320h320v320zm580-60q42 0 71-29t29-71-29-71-71-29-71 29-29 71 29 71 71 29m-500-20h160v-160H200zm202-420h156l-78-126zm298 340"/>
                 </svg>
             );
     }
