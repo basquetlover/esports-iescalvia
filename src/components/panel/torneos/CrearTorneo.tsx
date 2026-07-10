@@ -5,14 +5,26 @@ import { useState, useEffect, useRef } from 'react';
 
 const DeportesList = [
     "Voleibol",
-    "Futbol"
+    "Futbol",
+    "Basquet"
 ]
 
 const torneoDefault = {
     "nombre": "",
     "deporte": "",
     "descripcion": "",
-    "normativa":[]
+     normativa: [
+    {
+      numero: 1,
+      titulo: "",
+      articulos: [
+        {
+          numero: "1.1",
+          texto: ""
+        }
+      ]
+    }
+  ]
 
 }
 export default function CrearTorneo() {
@@ -91,8 +103,110 @@ export default function CrearTorneo() {
         setCoverFileBanner(file);
     };
 
+    // Añadir un apartado
+    const agregarApartado = () => {
+        setData(prev => ({
+            ...prev,
+            normativa: [
+                ...prev.normativa,
+                {
+                    numero: prev.normativa.length + 1,
+                    titulo: "",
+                    articulos: []
+                }
+            ]
+        }));
+    };
+
+// Eliminar un apartado
+const eliminarApartado = (apartadoIndex: number) => {
+    setData(prev => ({
+        ...prev,
+        normativa: prev.normativa.filter((_, i) => i !== apartadoIndex)
+    }));
+};
+
+// Cambiar el título de un apartado
+const actualizarTituloApartado = (
+    apartadoIndex: number,
+    titulo: string
+) => {
+    setData(prev => ({
+        ...prev,
+        normativa: prev.normativa.map((apartado, i) =>
+            i === apartadoIndex
+                ? { ...apartado, titulo }
+                : apartado
+        )
+    }));
+};
+
+// Añadir un artículo
+const agregarArticulo = (apartadoIndex: number) => {
+    setData(prev => ({
+        ...prev,
+        normativa: prev.normativa.map((apartado, i) =>
+            i === apartadoIndex
+                ? {
+                    ...apartado,
+                    articulos: [
+                        ...apartado.articulos,
+                        {
+                            numero: `${apartado.numero}.${apartado.articulos.length + 1}`,
+                            texto: ""
+                        }
+                    ]
+                }
+                : apartado
+        )
+    }));
+};
+
+// Actualizar un artículo
+const actualizarArticulo = (
+    apartadoIndex: number,
+    articuloIndex: number,
+    texto: string
+) => {
+    setData(prev => ({
+        ...prev,
+        normativa: prev.normativa.map((apartado, i) =>
+            i === apartadoIndex
+                ? {
+                      ...apartado,
+                      articulos: apartado.articulos.map((articulo, j) =>
+                          j === articuloIndex
+                              ? { ...articulo, texto }
+                              : articulo
+                      )
+                  }
+                : apartado
+        )
+    }));
+};
+
+// Eliminar un artículo
+const eliminarArticulo = (
+    apartadoIndex: number,
+    articuloIndex: number
+) => {
+    setData(prev => ({
+        ...prev,
+        normativa: prev.normativa.map((apartado, i) =>
+            i === apartadoIndex
+                ? {
+                      ...apartado,
+                      articulos: apartado.articulos.filter(
+                          (_, j) => j !== articuloIndex
+                      )
+                  }
+                : apartado
+        )
+    }));
+};
+
     return(<>
-        <div className="max-w-6xl w-full p-4">
+        <div className="max-w-6xl w-full p-4 mb-10">
             <h1 className="text-3xl font-bold text-neutral-titulos">Crear nou torneig</h1>
             <p>Configura la informació general del torneig. Posteriorment podràs crear tantes edicions com necessitis.</p>
 
@@ -257,15 +371,100 @@ export default function CrearTorneo() {
                         </div>
                     </div>
 
+                    
                     {/* Normativa */}
-                    <div className="max-w-xl w-full h-auto p-4 rounded-lg bg-card border border-border/50 flex flex-col gap-y-4 ">
-                        <p className="text-xl font-semibold text-neutral-titulos flex items-center gap-x-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 fill-secondary" viewBox="0 -960 960 960">
-                                <path d="M160-120v-80h480v80zm226-194L160-540l84-86 228 226zm254-254L414-796l86-84 226 226zm184 408L302-682l56-56 522 522z"/>
-                            </svg>
-                            Normativa base
-                        </p>
+                    <div className="max-w-xl w-full p-4 rounded-lg bg-card border border-border/50 flex flex-col gap-y-4">
+                        <div className="flex items-center justify-between">
+                            <p className="text-xl font-semibold text-neutral-titulos flex items-center gap-x-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 fill-secondary" viewBox="0 -960 960 960">
+                                    <path d="M160-120v-80h480v80zm226-194L160-540l84-86 228 226zm254-254L414-796l86-84 226 226zm184 408L302-682l56-56 522 522z"/>
+                                </svg>
+                                Normativa base
+                            </p>
+
+                            <button
+                                type="button"
+                                onClick={agregarApartado}
+                                className="px-3 py-2 rounded-lg bg-primary text-secondary-variant hover:bg-primary/80"
+                            >
+                                + Apartat
+                            </button>
+                        </div>
+
+                        {data.normativa.length === 0 ? (
+                            <div className="border border-dashed border-border rounded-lg p-6 text-center text-neutral">
+                                Encara no hi ha cap apartat de la normativa.
+                            </div>
+                        ) : (
+                            data.normativa.map((apartado, i) => (
+                                <div
+                                    key={i}
+                                    className="rounded-lg border border-border bg-muted/20 p-4 flex flex-col gap-y-3"
+                                >
+                                    <div className="flex gap-3 items-center">
+                                        <span className="font-semibold text-secondary whitespace-nowrap">
+                                            {i + 1}.
+                                        </span>
+
+                                        <input
+                                            className="flex-1 bg-muted/40 px-3 py-2 rounded-lg border border-border outline-none focus:border-primary"
+                                            placeholder="Títol de l'apartat"
+                                            value={apartado.titulo}
+                                            
+                                            onChange={(e) =>
+                                                actualizarTituloApartado(i, e.target.value)
+                                            }
+                                        />
+
+                                        <button
+                                            type="button"
+                                            className="text-error hover:opacity-80"
+                                            onClick={() => eliminarApartado(i)}
+                                        >
+                                            Eliminar
+                                        </button>
+                                    </div>
+
+                                    <div className="pl-6 flex flex-col gap-y-2">
+                                        {apartado.articulos.map((articulo, j) => (
+                                            <div key={j} className="flex gap-2 items-start">
+                                                <span className="text-sm mt-3 whitespace-nowrap text-neutral">
+                                                    {i + 1}.{j + 1}
+                                                </span>
+
+                                                <textarea
+                                                    className="flex-1 h-20 bg-muted/40 rounded-lg p-2 border border-border outline-none focus:border-primary"
+                                                    placeholder="Text de l'article..."
+                                                    value={articulo.texto}
+                                                    onChange={(e) =>
+                                                        actualizarArticulo(i, j, e.target.value)
+                                                    }
+                                                />
+
+                                                <button
+                                                    type="button"
+                                                    className="text-error mt-3 hover:opacity-80"
+                                                     onClick={() => eliminarArticulo(i, j)}
+                                                    
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
+                                        ))}
+
+                                        <button
+                                            type="button"
+                                            className="w-max px-3 py-2 rounded-lg border border-border hover:border-secondary hover:text-secondary"
+                                            onClick={() => agregarArticulo(i)}
+                                        >
+                                            + Afegir article
+                                        </button>
+                                    </div>
+                                </div>
+                            ))
+                        )}
                     </div>
+
                 </div>
                 {/* Resumen */}
 
