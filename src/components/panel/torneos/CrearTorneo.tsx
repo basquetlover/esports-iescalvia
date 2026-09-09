@@ -205,6 +205,10 @@ const eliminarArticulo = (
     }));
 };
 
+const enviarForm = () => {
+    console.log("Enviando formulario con los siguientes datos:", data);
+}
+
     return(<>
         <div className="max-w-6xl w-full p-4 mb-10 mx-auto">
             <h1 className="text-3xl font-bold text-neutral-titulos">Crear nou torneig</h1>
@@ -421,7 +425,9 @@ const eliminarArticulo = (
                                             className="text-error hover:opacity-80"
                                             onClick={() => eliminarApartado(i)}
                                         >
-                                            Eliminar
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 fill-error hover:opacity-80 cursor-pointer" viewBox="0 -960 960 960">
+                                                <path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120zm400-600H280v520h400zM360-280h80v-360h-80zm160 0h80v-360h-80zM280-720v520z"/>
+                                            </svg>
                                         </button>
                                     </div>
 
@@ -443,7 +449,7 @@ const eliminarArticulo = (
 
                                                 <button
                                                     type="button"
-                                                    className="text-error mt-3 hover:opacity-80"
+                                                    className="text-error mt-3 hover:opacity-80 cursor-pointer"
                                                      onClick={() => eliminarArticulo(i, j)}
                                                     
                                                 >
@@ -538,11 +544,11 @@ const eliminarArticulo = (
                             <p className='text-base uppercase'>Resum del torneig</p>
                             <div className='flex items-center gap-x-1'>
                                 {obtenerIconoDeporte(data.deporte, "w-4 h-4 fill-secondary-variant")}
-                                <p>
+                                <>
                                     {
                                         data.deporte ? (<p>{data.deporte}</p>) : (<p>Selecciona un esport</p>)
                                     }
-                                </p>
+                                </>
                             </div>
                             <div className='flex items-center gap-x-1'>
                                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 fill-secondary-variant" viewBox="0 -960 960 960">
@@ -564,7 +570,7 @@ const eliminarArticulo = (
                         </div>
 
                         <div className='w-full flex flex-col p-4 space-y-4'>
-                            <div className='w-full px-3 py-2 rounded-lg bg-primary text-secondary-variant cursor-pointer hover:bg-primary/80'>
+                            <div onClick={() => enviarForm()} className='w-full px-3 py-2 rounded-lg bg-primary text-secondary-variant cursor-pointer hover:bg-primary/80'>
                                 <p className='text-center'>Crear torneig</p>
                             </div>
 
