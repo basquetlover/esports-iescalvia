@@ -1,3 +1,4 @@
+import Cargando from "@components/Cargando";
 import { obtenerIconoDeporte } from "@components/deporteIcono";
 import { formatearFechaCatalan } from "@utils/formatearFechas";
 import { useEffect, useState } from "react";
@@ -48,7 +49,7 @@ export default function Lista() {
 
     return(
         <div className="w-full h-auto relative p-4 flex items-center max-md:place-content-center gap-4 flex-wrap">
-            {cargando && <p className="w-full" role="status">Carregant tornejos...</p>}
+            {cargando && <div className="w-full h-full flex items-center justify-center"> <Cargando /> </div> }
             {error && <p className="w-full text-error" role="alert">{error}</p>}
             {guardado && <p className="w-full text-secondary" role="status">{guardado}</p>}
             {!cargando && !error && tornejos.length === 0 && <p className="w-full">No hi ha tornejos disponibles.</p>}

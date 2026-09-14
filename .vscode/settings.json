@@ -1,0 +1,8 @@
+{
+    "css.lint.unknownAtRules": "ignore",
+    "editor.defaultColorDecorators": "always",
+    "editor.colorDecorators": true,
+    "editor.quickSuggestions": {
+        "strings": "on"
+    }
+}

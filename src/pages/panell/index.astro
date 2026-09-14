@@ -4,6 +4,11 @@ import LayoutPanell from "@layouts/LayoutPanel.astro";
 import { obtenerUsuarioPorToken } from "@pages/api/sesiones/sesiones";
 const token = Astro.cookies.get("token_sesion")?.value;
 const usuario = token ? await obtenerUsuarioPorToken(token) : null;
+
+const url = new URL(Astro.request.url);
+const torneoID = url.searchParams.get("torneoID");
+// console.log("URL:", url);
+console.log("Torneo ID:", torneoID);
 ---
 <LayoutPanell title="Perfil">
     <div class="w-full p-4">

@@ -1,8 +1,6 @@
 @import "tailwindcss";
 
-@import url('https://fonts.googleapis.com/css2?family=Geist:ital,wght@0,100..900;1,100..900&display=swap');
-
-@theme inline {
+@theme {
   --color-primary: var(--primary);
   --color-secondary: var(--secondary);
   --color-secondary-variant: var(--secondary-variant);
