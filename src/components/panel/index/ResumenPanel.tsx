@@ -282,7 +282,7 @@ export default function ResumenPanel({
         <div className="w-full min-w-0 p-4 md:p-6 space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                 <div className="min-w-0">
-                    <h1 className="text-3xl max-md:text-2xl font-bold text-neutral-titulos break-words">
+                    <h1 className="text-3xl max-md:text-2xl font-bold text-neutral-titulos wrap-break-words">
                         {torneo
                             ? torneo.nombre || "Torneig sense nom"
                             : "Panell d'administració"}
@@ -356,7 +356,7 @@ export default function ResumenPanel({
                             </span>
                         </div>
 
-                        <p className="mt-2 text-sm text-neutral whitespace-pre-line break-words">
+                        <p className="mt-2 text-sm text-neutral whitespace-pre-line wrap-break-words">
                             {torneo.descripcion?.trim() ||
                                 "Aquest torneig encara no té descripció."}
                         </p>
@@ -449,12 +449,12 @@ export default function ResumenPanel({
                                                     : "Edició"}
                                             </p>
 
-                                            <p className="text-sm font-semibold text-neutral-titulos break-words">
+                                            <p className="text-sm font-semibold text-neutral-titulos wrap-break-words">
                                                 {elemento.nombre || "Sense nom"}
                                             </p>
 
                                             {elemento.tipo === "edicion" && (
-                                                <p className="text-xs text-neutral break-words">
+                                                <p className="text-xs text-neutral wrap-break-words">
                                                     {elemento.torneo_nombre ||
                                                         "Torneig sense nom"}
                                                 </p>

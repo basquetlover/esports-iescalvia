@@ -13,6 +13,9 @@ export const NIVELES_PERMISOS: Record<string, { nivel: number; acciones?: Record
     noticies: { nivel: 0 }, permisos: { nivel: 0 }, voluntaris: { nivel: 0 },
     "acta-digital": { nivel: 0 }, designacions: { nivel: 0 },
     "historial-jugadors": { nivel: 0 }, configuracio: { nivel: 0 },
+    competicio: { nivel: 2 },
+    classificacions: { nivel: 2 },
+    "configuracio-edicio": { nivel: 3 },
 };
 
 type UsuarioPermisos = { rol?: string | null; permisos?: unknown } | null | undefined;

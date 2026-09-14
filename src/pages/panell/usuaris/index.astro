@@ -1,0 +1,27 @@
+---
+import LayoutPanel from "@layouts/LayoutPanel.astro";
+import Lista from "@components/panel/usuaris/Lista";
+
+export const prerender = false;
+---
+
+<LayoutPanel
+    title="Gestió d’usuaris"
+    seccion="usuaris"
+    accion="ver"
+>
+    <section class="w-full p-4 md:p-6">
+        <header class="mb-6">
+            <h1 class="text-2xl font-bold text-neutral-titulos">
+                Gestió d’usuaris
+            </h1>
+
+            <p class="mt-2 text-sm text-neutral">
+                Consulta els usuaris de la plataforma, accedeix a les
+                seves fitxes i gestiona l’estat dels seus comptes.
+            </p>
+        </header>
+
+        <Lista client:load />
+    </section>
+</LayoutPanel>

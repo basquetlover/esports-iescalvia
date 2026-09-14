@@ -40,7 +40,7 @@ export default function EdicionesPanel({
                             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                                 <div className="min-w-0">
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <h3 className="font-semibold text-neutral-titulos break-words">
+                                        <h3 className="font-semibold text-neutral-titulos wrap-break-words">
                                             {edicion.nombre || "Edició sense nom"}
                                         </h3>
 

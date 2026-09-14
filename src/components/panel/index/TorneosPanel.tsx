@@ -76,7 +76,7 @@ export default function TorneosPanel({
                             </div>
 
                             <div className="flex flex-1 flex-col p-4">
-                                <h3 className="font-bold text-neutral-titulos break-words">
+                                <h3 className="font-bold text-neutral-titulos wrap-break-words">
                                     {torneo.nombre || "Torneig sense nom"}
                                 </h3>
 
