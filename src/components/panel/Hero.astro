@@ -2,12 +2,16 @@
 import ModoOscuro from "@components/ModoOscuro.astro";
 import SelectTorneo from "@components/panel/SelectTorneo.astro";
 import SelectEdicion from "@components/panel/SelectEdicion.astro";
+import { tienePermiso } from "@const/Permisos";
+const {usuario} = Astro.props;
+const torneoID = Astro.url.searchParams.get("torneoID");
+const puedeVerPanel = tienePermiso(usuario, "panell");
 ---
 
 <div class="w-full h-full flex items-center place-content-between max-md:place-content-end  pr-4 gap-x-2">
     <div class="relative max-w-lg w-full h-full flex items-center gap-x-2 py-2 max-md:hidden">
-        <SelectTorneo />
-        <SelectEdicion />
+        {puedeVerPanel && <SelectTorneo usuario={usuario} />}
+        {puedeVerPanel && torneoID && tienePermiso(usuario, "panell", "ver", torneoID) && tienePermiso(usuario, "edicions", "ver", torneoID) && <SelectEdicion usuario={usuario} />}
     </div>
     <ModoOscuro />
 </div>

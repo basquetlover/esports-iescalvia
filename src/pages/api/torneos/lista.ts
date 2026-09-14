@@ -1,7 +1,16 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "@utils/supabase";
+import { obtenerUsuarioPorToken } from "@pages/api/sesiones/sesiones";
+import { tienePermiso } from "@const/Permisos";
 
-export const GET: APIRoute = async () => {
+export const GET: APIRoute = async ({ cookies }) => {
+  try {
+  const token = cookies.get("token_sesion")?.value;
+  const usuario = token ? await obtenerUsuarioPorToken(token) : null;
+  if (!usuario) return Response.json({ mensaje: "Has d'iniciar sessió." }, { status: 401 });
+  if (!tienePermiso(usuario, "panell") || !tienePermiso(usuario, "tornejos")) {
+    return Response.json({ mensaje: "No tens permís per veure els tornejos." }, { status: 403 });
+  }
   const [{ data: tornejos, error: tornejosError }, { data: edicions, error: edicionsError }] =
     await Promise.all([
       supabaseAdmin
@@ -17,14 +26,14 @@ export const GET: APIRoute = async () => {
     return new Response(
       JSON.stringify({
         success: false,
-        message: tornejosError?.message || edicionsError?.message,
+        mensaje: "No s'han pogut carregar els tornejos.",
       }),
       { status: 500 }
     );
   }
 
   // Agrupar edicions per torneig
-  const edicionsPerTorneig = new Map<number, { estado: string }[]>();
+  const edicionsPerTorneig = new Map<string, { estado: string }[]>();
 
   for (const edicio of edicions) {
     if (!edicionsPerTorneig.has(edicio.torneo_id)) {
@@ -34,7 +43,7 @@ export const GET: APIRoute = async () => {
     edicionsPerTorneig.get(edicio.torneo_id)!.push(edicio);
   }
 
-  const resultat = tornejos.map((torneig) => {
+  const resultat = tornejos.filter(torneig => tienePermiso(usuario, "tornejos", "ver", torneig.id)).map((torneig) => {
     const edicionsTorneig = edicionsPerTorneig.get(torneig.id) ?? [];
 
     let estado = "Inactiu";
@@ -61,11 +70,17 @@ export const GET: APIRoute = async () => {
     JSON.stringify({
       success: true,
       data: resultat,
+      puedeCrear: tienePermiso(usuario, "tornejos", "crear"),
     }),
     {
       headers: {
         "Content-Type": "application/json",
+        "Cache-Control": "private, no-store",
       },
     }
   );
+  } catch (error) {
+    console.error("Error listando torneos:", error);
+    return Response.json({ mensaje: "No s'han pogut carregar els tornejos." }, { status: 500 });
+  }
 };

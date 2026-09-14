@@ -6,18 +6,21 @@ import LayoutPanel from "@layouts/LayoutPanel.astro";
 const url = Astro.url;
 
 const accio = url.searchParams.get("accio");
+const torneoID = url.searchParams.get("torneoID");
+const accionValida = accio === "crear" || ((accio === "ver" || accio === "editar") && Boolean(torneoID));
+if (!accionValida) Astro.response.status = 404;
 
 ---
 
-<LayoutPanel title={`Torneig`}>
+<LayoutPanel title={`Torneig`} seccion="tornejos" accion={accio === "crear" ? "crear" : accio === "editar" ? "editar" : "ver"}>
     {
-        accio === "crear" && (
-            <CrearTorneo client:load />
+        accionValida && (
+            <CrearTorneo torneoID={accio === "crear" ? null : torneoID} accion={accio as "crear" | "ver" | "editar"} client:load />
         )
     }
 
     {
-        accio !== "crear" && (
+        !accionValida && (
             <Error404 atras="/panell/tornejos" inicio="/panell" />
         )
     }

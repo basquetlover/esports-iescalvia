@@ -5,8 +5,9 @@ import "../global.css";
 import Footer from "@components/panel/Footer.astro";
 import Hero from "@components/panel/Hero.astro";
 import { obtenerUsuarioPorToken } from "@pages/api/sesiones/sesiones";
+import { tienePermiso } from "@const/Permisos";
 
-const {title} = Astro.props;
+const {title, seccion = Astro.url.pathname.split("/")[2] || "panell", accion = "ver"} = Astro.props;
 let tituloCompleto = title ? `${title} | ` : "";
 
 const token = Astro.cookies.get("token_sesion")?.value;
@@ -15,6 +16,11 @@ if(token){
     usuario = await obtenerUsuarioPorToken(token);
     // console.log("Usuario obtenido:", usuario);
 }
+const torneoID = accion === "crear" && seccion === "tornejos" ? undefined : Astro.url.searchParams.get("torneoID") ?? undefined;
+const acceso = tienePermiso(usuario, "panell") && tienePermiso(usuario, seccion, accion, torneoID);
+Astro.response.headers.set("Cache-Control", "private, no-store");
+if (!usuario) Astro.response.status = 401;
+else if (!acceso) Astro.response.status = 403;
 ---
 <!doctype html>
 <html lang="ca">
@@ -27,11 +33,11 @@ if(token){
 		<meta name="generator" content={Astro.generator} />
 		<title>{tituloCompleto}Esports IES Calvià</title>
 	</head>
-	<body class="bg-background text-neutral">
+	<body class="bg-background text-neutral text-sm">
     <Cargando />
 
     {
-        usuario ? (
+        usuario && acceso ? (
             <div id="layout" class="h-dvh grid grid-cols-[auto_1fr] overflow-hidden">
                 <div>
                     <div id="MenuDesktop" class="overflow-hidden max-md:absolute max-md:bg-background/60 max-md:z-50 max-md:w-0 w-56 transition-all duration-300 ease-in-out">
@@ -46,11 +52,11 @@ if(token){
                     <div class="flex  items-center gap-x-4 w-full bg-card border-b border-on-background">
                         <span class="btn-MenuDesktop w-max h-max p-2 hover:bg-rosa/50 rounded-full cursor-pointer">
                             
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 fill-secondary" viewBox="0 -960 960 960">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 fill-secondary" viewBox="0 -960 960 960">
                                 <path d="M120-240v-80h720v80H120Zm0-200v-80h720v80H120Zm0-200v-80h720v80H120Z"/>
                             </svg>
                         </span>
-                        <Hero />
+                        <Hero usuario={usuario} />
                     </div>
                     {/* <!-- NOTIFICACIONES --> */}
                 
@@ -73,30 +79,30 @@ if(token){
                         <div class="relative w-32 h-32 bg-surface-container rounded-full flex items-center justify-center">
                         <div class="absolute inset-0 border-4 border-dashed border-primary/20 rounded-full animate-[spin_10s_linear_infinite]"></div>
                         <span class="fill-secondary">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-20 h-20" viewBox="0 -960 960 960">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-14 h-14" viewBox="0 -960 960 960">
                                 <path d="M440-480q-66 0-113-47t-47-113 47-113 113-47 113 47 47 113-47 113-113 47m0-80q33 0 56.5-23.5T520-640t-23.5-56.5T440-720t-56.5 23.5T360-640t23.5 56.5T440-560M884-20 756-148q-21 12-45 20t-51 8q-75 0-127.5-52.5T480-300t52.5-127.5T660-480t127.5 52.5T840-300q0 27-8 51t-20 45L940-76zM731-229q29-29 29-71t-29-71-71-29-71 29-29 71 29 71 71 29 71-29m-611 69v-111q0-34 17-63t47-44q51-26 115-44t142-18q-12 18-20.5 38.5T407-359q-60 5-107 20.5T221-306q-10 5-15.5 14.5T200-271v31h207q5 22 13.5 42t20.5 38zm287-80"/>
                             </svg>
                         </span>
                         </div>
                         </div>
                         {/* <!-- Text Content --> */}
-                        <h2 class="text-2xl text-neutral-titulos font-semibold mb-md">Usuari no trobat</h2>
+                        <h2 class="text-xl text-neutral-titulos font-semibold mb-md">{usuario ? "Accés denegat" : "Usuari no trobat"}</h2>
                         <p class="font-body-md text-body-md text-on-surface-variant mb-xl leading-relaxed">
-                                        No hem pogut trobar cap compte associat a aquestes credencials. Si us plau, verifica que el correu i la contrasenya siguin correctes o crea un compte nou per començar.
+                                        {usuario ? "El teu compte no té accés a aquesta secció o a aquest torneig." : "Inicia sessió per accedir al panell."}
                                     </p>
                         {/* <!-- Actions --> */}
                         <div class="flex flex-col gap-2 mt-5">
-                        <a href={`/iniciar-sessio`} class="bg-primary text-neutral hover:bg-primary transition-all duration-200 py-3 px-4 rounded-lg  active:scale-[0.98] flex items-center justify-center gap-x-2">
+                        <a href={usuario ? "/perfil" : `/iniciar-sessio?redirect=${encodeURIComponent(Astro.url.pathname + Astro.url.search)}`} class="bg-primary text-neutral hover:bg-primary transition-all duration-200 py-3 px-4 rounded-lg  active:scale-[0.98] flex items-center justify-center gap-x-2">
                             <span class="fill-neutral">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 -960 960 960">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 -960 960 960">
                                     <path d="M480-120v-80h280v-560H480v-80h280q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120zm-80-160-55-58 102-102H120v-80h327L345-622l55-58 200 200z"/>
                                 </svg>
                             </span>
-                                            Tornar a iniciar sessió
+                                            {usuario ? "Tornar al perfil" : "Iniciar sessió"}
                                         </a>
                         <a class="border border-primary text-primary hover:bg-primary/10 transition-all duration-200 py-3 px-4 rounded-lg active:scale-[0.98] flex items-center justify-center gap-x-2" >
                             <span class="fill-primary">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 -960 960 960">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 -960 960 960">
                                     <path d="M720-400v-120H600v-80h120v-120h80v120h120v80H800v120zM247-527q-47-47-47-113t47-113 113-47 113 47 47 113-47 113-113 47-113-47M40-160v-112q0-34 17.5-62.5T104-378q62-31 126-46.5T360-440t130 15.5T616-378q29 15 46.5 43.5T680-272v112zm80-80h480v-32q0-11-5.5-20T580-306q-54-27-109-40.5T360-360t-111 13.5T140-306q-9 5-14.5 14t-5.5 20zm296.5-343.5Q440-607 440-640t-23.5-56.5T360-720t-56.5 23.5T280-640t23.5 56.5T360-560t56.5-23.5M360-240"/>
                                 </svg>
                             </span>

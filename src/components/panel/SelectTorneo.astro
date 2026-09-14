@@ -1,5 +1,7 @@
 ---
 import { supabaseAdmin } from "src/utils/supabase";
+import { tienePermiso } from "@const/Permisos";
+const { usuario } = Astro.props;
 
 // import { proyectosUsuario } from "@utils/proyectoSeleccionado";
 
@@ -7,7 +9,10 @@ const { data: torneos, error: usuarioError } = await supabaseAdmin
     .from("torneos")
     .select("*");
 // asegurar tipo para evitar 'implicit any' en los callbacks
-const torneosAny: any[] = (torneos as any[]) ?? [];
+const torneosAny: any[] = (torneos ?? []).filter(torneo =>
+    tienePermiso(usuario, "panell") &&
+    tienePermiso(usuario, "panell", "ver", torneo.id) &&
+    tienePermiso(usuario, "tornejos", "ver", torneo.id));
 const url = new URL(Astro.request.url);
 const torneoSeleccionadoID = url.searchParams.get("torneoID");
 // Separar seleccionado y resto
@@ -17,10 +22,11 @@ const torneoSeleccionadoID = url.searchParams.get("torneoID");
 
 ---
 
+{torneosAny.length > 0 && (
 <div class="w-max relative" id="proyectosDropdown">
 <div class="bg-background border border-border p-1.5 rounded-md cursor-pointer flex items-center justify-between w-56 hover:bg-background/30 duration-300">
     <div class="flex items-center gap-x-2">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-neutral" viewBox="0 -960 960 960">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-neutral" viewBox="0 -960 960 960">
             <path d="M280-120v-80h160v-124q-49-11-87.5-41.5T296-442q-75-9-125.5-65.5T120-640v-40q0-33 23.5-56.5T200-760h80v-80h400v80h80q33 0 56.5 23.5T840-680v40q0 76-50.5 132.5T664-442q-18 46-56.5 76.5T520-324v124h160v80zm0-408v-152h-80v40q0 38 22 68.5t58 43.5m285 93q35-35 35-85v-240H360v240q0 50 35 85t85 35 85-35m115-93q36-13 58-43.5t22-68.5v-40h-80zm-200-52"/>
         </svg>
         {torneoSeleccionado ? (<>
@@ -34,7 +40,7 @@ const torneoSeleccionadoID = url.searchParams.get("torneoID");
     
     
     
-    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-neutral" viewBox="0 -960 960 960">
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-neutral" viewBox="0 -960 960 960">
         <path d="M480-120 300-300l58-58 122 122 122-122 58 58-180 180ZM358-598l-58-58 180-180 180 180-58 58-122-122-122 122Z"/>
     </svg>
 </div>
@@ -42,7 +48,7 @@ const torneoSeleccionadoID = url.searchParams.get("torneoID");
     {otrosTorneos.length > 0
     ? otrosTorneos.map(p => (
         <a
-            href={`?torneoID=${p.id}`}
+            href={`/panell?torneoID=${p.id}`}
             class="flex flex-row items-center w-full h-auto p-2 text-blanco hover:bg-rosa/40 hover:text-blanco duration-200"
         >
             <img src={p.logo} alt={`${p.nombre} favicon`} class="inline-block w-4 h-4 mr-2 align-middle"/>
@@ -53,19 +59,20 @@ const torneoSeleccionadoID = url.searchParams.get("torneoID");
     : <div class="px-4 py-2 text-gray-500">No hi ha altres tornetjos</div>}
 </div>
 </div>
+)}
 
 <script type="module">
 const dropdown = document.getElementById("proyectosDropdown");
 const contenido = document.getElementById("torneosDropdown");
 
-dropdown.addEventListener("click", () => {
-    contenido.classList.toggle("hidden");
+dropdown?.addEventListener("click", () => {
+    contenido?.classList.toggle("hidden");
 });
 
 // Cerrar al hacer clic fuera
 document.addEventListener("click", (e) => {
-    if (!dropdown.contains(e.target)) {
-    contenido.classList.add("hidden");
+    if (dropdown && !dropdown.contains(e.target)) {
+    contenido?.classList.add("hidden");
     }
 });
 </script>

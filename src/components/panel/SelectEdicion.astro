@@ -1,28 +1,35 @@
 ---
 import { supabaseAdmin } from "src/utils/supabase";
+import { tienePermiso } from "@const/Permisos";
+const { usuario } = Astro.props;
 
-// import { proyectosUsuario } from "@utils/proyectoSeleccionado";
-
-const { data: ediciones, error: usuarioError } = await supabaseAdmin
-    .from("ediciones")
-    .select("*");
-// asegurar tipo para evitar 'implicit any' en los callbacks
-const edicionesAny: any[] = (ediciones as any[]) ?? [];
 const url = new URL(Astro.request.url);
 const torneoSeleccionadoID = url.searchParams.get("torneoID");
 const edicionSeleccionadoID = url.searchParams.get("edicionID");
+const puedeVerEdiciones = Boolean(torneoSeleccionadoID &&
+    tienePermiso(usuario, "panell") &&
+    tienePermiso(usuario, "panell", "ver", torneoSeleccionadoID) &&
+    tienePermiso(usuario, "edicions", "ver", torneoSeleccionadoID));
+
+const { data: ediciones } = puedeVerEdiciones
+    ? await supabaseAdmin.from("ediciones").select("*").eq("torneo_id", torneoSeleccionadoID!)
+    : { data: [] };
+const edicionesAny: any[] = (ediciones ?? []).filter(edicion =>
+    edicion.torneo_id === torneoSeleccionadoID &&
+    tienePermiso(usuario, "edicions", "ver", edicion.torneo_id));
 // Separar seleccionado y resto
 
  const edicionSeleccionada = edicionesAny.find((p: any) => p.id === edicionSeleccionadoID) ?? null;
  const otrasEdiciones = edicionesAny.filter((p: any) => p.id !== edicionSeleccionadoID);
 
 ---
+{puedeVerEdiciones && <>
 {
     torneoSeleccionadoID ? (
         <div class="w-max relative" id="edicionDropdown">
             <div class="bg-background border border-border p-1.5 rounded-md cursor-pointer flex items-center justify-between w-56 hover:bg-background/30 duration-300">
                 <div class="flex items-center gap-x-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-neutral" viewBox="0 -960 960 960">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-neutral" viewBox="0 -960 960 960">
                         <path d="M509-269q-29-29-29-71t29-71 71-29 71 29 29 71-29 71-71 29-71-29M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-80h80v80h320v-80h80v80h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80zm0-80h560v-400H200zm0-480h560v-80H200zm0 0v-80z"/>
                     </svg>
                     {edicionSeleccionada ? (<>
@@ -36,7 +43,7 @@ const edicionSeleccionadoID = url.searchParams.get("edicionID");
                 
                 
                 
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-neutral" viewBox="0 -960 960 960">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-neutral" viewBox="0 -960 960 960">
                     <path d="M480-120 300-300l58-58 122 122 122-122 58 58-180 180ZM358-598l-58-58 180-180 180 180-58 58-122-122-122 122Z"/>
                 </svg>
             </div>
@@ -44,7 +51,7 @@ const edicionSeleccionadoID = url.searchParams.get("edicionID");
                 {otrasEdiciones.length > 0
                 ? otrasEdiciones.map(p => (
                     <a
-                        href={`?torneoID=${torneoSeleccionadoID}&edicionID=${p.id}`}
+                        href={`/panell?torneoID=${torneoSeleccionadoID}&edicionID=${p.id}`}
                         class="flex flex-row items-center w-full h-auto p-2 text-blanco hover:bg-rosa/40 hover:text-blanco duration-200"
                     >
                         <img src={p.logo} alt={`${p.nombre} favicon`} class="inline-block w-4 h-4 mr-2 align-middle"/>
@@ -60,7 +67,7 @@ const edicionSeleccionadoID = url.searchParams.get("edicionID");
     ):(
         <div class="bg-background text-muted border border-border p-1.5 rounded-md cursor-pointer flex items-center justify-between w-56 hover:bg-background/30 duration-300">
             <div class="flex items-center gap-x-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-muted" viewBox="0 -960 960 960">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-muted" viewBox="0 -960 960 960">
                     <path d="M509-269q-29-29-29-71t29-71 71-29 71 29 29 71-29 71-71 29-71-29M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-80h80v80h320v-80h80v80h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80zm0-80h560v-400H200zm0-480h560v-80H200zm0 0v-80z"/>
                 </svg>
                     <p>Selecciona una edició</p>
@@ -68,25 +75,27 @@ const edicionSeleccionadoID = url.searchParams.get("edicionID");
             
             
             
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-muted" viewBox="0 -960 960 960">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-muted" viewBox="0 -960 960 960">
                 <path d="M480-120 300-300l58-58 122 122 122-122 58 58-180 180ZM358-598l-58-58 180-180 180 180-58 58-122-122-122 122Z"/>
             </svg>
         </div>
     )
 }
 
+</>}
+
 <script type="module">
             const dropdown = document.getElementById("edicionDropdown");
             const contenido = document.getElementById("edicionesContDropdown");
 
-            dropdown.addEventListener("click", () => {
-                contenido.classList.toggle("hidden");
+            dropdown?.addEventListener("click", () => {
+                contenido?.classList.toggle("hidden");
             });
 
             // Cerrar al hacer clic fuera
             document.addEventListener("click", (e) => {
-                if (!dropdown.contains(e.target)) {
-                contenido.classList.add("hidden");
+                if (dropdown && !dropdown.contains(e.target)) {
+                contenido?.classList.add("hidden");
                 }
             });
             </script>

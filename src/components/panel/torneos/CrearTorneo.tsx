@@ -27,7 +27,17 @@ const torneoDefault = {
   ]
 
 }
-export default function CrearTorneo() {
+export default function CrearTorneo({ torneoID = null, accion = "crear" }: {
+    torneoID?: string | null; accion?: "crear" | "ver" | "editar";
+}) {
+    const soloLectura = accion === "ver";
+    const [cargando, setCargando] = useState(Boolean(torneoID));
+    const [enviando, setEnviando] = useState(false);
+    const [error, setError] = useState("");
+    const [puedeEditar, setPuedeEditar] = useState(false);
+    const [updatedAt, setUpdatedAt] = useState("");
+    const normativaInicial = useRef("");
+    const envioEnCurso = useRef(false);
     const [deportesToggle, setDeportesToggle] = useState(false);
     const [data, setData] = useState(torneoDefault);
 
@@ -41,7 +51,51 @@ export default function CrearTorneo() {
     const [coverFileBanner, setCoverFileBanner] = useState<File | null>(null);
     const fileInputBannerRef = useRef<HTMLInputElement>(null);
 
+    useEffect(() => {
+        if (!torneoID) return;
+        const controlador = new AbortController();
+        async function cargarTorneo() {
+            try {
+                const respuesta = await fetch(`/api/torneos/info?torneoID=${encodeURIComponent(torneoID!)}`, { signal: controlador.signal });
+                const json = await respuesta.json();
+                if (!respuesta.ok) throw new Error(json.mensaje || "No s'ha pogut carregar el torneig.");
+                if (accion === "editar" && !json.puedeEditar) throw new Error("No tens permís per editar aquest torneig.");
+                const torneo = json.data;
+                let normativa = [];
+                try {
+                    const valor = JSON.parse(torneo.normativa_base || "[]");
+                    if (!Array.isArray(valor) || valor.some(apartado => !apartado || typeof apartado.titulo !== "string" ||
+                        !Array.isArray(apartado.articulos) || apartado.articulos.some((articulo: { texto?: unknown } | null) =>
+                            !articulo || typeof articulo.texto !== "string"))) throw new Error("Normativa antiga");
+                    normativa = valor;
+                } catch {
+                    normativa = [{ numero: 1, titulo: "Normativa", articulos: [{ numero: "1.1", texto: torneo.normativa_base || "" }] }];
+                }
+                normativaInicial.current = JSON.stringify(normativa);
+                setData({ nombre: torneo.nombre || "", deporte: torneo.deporte || "", descripcion: torneo.descripcion || "", normativa });
+                setPreviewLogo(torneo.logo);
+                setPreviewBanner(torneo.banner);
+                setUpdatedAt(torneo.updated_at || "");
+                setPuedeEditar(json.puedeEditar);
+            } catch (err) {
+                if (!controlador.signal.aborted) setError(err instanceof Error ? err.message : "No s'ha pogut carregar el torneig.");
+            } finally {
+                if (!controlador.signal.aborted) setCargando(false);
+            }
+        }
+        cargarTorneo();
+        return () => controlador.abort();
+    }, [torneoID, accion]);
+
+    useEffect(() => {
+        return () => { if (previewLogo?.startsWith("blob:")) URL.revokeObjectURL(previewLogo); };
+    }, [previewLogo]);
+    useEffect(() => {
+        return () => { if (previewBanner?.startsWith("blob:")) URL.revokeObjectURL(previewBanner); };
+    }, [previewBanner]);
+
     const toggleDeportes = (() =>{
+        if (soloLectura || enviando) return;
         if(deportesToggle){
             setDeportesToggle(false)
         } else (
@@ -50,7 +104,7 @@ export default function CrearTorneo() {
     })
 
     const actualizarCampo = (
-        field: keyof typeof torneoDefault,
+        field: "nombre" | "deporte" | "descripcion",
         value: string
     ) => {
         setData(prev => ({
@@ -72,8 +126,8 @@ export default function CrearTorneo() {
 
         if (!file) return;
 
-        if (!file.type.startsWith("image/")) {
-            alert("Por favor selecciona una imagen válida");
+        if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 2 * 1024 * 1024) {
+            setError("Selecciona una imatge PNG, JPG o WebP de com a màxim 2 MB.");
             return;
         }
 
@@ -91,8 +145,8 @@ export default function CrearTorneo() {
 
         if (!file) return;
 
-        if (!file.type.startsWith("image/")) {
-            alert("Por favor selecciona una imagen válida");
+        if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 2 * 1024 * 1024) {
+            setError("Selecciona una imatge PNG, JPG o WebP de com a màxim 2 MB.");
             return;
         }
 
@@ -205,21 +259,56 @@ const eliminarArticulo = (
     }));
 };
 
-const enviarForm = () => {
-    console.log("Enviando formulario con los siguientes datos:", data);
+const enviarForm = async () => {
+    if (soloLectura || envioEnCurso.current) return;
+    setError("");
+    if (!data.nombre.trim() || !data.deporte) {
+        setError("Indica el nom i l'esport del torneig.");
+        return;
+    }
+    envioEnCurso.current = true;
+    setEnviando(true);
+    try {
+        const formulario = new FormData();
+        formulario.set("nombre", data.nombre);
+        formulario.set("deporte", data.deporte);
+        formulario.set("descripcion", data.descripcion);
+        const normativa = JSON.stringify(data.normativa);
+        formulario.set("normativa", torneoID && normativa === normativaInicial.current ? "" : normativa);
+        formulario.set("updated_at", updatedAt);
+        if (coverFileLogo) formulario.set("logo", coverFileLogo);
+        if (coverFileBanner) formulario.set("banner", coverFileBanner);
+        const respuesta = await fetch(torneoID
+            ? `/api/torneos/crear?torneoID=${encodeURIComponent(torneoID)}`
+            : "/api/torneos/crear", { method: torneoID ? "PATCH" : "POST", body: formulario });
+        const json = await respuesta.json();
+        if (!respuesta.ok) throw new Error(json.mensaje || "No s'ha pogut desar el torneig.");
+        window.location.assign(`/panell/tornejos?guardado=${torneoID ? "editado" : "creado"}`);
+    } catch (err) {
+        setError(err instanceof Error ? err.message : "No s'ha pogut desar el torneig.");
+    } finally {
+        envioEnCurso.current = false;
+        setEnviando(false);
+    }
 }
 
+    if (cargando) return <p className="p-4" role="status">Carregant torneig...</p>;
+    if (torneoID && !normativaInicial.current) return <p className="p-4 text-error" role="alert">{error}</p>;
+
     return(<>
+        {enviando && <Enviando />}
         <div className="max-w-6xl w-full p-4 mb-10 mx-auto">
-            <h1 className="text-3xl font-bold text-neutral-titulos">Crear nou torneig</h1>
+            <h1 className="text-2xl font-bold text-neutral-titulos">{torneoID ? (soloLectura ? data.nombre : "Editar torneig") : "Crear nou torneig"}</h1>
             <p>Configura la informació general del torneig. Posteriorment podràs crear tantes edicions com necessitis.</p>
 
+            {error && <p className="mt-4 text-error" role="alert">{error}</p>}
+            <fieldset disabled={soloLectura || enviando} className="contents">
             <div className='w-full md:grid max-md:flex flex-col grid-cols-[2fr_1fr] gap-4 mt-5 max-md:mb-26'>
                 <div className='space-y-5'>
                     {/* Informaicon General */}
                     <div className="w-full h-auto p-4 rounded-lg bg-card border border-border/50 flex flex-col gap-y-4 ">
-                        <p className="text-xl font-semibold text-neutral-titulos flex items-center gap-x-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 fill-secondary" viewBox="0 -960 960 960">
+                        <p className="text-lg font-semibold text-neutral-titulos flex items-center gap-x-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 fill-secondary" viewBox="0 -960 960 960">
                                 <path d="M440-280h80v-240h-80zm68.5-331.5Q520-623 520-640t-11.5-28.5T480-680t-28.5 11.5T440-640t11.5 28.5T480-600t28.5-11.5M480-80q-83 0-156-31.5T197-197t-85.5-127T80-480t31.5-156T197-763t127-85.5T480-880t156 31.5T763-763t85.5 127T880-480t-31.5 156T763-197t-127 85.5T480-80m0-80q134 0 227-93t93-227-93-227-227-93-227 93-93 227 93 227 227 93m0-320"/>
                             </svg>
                             Informació general
@@ -244,9 +333,9 @@ const enviarForm = () => {
                                             )
                                         }  
                                     </div>
-                                    {obtenerIconoDeporte(data.deporte, "absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 fill-neutral pointer-events-none")}
+                                    {obtenerIconoDeporte(data.deporte, "absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 fill-neutral pointer-events-none")}
 
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="absolute right-3 top-1/2 h-6 w-6 -translate-y-1/2 fill-neutral cursor-pointer" viewBox="0 -960 960 960">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 fill-neutral cursor-pointer" viewBox="0 -960 960 960">
                                         <path d="M480-344 240-584l56-56 184 184 184-184 56 56z"/>
                                     </svg>
 
@@ -268,7 +357,7 @@ const enviarForm = () => {
 
                         <div className="w-full space-y-1">
                             <p>Descripció</p>
-                            <textarea onChange={(e) => actualizarCampo("descripcion", e.target.value)} className="w-full h-20 bg-muted/40 rounded-lg p-2 border border-border outline-none transition focus:border-primary" placeholder="Explica breument de què tracta aquest torneig..."></textarea>
+                            <textarea value={data.descripcion} onChange={(e) => actualizarCampo("descripcion", e.target.value)} className="w-full h-20 bg-muted/40 rounded-lg p-2 border border-border outline-none transition focus:border-primary" placeholder="Explica breument de què tracta aquest torneig..."></textarea>
                         </div>
 
                         <div className="w-full md:grid max-md:flex flex-col grid-cols-2 gap-4">
@@ -306,7 +395,7 @@ const enviarForm = () => {
                                         htmlFor="image-upload"
                                         className="w-full h-full absolute top-0 left-0 z-10 rounded-lg flex flex-col items-center place-content-center gap-2 cursor-pointer"
                                         >
-                                        <svg xmlns="http://www.w3.org/2000/svg" className='w-6 h-6 fill-neutral' viewBox="0 -960 960 960">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className='w-5 h-5 fill-neutral' viewBox="0 -960 960 960">
                                             <path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h320v80H200v560h560v-320h80v320q0 33-23.5 56.5T760-120zm40-160h480L570-480 450-320l-90-120zm440-320v-80h-80v-80h80v-80h80v80h80v80h-80v80z"/>
                                         </svg>
                                         <p>Format quadrat</p>
@@ -316,7 +405,7 @@ const enviarForm = () => {
                                         ref={fileInputRef}
                                         id="image-upload"
                                         type="file"
-                                        accept="image/*"
+                                        accept="image/png,image/jpeg,image/webp"
                                         onChange={handleImageChange}
                                         className="hidden"
                                     />
@@ -356,7 +445,7 @@ const enviarForm = () => {
                                         htmlFor="image-upload-banner"
                                         className="w-full h-full absolute top-0 left-0 z-10 rounded-lg flex flex-col items-center place-content-center gap-2 cursor-pointer"
                                         >
-                                        <svg xmlns="http://www.w3.org/2000/svg" className='w-6 h-6 fill-neutral' viewBox="0 -960 960 960">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className='w-5 h-5 fill-neutral' viewBox="0 -960 960 960">
                                             <path d="m40-240 240-320 180 240h300L560-586 460-454l-50-66 150-200 360 480zm160-80h160l-80-107zm0 0h160z"/>
                                         </svg>
                                         <p>Format panoràmic (16:9)</p>
@@ -366,7 +455,7 @@ const enviarForm = () => {
                                         ref={fileInputBannerRef}
                                         id="image-upload-banner"
                                         type="file"
-                                        accept="image/*"
+                                        accept="image/png,image/jpeg,image/webp"
                                         onChange={handleImageChangeBanner}
                                         className="hidden"
                                     />
@@ -379,8 +468,8 @@ const enviarForm = () => {
                     {/* Normativa */}
                     <div className="w-full p-4 rounded-lg bg-card border border-border/50 flex flex-col gap-y-4">
                         <div className="flex items-center justify-between">
-                            <p className="text-xl font-semibold text-neutral-titulos flex items-center gap-x-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 fill-secondary" viewBox="0 -960 960 960">
+                            <p className="text-lg font-semibold text-neutral-titulos flex items-center gap-x-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 fill-secondary" viewBox="0 -960 960 960">
                                     <path d="M160-120v-80h480v80zm226-194L160-540l84-86 228 226zm254-254L414-796l86-84 226 226zm184 408L302-682l56-56 522 522z"/>
                                 </svg>
                                 Normativa base
@@ -425,7 +514,7 @@ const enviarForm = () => {
                                             className="text-error hover:opacity-80"
                                             onClick={() => eliminarApartado(i)}
                                         >
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 fill-error hover:opacity-80 cursor-pointer" viewBox="0 -960 960 960">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 fill-error hover:opacity-80 cursor-pointer" viewBox="0 -960 960 960">
                                                 <path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120zm400-600H280v520h400zM360-280h80v-360h-80zm160 0h80v-360h-80zM280-720v520z"/>
                                             </svg>
                                         </button>
@@ -494,7 +583,7 @@ const enviarForm = () => {
                                         <label 
                                         className="w-full h-full absolute top-0 left-0 z-10 rounded-lg flex flex-col items-center place-content-center gap-2"
                                         >
-                                            <svg xmlns="http://www.w3.org/2000/svg" className='w-10 h-10 fill-neutral/80' viewBox="0 -960 960 960">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className='w-8 h-8 fill-neutral/80' viewBox="0 -960 960 960">
                                                 <path d="m40-240 240-320 180 240h300L560-586 460-454l-50-66 150-200 360 480zm160-80h160l-80-107zm0 0h160z"/>
                                             </svg>
                                         
@@ -522,7 +611,7 @@ const enviarForm = () => {
                                     htmlFor="image-upload"
                                     className="w-full h-full absolute top-0 left-0 z-10 rounded-lg flex flex-col items-center place-content-center gap-2"
                                     >
-                                        <svg xmlns="http://www.w3.org/2000/svg" className='w-6 h-6 fill-neutral' viewBox="0 -960 960 960">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className='w-5 h-5 fill-neutral' viewBox="0 -960 960 960">
                                             <path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h320v80H200v560h560v-320h80v320q0 33-23.5 56.5T760-120zm40-160h480L570-480 450-320l-90-120zm440-320v-80h-80v-80h80v-80h80v80h80v80h-80v80z"/>
                                         </svg>
                                     
@@ -531,7 +620,7 @@ const enviarForm = () => {
                             </span>
                             <div>
                                 <p className='uppercase text-xs bg-secondary/60 text-secondary-variant w-max h-max px-2 py-1 rounded'>Preview</p>
-                                <span className='text-2xl text-neutral-titulos'>
+                                <span className='text-xl text-neutral-titulos'>
                                     {
                                         data.nombre ? (<p>{data.nombre}</p>) : (<p>Nou Torneig</p>)
                                     }
@@ -541,7 +630,7 @@ const enviarForm = () => {
                     </div>
 
                     <div className='p-4 flex flex-col gap-y-2 text-sm'>
-                            <p className='text-base uppercase'>Resum del torneig</p>
+                            <p className='text-sm uppercase'>Resum del torneig</p>
                             <div className='flex items-center gap-x-1'>
                                 {obtenerIconoDeporte(data.deporte, "w-4 h-4 fill-secondary-variant")}
                                 <>
@@ -570,16 +659,18 @@ const enviarForm = () => {
                         </div>
 
                         <div className='w-full flex flex-col p-4 space-y-4'>
-                            <div onClick={() => enviarForm()} className='w-full px-3 py-2 rounded-lg bg-primary text-secondary-variant cursor-pointer hover:bg-primary/80'>
-                                <p className='text-center'>Crear torneig</p>
-                            </div>
+                            {!soloLectura && <button type="button" disabled={enviando} onClick={enviarForm} className='w-full px-3 py-2 rounded-lg bg-primary text-secondary-variant cursor-pointer hover:bg-primary/80'>
+                                {enviando ? "Desant..." : torneoID ? "Desar canvis" : "Crear torneig"}
+                            </button>}
+                            {soloLectura && puedeEditar && <a href={`/panell/info/torneig?accio=editar&torneoID=${torneoID}`} className="w-full px-3 py-2 text-center rounded-lg bg-primary text-secondary-variant hover:bg-primary/80">Editar torneig</a>}
 
                             <a href='/panell/tornejos' className='w-full px-3 py-2 text-center rounded-lg border border-border text-neutral hover:border-error hover:text-error'>
-                                    Cance·lar
+                                    {soloLectura ? "Tornar als tornejos" : "Cancel·lar"}
                             </a>
                         </div>
                 </div>
             </div>
+            </fieldset>
         </div>
     </>)
 }

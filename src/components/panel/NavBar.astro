@@ -1,28 +1,33 @@
 ---
 import {MENU_ADMIN} from "@const/Menu";
+import { tienePermiso } from "@const/Permisos";
 
 const urlActual = new URL(Astro.request.url);
 const urlSearch = urlActual.search;
 const pathname = urlActual.pathname;
 
 const usuario = Astro.props.usuario;
+const torneoID = urlActual.searchParams.get("torneoID") ?? undefined;
+const menuVisible = MENU_ADMIN.filter(item =>
+    tienePermiso(usuario, "panell") &&
+    tienePermiso(usuario, item.enlace.split("/")[2] || "panell", "ver", torneoID));
 ---
 <div class="w-56 h-screen overflow-x-hidden no-scrollbar flex flex-col bg-card border-r border-on-background">
     <div class="w-full flex flex-row items-center place-content-around max-md:px-4 my-2">
         <span class="btn-MenuDesktop max-md:block hidden w-max h-max  rounded-full cursor-pointer">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-9 h-9 fill-secondary" viewBox="0 -960 960 960">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 fill-secondary" viewBox="0 -960 960 960">
                 <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224z"/>
             </svg>
         </span>
         <div>
             <div class="flex items-center gap-2">
-                <img src="/logo-temporal.png" class="h-12"/>
-                <p class="uppercase font-bold text-center text-xl text-secondary flex flex-col ">
+                <img src="/logo-temporal.png" class="h-10"/>
+                <p class="uppercase font-bold text-center text-lg text-secondary flex flex-col ">
                     Esports
-                    <span class="text-[17px] font-semibold text-primary">IES Calvià</span>
+                    <span class="text-sm font-semibold text-primary">IES Calvià</span>
                 </p>
             </div>
-            <h2 class="text-azul-claro text-lg max-md:text-base font-semibold text-center">Panell d'administració</h2>
+            <h2 class="text-azul-claro text-base max-md:text-sm font-semibold text-center">Panell d'administració</h2>
         </div>
         <!-- <img src="/img/logo_torneo.png" alt="Logo" class="w-28 h-28 mx-auto my-4" /> -->
          
@@ -32,13 +37,13 @@ const usuario = Astro.props.usuario;
     <nav class=" p-2">
         <div class={`bg-gray-500 mb-2 h-px w-full `}>&nbsp;</div>
         <div class="flex flex-col gap-y-2">
-            {MENU_ADMIN.map((item) => (
+            {menuVisible.map((item) => (
                 <a 
                     href={item.enlace + urlSearch} 
                     class={`px-4 py-2 font-semibold relative flex flex-row items-center gap-2 transition hover:bg-secondary/50 ${pathname === item.enlace ? 'bg-secondary/15 text-secondary' : ''}`}
                 >
                     <span>
-                        <svg xmlns="http://www.w3.org/2000/svg" class={`w-6 h-6 bg-transparent ${pathname === item.enlace ? 'fill-secondary' : 'fill-neutral'}`} viewBox="0 -960 960 960" set:html={item.icono}>
+                        <svg xmlns="http://www.w3.org/2000/svg" class={`w-5 h-5 bg-transparent ${pathname === item.enlace ? 'fill-secondary' : 'fill-neutral'}`} viewBox="0 -960 960 960" set:html={item.icono}>
                             
                         </svg>
                     </span>
@@ -54,7 +59,7 @@ const usuario = Astro.props.usuario;
             <div class="mt-2 p-2">
                 <div class={`bg-gray-500 mb-4 h-px w-full `}>&nbsp;</div>
                 <a href="/" class="px-4 py-2 font-semibold relative flex flex-row items-center gap-2 transition hover:bg-secondary/50">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 fill-neutral" viewBox="0 -960 960 960">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-neutral" viewBox="0 -960 960 960">
                         <path d="M722.5-297.5Q740-315 740-340t-17.5-42.5T680-400t-42.5 17.5T620-340t17.5 42.5T680-280t42.5-17.5M680-160q31 0 57-14.5t42-38.5q-22-13-47-20t-52-7-52 7-47 20q16 24 42 38.5t57 14.5M480-80q-139-35-229.5-159.5T160-516v-244l320-120 320 120v227q-19-8-39-14.5t-41-9.5v-147l-240-90-240 90v188q0 47 12.5 94t35 89.5T342-254t71 60q11 32 29 61t41 52q-1 0-1.5.5t-1.5.5m200 0q-83 0-141.5-58.5T480-280t58.5-141.5T680-480t141.5 58.5T880-280t-58.5 141.5T680-80M480-494"/>
                     </svg>
                     Sortir del panell
