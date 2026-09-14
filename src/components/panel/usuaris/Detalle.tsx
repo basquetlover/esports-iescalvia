@@ -49,8 +49,26 @@ type VistaRelacion =
     | "verificaciones";
 
 type Seccion = "datos" | "permisos" | VistaRelacion;
-
 type AccionBloqueo = "bloquear" | "desbloquear";
+
+type IconoNombre =
+    | "usuario"
+    | "identidad"
+    | "escudo"
+    | "trofeo"
+    | "calendario"
+    | "sesiones"
+    | "verificacion"
+    | "correo"
+    | "estudios"
+    | "reloj"
+    | "actualizar"
+    | "bloquear"
+    | "desbloquear"
+    | "flecha"
+    | "codigo"
+    | "equipo"
+    | "formulario";
 
 type Columna = {
     campo: string;
@@ -60,13 +78,32 @@ type Columna = {
 
 const API = "/api/panell/usuaris";
 
+const SUPERFICIE =
+    "rounded-2xl border border-border/40 bg-white " +
+    "shadow-[0_2px_12px_rgba(15,23,42,0.025)] " +
+    "[.oscuro_&]:bg-card";
+
+const CAMPO =
+    "min-h-10 rounded-lg bg-[#eef3ff] px-3 py-2.5 " +
+    "text-sm font-medium text-neutral-titulos " +
+    "[.oscuro_&]:bg-background";
+
 const BOTON =
     "inline-flex items-center justify-center gap-2 rounded-lg " +
-    "border border-border bg-background px-4 py-2.5 text-sm " +
-    "font-semibold text-neutral transition hover:bg-primary/10 " +
+    "border border-border/50 bg-white px-3 py-2 text-xs " +
+    "font-semibold text-neutral-titulos transition " +
+    "hover:border-primary/25 hover:bg-primary/5 " +
     "focus-visible:outline-none focus-visible:ring-2 " +
     "focus-visible:ring-primary disabled:cursor-not-allowed " +
-    "disabled:opacity-50 disabled:hover:bg-background";
+    "disabled:opacity-50 [.oscuro_&]:bg-card";
+
+const BOTON_PRINCIPAL =
+    "inline-flex items-center justify-center gap-2 rounded-lg " +
+    "bg-primary px-4 py-2.5 text-xs font-semibold text-white " +
+    "transition hover:opacity-90 focus-visible:outline-none " +
+    "focus-visible:ring-2 focus-visible:ring-primary " +
+    "focus-visible:ring-offset-2 disabled:cursor-not-allowed " +
+    "disabled:opacity-50";
 
 const ROLES: Record<string, string> = {
     voluntario: "Voluntari",
@@ -76,13 +113,21 @@ const ROLES: Record<string, string> = {
     desarrollador: "Desenvolupador",
 };
 
-const SECCIONES: { id: Seccion; nombre: string }[] = [
-    { id: "datos", nombre: "Dades del compte" },
-    { id: "permisos", nombre: "Permisos" },
-    { id: "torneos", nombre: "Tornejos" },
-    { id: "ediciones", nombre: "Edicions" },
-    { id: "sesiones", nombre: "Sessions" },
-    { id: "verificaciones", nombre: "Verificacions" },
+const SECCIONES: {
+    id: Seccion;
+    nombre: string;
+    icono: IconoNombre;
+}[] = [
+    { id: "datos", nombre: "Dades del perfil", icono: "identidad" },
+    { id: "permisos", nombre: "Permisos", icono: "escudo" },
+    { id: "torneos", nombre: "Tornejos", icono: "trofeo" },
+    { id: "ediciones", nombre: "Edicions", icono: "calendario" },
+    { id: "sesiones", nombre: "Sessions", icono: "sesiones" },
+    {
+        id: "verificaciones",
+        nombre: "Verificacions",
+        icono: "verificacion",
+    },
 ];
 
 const RELACIONES: Record<
@@ -91,15 +136,17 @@ const RELACIONES: Record<
         titulo: string;
         descripcion: string;
         vacio: string;
+        icono: IconoNombre;
         columnas: Columna[];
     }
 > = {
     torneos: {
         titulo: "Tornejos accessibles",
         descripcion:
-            "Accés segons el rol general o les assignacions guardades. " +
-            "Tenir accés a un torneig no implica participar-hi.",
+            "Accés pel rol general o per assignació. " +
+            "No implica participació en el torneig.",
         vacio: "No s'han trobat tornejos accessibles.",
+        icono: "trofeo",
         columnas: [
             { campo: "nombre", nombre: "Torneig" },
             { campo: "deporte", nombre: "Esport" },
@@ -109,11 +156,12 @@ const RELACIONES: Record<
         ],
     },
     ediciones: {
-        titulo: "Edicions dels tornejos accessibles",
+        titulo: "Edicions dels tornejos",
         descripcion:
-            "Aquestes edicions pertanyen als tornejos accessibles. " +
-            "Encara no hi ha una relació de participació entre usuaris i edicions.",
+            "Edicions dels tornejos accessibles. Encara no hi ha " +
+            "una vinculació directa de participació amb l’usuari.",
         vacio: "No s'han trobat edicions.",
+        icono: "calendario",
         columnas: [
             { campo: "nombre", nombre: "Edició" },
             { campo: "torneo_nombre", nombre: "Torneig" },
@@ -124,11 +172,12 @@ const RELACIONES: Record<
         ],
     },
     sesiones: {
-        titulo: "Historial de sessions",
+        titulo: "Seguretat i sessions",
         descripcion:
-            "Una sessió només és vigent si està activa, no ha caducat " +
-            "i el compte està actiu. Els tokens de sessió no es mostren.",
+            "Sessions registrades i vigència en el moment de la consulta. " +
+            "No es mostren els tokens.",
         vacio: "Aquest usuari no té sessions registrades.",
+        icono: "sesiones",
         columnas: [
             { campo: "estado", nombre: "Estat guardat" },
             { campo: "vigente", nombre: "Vigent en consultar" },
@@ -150,10 +199,11 @@ const RELACIONES: Record<
         ],
     },
     verificaciones: {
-        titulo: "Historial de verificacions",
+        titulo: "Verificacions del compte",
         descripcion:
-            "Registres de verificació del compte, sense mostrar codis ni tokens.",
+            "Historial de verificacions, sense mostrar codis ni tokens.",
         vacio: "Aquest usuari no té verificacions registrades.",
+        icono: "verificacion",
         columnas: [
             { campo: "tipo", nombre: "Tipus" },
             { campo: "usado", nombre: "Utilitzada" },
@@ -170,6 +220,124 @@ const RELACIONES: Record<
         ],
     },
 };
+
+function Icono({
+    nombre,
+    className = "h-4 w-4",
+}: {
+    nombre: IconoNombre;
+    className?: string;
+}) {
+    const dibujos: Record<IconoNombre, ReactNode> = {
+        usuario: (
+            <>
+                <circle cx="12" cy="8" r="3.5" />
+                <path d="M5 21v-2a7 7 0 0 1 14 0v2" />
+            </>
+        ),
+        identidad: (
+            <>
+                <rect x="3" y="4" width="18" height="16" rx="3" />
+                <circle cx="8" cy="10" r="2" />
+                <path d="M5.5 16a2.5 2.5 0 0 1 5 0M14 9h4M14 13h4M14 16h2" />
+            </>
+        ),
+        escudo: (
+            <>
+                <path d="m12 3 8 3v6c0 4-3 7-8 9-5-2-8-5-8-9V6l8-3Z" />
+                <path d="m8.5 12 2.5 2.5 4.5-5" />
+            </>
+        ),
+        trofeo: (
+            <>
+                <path d="M8 3h8v6a4 4 0 0 1-8 0V3ZM8 5H4v2a4 4 0 0 0 4 4M16 5h4v2a4 4 0 0 1-4 4M12 13v5M8 21h8M10 18h4v3h-4z" />
+            </>
+        ),
+        calendario: (
+            <>
+                <rect x="3" y="5" width="18" height="16" rx="3" />
+                <path d="M7 3v4M17 3v4M3 11h18M7 15h2M13 15h2" />
+            </>
+        ),
+        sesiones: (
+            <>
+                <rect x="3" y="4" width="18" height="13" rx="2" />
+                <path d="M8 21h8M12 17v4M8 10l2 2 5-5" />
+            </>
+        ),
+        verificacion: (
+            <>
+                <circle cx="12" cy="12" r="9" />
+                <path d="m8 12 3 3 5-6" />
+            </>
+        ),
+        correo: (
+            <>
+                <rect x="3" y="5" width="18" height="14" rx="2" />
+                <path d="m3 7 9 6 9-6" />
+            </>
+        ),
+        estudios: (
+            <>
+                <path d="m2 9 10-5 10 5-10 5-10-5ZM6 11v6c4 3 8 3 12 0v-6M22 9v7" />
+            </>
+        ),
+        reloj: (
+            <>
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7v5l3 2" />
+            </>
+        ),
+        actualizar: (
+            <>
+                <path d="M20 7v5h-5M4 17v-5h5" />
+                <path d="M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1" />
+            </>
+        ),
+        bloquear: (
+            <>
+                <circle cx="12" cy="12" r="9" />
+                <path d="m6 6 12 12" />
+            </>
+        ),
+        desbloquear: (
+            <>
+                <rect x="5" y="10" width="14" height="11" rx="2" />
+                <path d="M8 10V7a4 4 0 0 1 7.5-2M12 14v3" />
+            </>
+        ),
+        flecha: <path d="m9 5 7 7-7 7" />,
+        codigo: <path d="m8 7-5 5 5 5M16 7l5 5-5 5M14 4l-4 16" />,
+        equipo: (
+            <>
+                <circle cx="9" cy="8" r="3" />
+                <path d="M3 21v-3a6 6 0 0 1 12 0v3M16 5a3 3 0 0 1 0 6M17 15a5 5 0 0 1 4 5v1" />
+            </>
+        ),
+        formulario: (
+            <>
+                <rect x="5" y="4" width="14" height="17" rx="2" />
+                <path d="M9 4V2h6v2M9 9h6M9 13h6M9 17h3" />
+            </>
+        ),
+    };
+
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className={`shrink-0 ${className}`}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+        >
+            {dibujos[nombre]}
+        </svg>
+    );
+}
 
 class ErrorPeticion extends Error {
     constructor(
@@ -193,9 +361,7 @@ function texto(valor: unknown): string {
         return "—";
     }
 
-    if (typeof valor === "boolean") {
-        return valor ? "Sí" : "No";
-    }
+    if (typeof valor === "boolean") return valor ? "Sí" : "No";
 
     if (typeof valor === "string" || typeof valor === "number") {
         return String(valor);
@@ -240,17 +406,33 @@ function nombreCompleto(usuario: Usuario): string {
         .trim() || "Usuari sense nom";
 }
 
+function iniciales(usuario: Usuario): string {
+    const partes = [
+        usuario.nombre,
+        usuario.apellido1,
+        usuario.apellido2,
+    ]
+        .map((parte) => parte?.trim())
+        .filter((parte): parte is string => Boolean(parte));
+
+    return partes
+        .slice(0, 2)
+        .map((parte) => Array.from(parte)[0])
+        .join("")
+        .toLocaleUpperCase("ca-ES") || "?";
+}
+
 async function pedirJSON<T>(
     url: string,
     opciones: RequestInit = {}
 ): Promise<T> {
+    const headers = new Headers(opciones.headers);
+    headers.set("Accept", "application/json");
+
     const respuesta = await fetch(url, {
         ...opciones,
+        headers,
         cache: "no-store",
-        headers: {
-            Accept: "application/json",
-            ...opciones.headers,
-        },
     });
 
     const contenido = respuesta.headers.get("content-type") ?? "";
@@ -343,11 +525,11 @@ function useConsulta<T>(url: string, revision: number) {
 function Cargando() {
     return (
         <div
-            className="flex items-center justify-center gap-3 px-4 py-14 text-sm text-neutral"
+            className="flex flex-col items-center justify-center gap-3 px-4 py-16 text-sm text-neutral"
             role="status"
         >
             <span
-                className="h-5 w-5 animate-spin rounded-full border-2 border-primary/20 border-t-primary motion-reduce:animate-none"
+                className="h-7 w-7 animate-spin rounded-full border-2 border-primary/15 border-t-primary motion-reduce:animate-none"
                 aria-hidden="true"
             />
             Carregant informació...
@@ -369,8 +551,12 @@ function ErrorConsulta({
     const retorno = `/panell/usuaris/${encodeURIComponent(usuarioID)}`;
 
     return (
-        <div className="flex flex-col items-center gap-4 px-4 py-10 text-center">
-            <p className="text-sm text-error" role="alert">
+        <div className="flex flex-col items-center gap-4 px-5 py-12 text-center">
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-error/10 text-error">
+                <Icono nombre="bloquear" className="h-5 w-5" />
+            </span>
+
+            <p className="max-w-lg text-sm text-error" role="alert">
                 {mensaje}
             </p>
 
@@ -400,136 +586,233 @@ function ErrorConsulta({
 
 function Tarjeta({
     titulo,
+    descripcion,
+    icono,
     children,
+    accion,
 }: {
     titulo: string;
+    descripcion?: string;
+    icono: IconoNombre;
     children: ReactNode;
+    accion?: ReactNode;
 }) {
     return (
-        <section className="min-w-0 rounded-xl border border-border bg-card p-4 md:p-5">
-            <h2 className="mb-4 font-semibold text-neutral-titulos">
-                {titulo}
-            </h2>
+        <section className={`${SUPERFICIE} min-w-0 p-5 md:p-6`}>
+            <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
+                <div className="flex min-w-0 items-start gap-3">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <Icono nombre={icono} />
+                    </span>
+
+                    <div className="min-w-0">
+                        <h2 className="text-sm font-bold text-neutral-titulos">
+                            {titulo}
+                        </h2>
+
+                        {descripcion && (
+                            <p className="mt-1 max-w-3xl text-xs leading-relaxed text-neutral">
+                                {descripcion}
+                            </p>
+                        )}
+                    </div>
+                </div>
+
+                {accion}
+            </header>
 
             {children}
         </section>
     );
 }
 
-function Dato({
+function CampoConsulta({
     nombre,
     valor,
+    icono,
+    className = "",
 }: {
     nombre: string;
     valor: ReactNode;
+    icono?: IconoNombre;
+    className?: string;
 }) {
     return (
-        <div className="min-w-0">
-            <dt className="text-xs text-neutral">{nombre}</dt>
-            <dd className="mt-1 wrap-break-words text-sm font-medium text-neutral-titulos">
-                {valor}
+        <div className={`min-w-0 ${className}`}>
+            <dt className="mb-1.5 text-[11px] font-semibold text-neutral-titulos">
+                {nombre}
+            </dt>
+
+            <dd className={`${CAMPO} flex items-start gap-2`}>
+                {icono && (
+                    <span className="mt-0.5 text-primary">
+                        <Icono nombre={icono} className="h-3.5 w-3.5" />
+                    </span>
+                )}
+
+                <span className="min-w-0 break-words">{valor}</span>
             </dd>
         </div>
     );
 }
 
 function EstadoCuenta({ activa }: { activa: boolean | null }) {
-    const colores =
+    const estilo =
         activa === true
-            ? "border-primary/25 bg-primary/10 text-primary"
+            ? "bg-primary text-white"
             : activa === false
-              ? "border-error/25 bg-error/10 text-error"
-              : "border-border bg-background text-neutral";
+              ? "bg-error/10 text-error"
+              : "bg-neutral/10 text-neutral";
 
     return (
         <span
-            className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${colores}`}
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold ${estilo}`}
         >
+            <span
+                className="h-1.5 w-1.5 rounded-full bg-current"
+                aria-hidden="true"
+            />
+
             {activa === true
-                ? "Actiu"
+                ? "Compte actiu"
                 : activa === false
-                  ? "Bloquejat"
+                  ? "Compte bloquejat"
                   : "Sense estat"}
         </span>
     );
 }
 
+function NotaPendiente({
+    titulo,
+    texto: descripcion,
+    icono,
+}: {
+    titulo: string;
+    texto: string;
+    icono: IconoNombre;
+}) {
+    return (
+        <section className={`${SUPERFICIE} p-5`}>
+            <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-neutral-titulos">
+                    <Icono nombre={icono} className="h-4 w-4 text-primary" />
+                    <h2 className="text-xs font-bold">{titulo}</h2>
+                </div>
+
+                <span className="rounded-md bg-background px-2 py-1 text-[10px] font-semibold text-neutral">
+                    Pròximament
+                </span>
+            </div>
+
+            <p className="mt-3 text-xs leading-relaxed text-neutral">
+                {descripcion}
+            </p>
+        </section>
+    );
+}
+
 function DatosCuenta({ usuario }: { usuario: Usuario }) {
     return (
-        <div className="grid gap-5 xl:grid-cols-2">
-            <Tarjeta titulo="Dades personals">
-                <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                    <Dato nombre="Nom" valor={texto(usuario.nombre)} />
-                    <Dato
-                        nombre="Primer cognom"
-                        valor={texto(usuario.apellido1)}
-                    />
-                    <Dato
-                        nombre="Segon cognom"
-                        valor={texto(usuario.apellido2)}
-                    />
-                    <Dato
-                        nombre="Correu electrònic"
-                        valor={
-                            <span className="break-all">
-                                {texto(usuario.email)}
-                            </span>
-                        }
-                    />
-                    <Dato nombre="Curs" valor={texto(usuario.curso)} />
-                    <Dato
-                        nombre="Any acadèmic"
-                        valor={texto(usuario.ano_academico)}
-                    />
-                </dl>
-            </Tarjeta>
+        <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
+            <div className="flex min-w-0 flex-col gap-5">
+                <Tarjeta
+                    titulo="Fitxa d’identitat i curs"
+                    descripcion="Dades personals i acadèmiques del compte."
+                    icono="identidad"
+                >
+                    <dl className="grid gap-x-4 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+                        <CampoConsulta
+                            nombre="Nom"
+                            valor={texto(usuario.nombre)}
+                        />
+                        <CampoConsulta
+                            nombre="Primer cognom"
+                            valor={texto(usuario.apellido1)}
+                        />
+                        <CampoConsulta
+                            nombre="Segon cognom"
+                            valor={texto(usuario.apellido2)}
+                        />
+                        <CampoConsulta
+                            nombre="Correu electrònic"
+                            valor={
+                                <span className="break-all">
+                                    {texto(usuario.email)}
+                                </span>
+                            }
+                            icono="correo"
+                            className="lg:col-span-2"
+                        />
+                        <CampoConsulta
+                            nombre="Rol general"
+                            valor={nombreRol(usuario.rol)}
+                            icono="escudo"
+                        />
+                        <CampoConsulta
+                            nombre="Curs"
+                            valor={texto(usuario.curso)}
+                            icono="estudios"
+                        />
+                        <CampoConsulta
+                            nombre="Any acadèmic"
+                            valor={texto(usuario.ano_academico)}
+                            icono="calendario"
+                        />
+                        <CampoConsulta
+                            nombre="Origen dels permisos"
+                            valor={texto(usuario.origen_permisos)}
+                        />
+                    </dl>
+                </Tarjeta>
 
-            <Tarjeta titulo="Informació del compte">
-                <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                    <Dato
-                        nombre="Identificador"
+                <div className="grid gap-5 md:grid-cols-2">
+                    <NotaPendiente
+                        titulo="Equips i participants"
+                        texto="Les vinculacions amb equips i els seus estats es mostraran quan aquesta funcionalitat estigui disponible."
+                        icono="equipo"
+                    />
+                    <NotaPendiente
+                        titulo="Formularis enviats"
+                        texto="Els formularis enviats i les respostes es mostraran quan aquesta funcionalitat estigui disponible."
+                        icono="formulario"
+                    />
+                </div>
+            </div>
+
+            <Tarjeta
+                titulo="Auditoria del registre"
+                icono="reloj"
+            >
+                <dl className="flex flex-col gap-4">
+                    <CampoConsulta
+                        nombre="Data de registre"
+                        valor={fecha(usuario.fecha_creacion)}
+                        icono="calendario"
+                    />
+                    <CampoConsulta
+                        nombre="Última actualització"
+                        valor={fecha(usuario.fecha_actualizacion)}
+                        icono="reloj"
+                    />
+
+                    <div>
+                        <dt className="mb-1.5 text-[11px] font-semibold text-neutral-titulos">
+                            Estat del compte
+                        </dt>
+                        <dd className={`${CAMPO} flex items-center`}>
+                            <EstadoCuenta activa={usuario.activa} />
+                        </dd>
+                    </div>
+
+                    <CampoConsulta
+                        nombre="Identificador de l’usuari"
                         valor={
-                            <span className="break-all font-mono text-xs">
+                            <span className="break-all font-mono text-[11px]">
                                 {usuario.id}
                             </span>
                         }
                     />
-                    <Dato
-                        nombre="Rol general"
-                        valor={nombreRol(usuario.rol)}
-                    />
-                    <Dato
-                        nombre="Origen dels permisos"
-                        valor={texto(usuario.origen_permisos)}
-                    />
-                    <Dato
-                        nombre="Data de registre"
-                        valor={fecha(usuario.fecha_creacion)}
-                    />
-                    <Dato
-                        nombre="Última actualització del compte"
-                        valor={fecha(usuario.fecha_actualizacion)}
-                    />
-                    <Dato
-                        nombre="Estat"
-                        valor={<EstadoCuenta activa={usuario.activa} />}
-                    />
                 </dl>
-            </Tarjeta>
-
-            <Tarjeta titulo="Equips i participants">
-                <p className="text-sm text-neutral">
-                    Pròximament. Es mostraran els equips de l’usuari,
-                    les seves vinculacions i els estats corresponents.
-                </p>
-            </Tarjeta>
-
-            <Tarjeta titulo="Formularis enviats">
-                <p className="text-sm text-neutral">
-                    Pròximament. Es mostraran els formularis enviats
-                    i les seves respostes quan aquesta funcionalitat
-                    estigui disponible.
-                </p>
             </Tarjeta>
         </div>
     );
@@ -538,7 +821,7 @@ function DatosCuenta({ usuario }: { usuario: Usuario }) {
 function TablaPermisos({ permisos }: { permisos: unknown }) {
     if (permisos === null || permisos === undefined) {
         return (
-            <p className="text-sm text-neutral">
+            <p className="rounded-lg bg-background p-4 text-xs text-neutral">
                 No hi ha permisos explícits guardats en aquest àmbit.
             </p>
         );
@@ -546,7 +829,7 @@ function TablaPermisos({ permisos }: { permisos: unknown }) {
 
     if (!esRegistro(permisos)) {
         return (
-            <p className="text-sm text-error">
+            <p className="text-xs text-error">
                 La configuració guardada no té un format vàlid.
             </p>
         );
@@ -556,37 +839,37 @@ function TablaPermisos({ permisos }: { permisos: unknown }) {
 
     if (entradas.length === 0) {
         return (
-            <p className="text-sm text-neutral">
+            <p className="rounded-lg bg-background p-4 text-xs text-neutral">
                 No hi ha permisos explícits guardats en aquest àmbit.
             </p>
         );
     }
 
     return (
-        <div className="overflow-x-auto">
-            <table className="w-full min-w-105 text-left text-sm">
-                <thead className="border-b border-border text-xs text-neutral">
+        <div className="overflow-x-auto rounded-xl border border-border/40">
+            <table className="w-full min-w-[420px] text-left text-xs">
+                <thead className="bg-[#eef3ff] text-neutral [.oscuro_&]:bg-background">
                     <tr>
-                        <th scope="col" className="px-3 py-3">
+                        <th scope="col" className="px-4 py-3 font-semibold">
                             Secció
                         </th>
-                        <th scope="col" className="px-3 py-3">
+                        <th scope="col" className="px-4 py-3 font-semibold">
                             Acció
                         </th>
-                        <th scope="col" className="px-3 py-3">
+                        <th scope="col" className="px-4 py-3 font-semibold">
                             Valor guardat
                         </th>
                     </tr>
                 </thead>
 
-                <tbody className="divide-y divide-border">
+                <tbody className="divide-y divide-border/40">
                     {entradas.flatMap(([seccion, acciones]) => {
                         if (!esRegistro(acciones)) {
                             return [
                                 <tr key={seccion}>
-                                    <td className="px-3 py-3">{seccion}</td>
-                                    <td className="px-3 py-3">—</td>
-                                    <td className="px-3 py-3 text-error">
+                                    <td className="px-4 py-3">{seccion}</td>
+                                    <td className="px-4 py-3">—</td>
+                                    <td className="px-4 py-3 text-error">
                                         Format no vàlid
                                     </td>
                                 </tr>,
@@ -596,10 +879,10 @@ function TablaPermisos({ permisos }: { permisos: unknown }) {
                         if (Object.keys(acciones).length === 0) {
                             return [
                                 <tr key={seccion}>
-                                    <td className="px-3 py-3">{seccion}</td>
+                                    <td className="px-4 py-3">{seccion}</td>
                                     <td
                                         colSpan={2}
-                                        className="px-3 py-3 text-neutral"
+                                        className="px-4 py-3 text-neutral"
                                     >
                                         Sense accions explícites
                                     </td>
@@ -609,27 +892,32 @@ function TablaPermisos({ permisos }: { permisos: unknown }) {
 
                         return Object.entries(acciones).map(
                             ([accion, valor]) => (
-                                <tr key={`${seccion}/${accion}`}>
-                                    <td className="px-3 py-3 text-neutral-titulos">
+                                <tr
+                                    key={`${seccion}/${accion}`}
+                                    className="transition hover:bg-primary/[0.025]"
+                                >
+                                    <td className="px-4 py-3 font-semibold text-neutral-titulos">
                                         {seccion}
                                     </td>
-                                    <td className="px-3 py-3 text-neutral">
+                                    <td className="px-4 py-3 text-neutral">
                                         {accion}
                                     </td>
-                                    <td
-                                        className={`px-3 py-3 font-semibold ${
-                                            valor === true
-                                                ? "text-primary"
+                                    <td className="px-4 py-3">
+                                        <span
+                                            className={`inline-flex rounded-md px-2 py-1 text-[10px] font-bold ${
+                                                valor === true
+                                                    ? "bg-primary/10 text-primary"
+                                                    : valor === false
+                                                      ? "bg-error/10 text-error"
+                                                      : "bg-neutral/10 text-neutral"
+                                            }`}
+                                        >
+                                            {valor === true
+                                                ? "Sí · true"
                                                 : valor === false
-                                                  ? "text-error"
-                                                  : "text-neutral"
-                                        }`}
-                                    >
-                                        {valor === true
-                                            ? "Sí · true"
-                                            : valor === false
-                                              ? "No · false"
-                                              : "Format no vàlid"}
+                                                  ? "No · false"
+                                                  : "Format no vàlid"}
+                                        </span>
                                     </td>
                                 </tr>
                             )
@@ -666,7 +954,6 @@ function PermisosUsuario({ usuario }: { usuario: Usuario }) {
         ? Object.entries(documento.torneos)
         : [];
 
-    // Orden de presentación: jsonb no garantiza el orden de las claves.
     const documentoOrdenado = documento
         ? {
             ...(Object.hasOwn(documento, "version")
@@ -690,42 +977,41 @@ function PermisosUsuario({ usuario }: { usuario: Usuario }) {
 
     return (
         <div className="flex flex-col gap-5">
-            <Tarjeta titulo="Configuració de permisos">
-                <dl className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-                    <Dato
+            <Tarjeta
+                titulo="Permisos del compte"
+                descripcion="Valors guardats. L’accés efectiu també depèn del nivell del rol i de l’assignació al torneig."
+                icono="escudo"
+            >
+                <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    <CampoConsulta
                         nombre="Rol general"
                         valor={nombreRol(usuario.rol)}
                     />
-                    <Dato
+                    <CampoConsulta
                         nombre="Origen"
                         valor={texto(usuario.origen_permisos)}
                     />
-                    <Dato
+                    <CampoConsulta
                         nombre="Versió del JSON"
                         valor={texto(documento?.version)}
                     />
-                    <Dato
+                    <CampoConsulta
                         nombre="Última actualització dels permisos"
                         valor={fecha(documento?.ultima_actualizacion)}
                     />
                 </dl>
 
-                <p className="mt-5 text-sm text-neutral">
-                    Es mostren els valors guardats. Els permisos efectius
-                    depenen també del nivell del rol i de l’accés al torneig.
-                </p>
-
                 {documento && !estructurado && (
-                    <p className="mt-3 rounded-lg border border-border bg-background p-3 text-sm text-neutral">
-                        Aquest compte conserva l’estructura antiga de
-                        permisos. Encara no diferencia els àmbits per torneig.
+                    <p className="mt-4 rounded-lg bg-primary/5 p-3 text-xs leading-relaxed text-neutral">
+                        Aquest compte conserva l’estructura antiga.
+                        Encara no diferencia els permisos per torneig.
                     </p>
                 )}
 
                 {usuario.permisos !== null &&
                     usuario.permisos !== undefined &&
                     !documento && (
-                        <p className="mt-3 text-sm text-error">
+                        <p className="mt-4 text-xs text-error">
                             El document de permisos no té un format vàlid.
                         </p>
                     )}
@@ -737,33 +1023,38 @@ function PermisosUsuario({ usuario }: { usuario: Usuario }) {
                         ? "Permisos generals"
                         : "Permisos guardats"
                 }
+                icono="escudo"
             >
                 <TablaPermisos permisos={globales} />
             </Tarjeta>
 
-            <Tarjeta titulo="Assignacions i permisos per torneig">
+            <Tarjeta
+                titulo="Assignacions per torneig"
+                descripcion="Rol, accés i permisos específics guardats per a cada torneig."
+                icono="trofeo"
+            >
                 {asignaciones.length === 0 ? (
-                    <p className="text-sm text-neutral">
+                    <p className="rounded-lg bg-background p-4 text-xs leading-relaxed text-neutral">
                         No hi ha assignacions explícites guardades.
                         Els administradors i desenvolupadors poden tenir
                         accés general pel seu rol.
                     </p>
                 ) : (
-                    <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-3">
                         {asignaciones.map(([torneoID, asignacion]) => (
                             <details
                                 key={torneoID}
-                                className="rounded-lg border border-border bg-background"
+                                className="group rounded-xl border border-border/40"
                             >
-                                <summary className="cursor-pointer wrap-break-words p-4 text-sm font-semibold text-neutral-titulos">
-                                    Torneig: {torneoID}
+                                <summary className="cursor-pointer break-words rounded-xl bg-background/60 p-4 text-xs font-semibold text-neutral-titulos">
+                                    Torneig · {torneoID}
                                 </summary>
 
-                                <div className="border-t border-border p-4">
+                                <div className="border-t border-border/40 p-4">
                                     {esRegistro(asignacion) ? (
                                         <>
                                             <dl className="mb-5 grid gap-4 sm:grid-cols-2">
-                                                <Dato
+                                                <CampoConsulta
                                                     nombre="Accés assignat"
                                                     valor={
                                                         asignacion.acceso === true
@@ -773,7 +1064,7 @@ function PermisosUsuario({ usuario }: { usuario: Usuario }) {
                                                               : "No especificat"
                                                     }
                                                 />
-                                                <Dato
+                                                <CampoConsulta
                                                     nombre="Rol al torneig"
                                                     valor={nombreRol(
                                                         asignacion.rol
@@ -786,7 +1077,7 @@ function PermisosUsuario({ usuario }: { usuario: Usuario }) {
                                             />
                                         </>
                                     ) : (
-                                        <p className="text-sm text-error">
+                                        <p className="text-xs text-error">
                                             L’assignació no té un format vàlid.
                                         </p>
                                     )}
@@ -797,12 +1088,12 @@ function PermisosUsuario({ usuario }: { usuario: Usuario }) {
                 )}
             </Tarjeta>
 
-            <details className="rounded-xl border border-border bg-card">
-                <summary className="cursor-pointer p-4 text-sm font-semibold text-neutral-titulos">
+            <details className={SUPERFICIE}>
+                <summary className="cursor-pointer p-5 text-xs font-semibold text-neutral-titulos">
                     Veure el JSON de permisos
                 </summary>
 
-                <pre className="max-h-120 overflow-auto border-t border-border p-4 text-xs text-neutral">
+                <pre className="max-h-[480px] overflow-auto border-t border-border/40 bg-background/50 p-5 text-xs leading-relaxed text-neutral">
                     {JSON.stringify(documentoOrdenado ?? null, null, 2)}
                 </pre>
             </details>
@@ -841,41 +1132,69 @@ function Historial({
         }
     }, [datos, pagina]);
 
-    function mostrarCelda(fila: Registro, columna: Columna): string {
+    function mostrarCelda(
+        fila: Registro,
+        columna: Columna
+    ): ReactNode {
         const valor = fila[columna.campo];
 
-        if (columna.formato === "fecha") return fecha(valor);
+        if (columna.formato === "fecha") {
+            return (
+                <span className="whitespace-nowrap">
+                    {fecha(valor)}
+                </span>
+            );
+        }
+
         if (columna.formato === "rol") return nombreRol(valor);
 
         if (columna.campo === "origen_acceso") {
             if (valor === "global") return "Rol general";
-            if (valor === "asignacion") return "Assignació al torneig";
+            if (valor === "asignacion") return "Assignació";
         }
 
         if (columna.campo === "torneo_nombre" && !valor) {
             return texto(fila.torneo_id);
         }
 
+        if (typeof valor === "boolean") {
+            return (
+                <span
+                    className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-semibold ${
+                        valor
+                            ? "bg-primary/10 text-primary"
+                            : "bg-neutral/10 text-neutral"
+                    }`}
+                >
+                    <span
+                        className="h-1 w-1 rounded-full bg-current"
+                        aria-hidden="true"
+                    />
+                    {valor ? "Sí" : "No"}
+                </span>
+            );
+        }
+
         return texto(valor);
     }
 
     return (
-        <Tarjeta titulo={configuracion.titulo}>
-            <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-                <p className="max-w-3xl text-sm text-neutral">
-                    {configuracion.descripcion}
-                </p>
-
+        <Tarjeta
+            titulo={configuracion.titulo}
+            descripcion={configuracion.descripcion}
+            icono={configuracion.icono}
+            accion={
                 <button
                     type="button"
                     className={BOTON}
                     onClick={consulta.recargar}
                     disabled={consulta.cargando}
                 >
+                    <Icono nombre="actualizar" className="h-3.5 w-3.5" />
                     Actualitzar
                 </button>
-            </div>
-
+            }
+        >
             <div aria-busy={consulta.cargando}>
                 {consulta.cargando ? (
                     <Cargando />
@@ -889,19 +1208,19 @@ function Historial({
                 ) : datos && datos.filas.length > 0 ? (
                     <>
                         <div
-                            className="overflow-x-auto"
+                            className="overflow-x-auto rounded-xl border border-border/40"
                             tabIndex={0}
                             role="region"
                             aria-label={configuracion.titulo}
                         >
-                            <table className="w-full min-w-162.5 text-left text-sm">
-                                <thead className="border-b border-border bg-background text-xs text-neutral">
+                            <table className="w-full min-w-[650px] text-left text-xs">
+                                <thead className="bg-[#eef3ff] text-neutral [.oscuro_&]:bg-background">
                                     <tr>
                                         {configuracion.columnas.map((columna) => (
                                             <th
                                                 key={columna.campo}
                                                 scope="col"
-                                                className="px-3 py-3"
+                                                className="px-4 py-3 font-semibold"
                                             >
                                                 {columna.nombre}
                                             </th>
@@ -909,7 +1228,7 @@ function Historial({
                                     </tr>
                                 </thead>
 
-                                <tbody className="divide-y divide-border">
+                                <tbody className="divide-y divide-border/40">
                                     {datos.filas.map((fila, indice) => (
                                         <tr
                                             key={
@@ -917,13 +1236,17 @@ function Historial({
                                                     ? fila.id
                                                     : indice
                                             }
-                                            className="hover:bg-primary/5"
+                                            className="transition hover:bg-primary/[0.025]"
                                         >
                                             {configuracion.columnas.map(
-                                                (columna) => (
+                                                (columna, posicion) => (
                                                     <td
                                                         key={columna.campo}
-                                                        className="max-w-80 wrap-break-words px-3 py-3 text-neutral-titulos"
+                                                        className={`max-w-80 break-words px-4 py-4 ${
+                                                            posicion === 0
+                                                                ? "font-semibold text-neutral-titulos"
+                                                                : "text-neutral"
+                                                        }`}
                                                     >
                                                         {mostrarCelda(
                                                             fila,
@@ -942,7 +1265,7 @@ function Historial({
                             className="mt-5 flex flex-wrap items-center justify-between gap-3"
                             aria-label={`Paginació: ${configuracion.titulo}`}
                         >
-                            <p className="text-xs text-neutral" role="status">
+                            <p className="text-[11px] text-neutral" role="status">
                                 {datos.total} registres · Pàgina{" "}
                                 {datos.pagina} de {datos.totalPaginas}
                             </p>
@@ -975,14 +1298,26 @@ function Historial({
                                     }
                                 >
                                     Següent
+                                    <Icono
+                                        nombre="flecha"
+                                        className="h-3 w-3"
+                                    />
                                 </button>
                             </div>
                         </nav>
                     </>
                 ) : (
-                    <p className="py-8 text-center text-sm text-neutral">
-                        {configuracion.vacio}
-                    </p>
+                    <div className="flex flex-col items-center rounded-xl bg-background/60 px-5 py-12 text-center">
+                        <span className="mb-3 text-primary/60">
+                            <Icono
+                                nombre={configuracion.icono}
+                                className="h-7 w-7"
+                            />
+                        </span>
+                        <p className="text-xs text-neutral">
+                            {configuracion.vacio}
+                        </p>
+                    </div>
                 )}
             </div>
         </Tarjeta>
@@ -1027,7 +1362,7 @@ export default function Detalle({
     }
 
     async function ejecutarAccion() {
-        if (!confirmacion || enviando) return;
+        if (!confirmacion || peticionAccion.current) return;
 
         const accion = confirmacion;
         const controlador = new AbortController();
@@ -1074,9 +1409,8 @@ export default function Detalle({
                 setEnviando(false);
                 setConfirmacion(null);
 
-                // También actualiza después de errores:
-                // el servidor puede haber bloqueado el usuario
-                // aunque no haya completado la revocación.
+                // Recarga también ante errores: el bloqueo puede
+                // haberse aplicado aunque falle la revocación.
                 setRevision((valor) => valor + 1);
             }
 
@@ -1091,22 +1425,29 @@ export default function Detalle({
             {aviso && (
                 <div
                     role={aviso.tipo === "error" ? "alert" : "status"}
-                    className={`rounded-lg border p-4 text-sm ${
+                    className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-xs leading-relaxed ${
                         aviso.tipo === "error"
-                            ? "border-error/25 bg-error/10 text-error"
-                            : "border-primary/25 bg-primary/10 text-primary"
+                            ? "border-error/20 bg-error/10 text-error"
+                            : "border-primary/20 bg-primary/10 text-primary"
                     }`}
                 >
+                    <Icono
+                        nombre={
+                            aviso.tipo === "error"
+                                ? "bloquear"
+                                : "verificacion"
+                        }
+                    />
                     {aviso.mensaje}
                 </div>
             )}
 
             {consulta.cargando ? (
-                <div className="rounded-xl border border-border bg-card">
+                <div className={SUPERFICIE}>
                     <Cargando />
                 </div>
             ) : consulta.error ? (
-                <div className="rounded-xl border border-border bg-card">
+                <div className={SUPERFICIE}>
                     <ErrorConsulta
                         mensaje={consulta.error}
                         estado={consulta.estadoError}
@@ -1116,116 +1457,241 @@ export default function Detalle({
                 </div>
             ) : usuario && capacidades ? (
                 <>
-                    <section className="rounded-xl border border-border bg-card p-4 md:p-5">
-                        <div className="flex flex-wrap items-start justify-between gap-5">
-                            <div className="min-w-0">
-                                <h2 className="wrap-break-words text-xl font-bold text-neutral-titulos">
-                                    {nombreCompleto(usuario)}
-                                </h2>
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                        <button
+                            type="button"
+                            onClick={actualizarFicha}
+                            disabled={enviando}
+                            className={BOTON}
+                        >
+                            <Icono
+                                nombre="actualizar"
+                                className="h-3.5 w-3.5"
+                            />
+                            Actualitzar
+                        </button>
 
-                                <p className="mt-1 break-all text-sm text-neutral">
-                                    {usuario.email || "Sense correu electrònic"}
-                                </p>
+                        {capacidades.bloquear && (
+                            <button
+                                type="button"
+                                disabled={enviando}
+                                onClick={() =>
+                                    setConfirmacion("bloquear")
+                                }
+                                className="inline-flex items-center justify-center gap-2 rounded-lg border border-error/10 bg-error/10 px-3 py-2 text-xs font-semibold text-error transition hover:bg-error/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                <Icono
+                                    nombre="bloquear"
+                                    className="h-3.5 w-3.5"
+                                />
+                                {usuario.activa === false
+                                    ? "Revocar sessions"
+                                    : "Bloquejar compte"}
+                            </button>
+                        )}
 
-                                <div className="mt-3 flex flex-wrap items-center gap-2">
-                                    <EstadoCuenta activa={usuario.activa} />
-
-                                    <span className="rounded-full border border-border bg-background px-3 py-1 text-xs text-neutral">
-                                        {nombreRol(usuario.rol)}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className="flex flex-wrap gap-2">
+                        {capacidades.desbloquear &&
+                            usuario.activa !== true && (
                                 <button
                                     type="button"
-                                    onClick={actualizarFicha}
                                     disabled={enviando}
-                                    className={BOTON}
+                                    onClick={() =>
+                                        setConfirmacion("desbloquear")
+                                    }
+                                    className={BOTON_PRINCIPAL}
                                 >
-                                    Actualitzar
+                                    <Icono
+                                        nombre="desbloquear"
+                                        className="h-3.5 w-3.5"
+                                    />
+                                    {usuario.activa === false
+                                        ? "Desbloquejar compte"
+                                        : "Activar compte"}
                                 </button>
+                            )}
+                    </div>
 
-                                {capacidades.bloquear && (
-                                    <button
-                                        type="button"
-                                        disabled={enviando}
-                                        onClick={() =>
-                                            setConfirmacion("bloquear")
+                    {confirmacion && (
+                        <section
+                            className={`${SUPERFICIE} p-5`}
+                            aria-labelledby="confirmacio-compte"
+                            aria-busy={enviando}
+                        >
+                            <div className="flex items-start gap-3">
+                                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                    <Icono
+                                        nombre={
+                                            confirmacion === "bloquear"
+                                                ? "bloquear"
+                                                : "desbloquear"
                                         }
-                                        className="rounded-lg border border-error/30 bg-error/10 px-4 py-2.5 text-sm font-semibold text-error transition hover:bg-error/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error disabled:cursor-not-allowed disabled:opacity-50"
+                                    />
+                                </span>
+
+                                <div>
+                                    <h2
+                                        id="confirmacio-compte"
+                                        className="text-sm font-bold text-neutral-titulos"
                                     >
-                                        {usuario.activa === false
-                                            ? "Revocar sessions"
-                                            : "Bloquejar usuari"}
-                                    </button>
-                                )}
+                                        {confirmacion === "bloquear"
+                                            ? usuario.activa === false
+                                                ? "Revocar les sessions del compte bloquejat?"
+                                                : "Bloquejar aquest usuari?"
+                                            : "Activar l’accés d’aquest usuari?"}
+                                    </h2>
 
-                                {capacidades.desbloquear &&
-                                    usuario.activa !== true && (
-                                        <button
-                                            type="button"
-                                            disabled={enviando}
-                                            onClick={() =>
-                                                setConfirmacion("desbloquear")
-                                            }
-                                            className={BOTON}
-                                        >
-                                            {usuario.activa === false
-                                                ? "Desbloquejar usuari"
-                                                : "Activar compte"}
-                                        </button>
-                                    )}
-                            </div>
-                        </div>
-
-                        {confirmacion && (
-                            <div
-                                className="mt-5 rounded-lg border border-border bg-background p-4"
-                                role="region"
-                                aria-labelledby="confirmacio-compte"
-                                aria-busy={enviando}
-                            >
-                                <h3
-                                    id="confirmacio-compte"
-                                    className="font-semibold text-neutral-titulos"
-                                >
-                                    {confirmacion === "bloquear"
-                                        ? usuario.activa === false
-                                            ? "Revocar les sessions del compte bloquejat?"
-                                            : "Bloquejar aquest usuari?"
-                                        : "Activar l’accés d’aquest usuari?"}
-                                </h3>
-
-                                <p className="mt-2 text-sm text-neutral">
-                                    {confirmacion === "bloquear"
-                                        ? "El compte quedarà bloquejat i es revocaran les sessions actives. L’usuari no podrà iniciar sessió."
-                                        : "L’usuari podrà tornar a iniciar sessió. Les sessions anteriors es revocaran i no es recuperaran."}
-                                </p>
-
-                                <div className="mt-4 flex flex-wrap gap-2">
-                                    <button
-                                        type="button"
-                                        disabled={enviando}
-                                        onClick={() => void ejecutarAccion()}
-                                        className="rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
-                                    >
-                                        {enviando
-                                            ? "Processant..."
-                                            : "Confirmar"}
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        disabled={enviando}
-                                        onClick={() => setConfirmacion(null)}
-                                        className={BOTON}
-                                    >
-                                        Cancel·lar
-                                    </button>
+                                    <p className="mt-2 max-w-3xl text-xs leading-relaxed text-neutral">
+                                        {confirmacion === "bloquear"
+                                            ? "El compte quedarà bloquejat i es revocaran les sessions actives. L’usuari no podrà iniciar sessió."
+                                            : "L’usuari podrà tornar a iniciar sessió. Les sessions anteriors es revocaran i no es recuperaran."}
+                                    </p>
                                 </div>
                             </div>
-                        )}
+
+                            <div className="mt-4 flex flex-wrap justify-end gap-2">
+                                <button
+                                    type="button"
+                                    disabled={enviando}
+                                    onClick={() => setConfirmacion(null)}
+                                    className={BOTON}
+                                >
+                                    Cancel·lar
+                                </button>
+
+                                <button
+                                    type="button"
+                                    disabled={enviando}
+                                    onClick={() => void ejecutarAccion()}
+                                    className={BOTON_PRINCIPAL}
+                                >
+                                    {enviando ? "Processant..." : "Confirmar"}
+                                </button>
+                            </div>
+                        </section>
+                    )}
+
+                    <section className={`${SUPERFICIE} relative overflow-hidden`}>
+                        <div
+                            className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-primary/10"
+                            aria-hidden="true"
+                        />
+
+                        <div className="relative flex flex-col gap-6 p-5 md:p-7 xl:flex-row xl:items-center xl:justify-between">
+                            <div className="flex min-w-0 flex-1 flex-col gap-4 sm:flex-row sm:items-center">
+                                <div className="relative w-fit shrink-0">
+                                    <div
+                                        className="flex h-20 w-20 items-center justify-center rounded-2xl bg-primary text-3xl font-bold tracking-tight text-white shadow-sm md:h-24 md:w-24 md:text-4xl"
+                                        aria-hidden="true"
+                                    >
+                                        {iniciales(usuario)}
+                                    </div>
+
+                                    <span
+                                        className={`absolute -bottom-1 -right-1 h-5 w-5 rounded-full border-[3px] border-white [.oscuro_&]:border-card ${
+                                            usuario.activa === true
+                                                ? "bg-secondary"
+                                                : usuario.activa === false
+                                                  ? "bg-error"
+                                                  : "bg-neutral"
+                                        }`}
+                                        aria-hidden="true"
+                                    />
+                                </div>
+
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                                        <h2 className="break-words text-xl font-bold tracking-tight text-neutral-titulos md:text-2xl">
+                                            {nombreCompleto(usuario)}
+                                        </h2>
+
+                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary/20 px-2.5 py-1 text-[10px] font-bold text-primary">
+                                            <Icono
+                                                nombre="escudo"
+                                                className="h-3 w-3"
+                                            />
+                                            {nombreRol(usuario.rol)}
+                                        </span>
+                                    </div>
+
+                                    <div className="mt-2">
+                                        <EstadoCuenta activa={usuario.activa} />
+                                    </div>
+
+                                    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-[11px] text-neutral">
+                                        <span className="inline-flex min-w-0 items-center gap-1.5">
+                                            <Icono
+                                                nombre="correo"
+                                                className="h-3.5 w-3.5 text-primary"
+                                            />
+                                            <span className="break-all">
+                                                {usuario.email ||
+                                                    "Sense correu electrònic"}
+                                            </span>
+                                        </span>
+
+                                        {usuario.curso && (
+                                            <span className="inline-flex items-center gap-1.5">
+                                                <Icono
+                                                    nombre="estudios"
+                                                    className="h-3.5 w-3.5 text-primary"
+                                                />
+                                                {usuario.curso}
+                                            </span>
+                                        )}
+
+                                        {usuario.ano_academico && (
+                                            <span className="inline-flex items-center gap-1.5">
+                                                <Icono
+                                                    nombre="calendario"
+                                                    className="h-3.5 w-3.5 text-primary"
+                                                />
+                                                {usuario.ano_academico}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    <div className="mt-3 flex min-w-0 items-start gap-2">
+                                        <span className="pt-1 text-[9px] font-semibold uppercase tracking-wider text-neutral">
+                                            UUID
+                                        </span>
+
+                                        <span className="min-w-0 break-all rounded bg-[#eef3ff] px-2 py-1 font-mono text-[10px] text-neutral [.oscuro_&]:bg-background">
+                                            {usuario.id}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid shrink-0 gap-3 sm:grid-cols-2 xl:w-72">
+                                <div className="rounded-xl bg-white/70 p-3 [.oscuro_&]:bg-background/60">
+                                    <div className="mb-2 flex items-center justify-between gap-2 text-[10px] text-neutral">
+                                        Data de registre
+                                        <Icono
+                                            nombre="calendario"
+                                            className="h-3.5 w-3.5 text-primary"
+                                        />
+                                    </div>
+
+                                    <p className="text-xs font-semibold text-neutral-titulos">
+                                        {fecha(usuario.fecha_creacion)}
+                                    </p>
+                                </div>
+
+                                <div className="rounded-xl bg-white/70 p-3 [.oscuro_&]:bg-background/60">
+                                    <div className="mb-2 flex items-center justify-between gap-2 text-[10px] text-neutral">
+                                        Última actualització
+                                        <Icono
+                                            nombre="reloj"
+                                            className="h-3.5 w-3.5 text-primary"
+                                        />
+                                    </div>
+
+                                    <p className="text-xs font-semibold text-neutral-titulos">
+                                        {fecha(usuario.fecha_actualizacion)}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                     </section>
 
                     <nav
@@ -1239,12 +1705,16 @@ export default function Detalle({
                                 aria-pressed={seccion === opcion.id}
                                 disabled={enviando}
                                 onClick={() => setSeccion(opcion.id)}
-                                className={`rounded-lg border px-4 py-2.5 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50 ${
+                                className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50 ${
                                     seccion === opcion.id
-                                        ? "border-primary/30 bg-primary/10 text-primary"
-                                        : "border-border bg-card text-neutral hover:bg-primary/5"
+                                        ? "border-primary bg-primary text-white shadow-sm"
+                                        : "border-border/30 bg-white text-neutral-titulos hover:border-primary/20 hover:bg-primary/5 in-[.oscuro_&]:bg-card"
                                 }`}
                             >
+                                <Icono
+                                    nombre={opcion.icono}
+                                    className="h-3.5 w-3.5"
+                                />
                                 {opcion.nombre}
                             </button>
                         ))}
@@ -1264,9 +1734,11 @@ export default function Detalle({
                     )}
                 </>
             ) : (
-                <p className="text-sm text-error" role="alert">
-                    No s’ha pogut interpretar la fitxa de l’usuari.
-                </p>
+                <div className={`${SUPERFICIE} p-5`}>
+                    <p className="text-sm text-error" role="alert">
+                        No s’ha pogut interpretar la fitxa de l’usuari.
+                    </p>
+                </div>
             )}
         </div>
     );

@@ -22,37 +22,52 @@ const CABECERAS_CORS = new Set([
 ]);
 
 function cargarOrigenes(): Set<string> {
-    const configuracion =
-        import.meta.env.ORIGENES_AUTORIZADOS ?? "";
+    const configuracion = String(
+        import.meta.env.ORIGENES_AUTORIZADOS ?? ""
+    ).trim();
 
-    if (
-        typeof configuracion !== "string" ||
-        !configuracion.trim()
-    ) {
+    if (!configuracion) {
         throw new Error(
             "Falta configurar ORIGENES_AUTORIZADOS."
         );
     }
 
     const origenes = new Set<string>();
+    const entradas = configuracion
+        .split(/[,\n;]+/)
+        .map((entrada) =>
+            entrada.trim().replace(/^['"]|['"]$/g, "")
+        )
+        .filter(Boolean);
 
-    for (const entrada of configuracion.split(",")) {
-        const valor = entrada.trim();
+    if (entradas.length === 0) {
+        throw new Error(
+            "ORIGENES_AUTORIZADOS no contiene ningún origen."
+        );
+    }
 
-        if (!valor) continue;
+    for (const valor of entradas) {
+        let url: URL;
 
-        const url = new URL(valor);
-
-        if (
-            !["http:", "https:"].includes(url.protocol) ||
-            url.username ||
-            url.password ||
-            url.pathname !== "/" ||
-            url.search ||
-            url.hash
-        ) {
+        try {
+            url = new URL(valor);
+        } catch {
             throw new Error(
-                "ORIGENES_AUTORIZADOS debe contener orígenes HTTP/HTTPS sin rutas ni credenciales."
+                `ORIGENES_AUTORIZADOS contiene un origen no válido: "${valor}".`
+            );
+        }
+
+        const esValido =
+            ["http:", "https:"].includes(url.protocol) &&
+            !url.username &&
+            !url.password &&
+            url.pathname === "/" &&
+            !url.search &&
+            !url.hash;
+
+        if (!esValido) {
+            throw new Error(
+                `ORIGENES_AUTORIZADOS debe contener solo orígens HTTP/HTTPS sin rutas, credencials ni query/hash. Valor inválido: "${valor}".`
             );
         }
 
@@ -61,7 +76,7 @@ function cargarOrigenes(): Set<string> {
 
     if (origenes.size === 0) {
         throw new Error(
-            "ORIGENES_AUTORIZADOS no contiene ningún origen."
+            "ORIGENES_AUTORIZADOS no contiene ningún origen válido."
         );
     }
 
