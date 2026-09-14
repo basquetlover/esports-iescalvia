@@ -1,20 +1,17 @@
 ---
-import AccesoRapido from "@components/panel/index/AccesoRapido.astro";
 import LayoutPanell from "@layouts/LayoutPanel.astro";
-import { obtenerUsuarioPorToken } from "@pages/api/sesiones/sesiones";
-const token = Astro.cookies.get("token_sesion")?.value;
-const usuario = token ? await obtenerUsuarioPorToken(token) : null;
+import ResumenPanel from "@components/panel/index/ResumenPanel";
 
-const url = new URL(Astro.request.url);
-const torneoID = url.searchParams.get("torneoID");
-// console.log("URL:", url);
-console.log("Torneo ID:", torneoID);
+const torneoID = Astro.url.searchParams.get("torneoID");
+const edicionID = torneoID
+    ? Astro.url.searchParams.get("edicionID")
+    : null;
 ---
-<LayoutPanell title="Perfil">
-    <div class="w-full p-4">
-        <h1 class="text-3xl max-md:text-2xl font-bold text-neutral-titulos">Panell d'administració</h1>
-        <p>Gestiona els teus tornejos, consulta l'activitat recent i accedeix ràpidament a les funcions princials de la plataforma.</p>
-    </div>
 
-    <AccesoRapido usuario={usuario} />
+<LayoutPanell title="Panell d'administració">
+    <ResumenPanel
+        client:load
+        torneoID={torneoID}
+        edicionID={edicionID}
+    />
 </LayoutPanell>

@@ -1,0 +1,57 @@
+import type { AccesoPanel } from "./ResumenPanel";
+
+const iconos: Record<string, string> = {
+    "crear-torneig":
+        "M280-120v-80h160v-124q-49-11-87.5-41.5T296-442q-75-9-125.5-65.5T120-640v-40q0-33 23.5-56.5T200-760h80v-80h400v80h80q33 0 56.5 23.5T840-680v40q0 76-50.5 132.5T664-442q-18 46-56.5 76.5T520-324v124h160v80zm0-408v-152h-80v40q0 38 22 68.5t58 43.5m285 93q35-35 35-85v-240H360v240q0 50 35 85t85 35 85-35m115-93q36-13 58-43.5t22-68.5v-40h-80zm-200-52",
+    usuaris:
+        "M287-527q-47-47-47-113t47-113 113-47 113 47 47 113-47 113-113 47-113-47M80-160v-112q0-33 17-62t47-44q51-26 115-44t141-18h14q6 0 12 2-8 18-13.5 37.5T404-360h-4q-71 0-127.5 18T180-306q-9 5-14.5 14t-5.5 20v32h252q6 21 16 41.5t22 38.5zm560 40-12-60q-12-5-22.5-10.5T584-204l-58 18-40-68 46-40q-2-14-2-26t2-26l-46-40 40-68 58 18q11-8 21.5-13.5T628-460l12-60h80l12 60q12 5 22.5 11t21.5 15l58-20 40 70-46 40q2 12 2 25t-2 25l46 40-40 68-58-18q-11 8-21.5 13.5T732-180l-12 60zm96.5-143.5Q760-287 760-320t-23.5-56.5T680-400t-56.5 23.5T600-320t23.5 56.5T680-240t56.5-23.5m-280-320Q480-607 480-640t-23.5-56.5T400-720t-56.5 23.5T320-640t23.5 56.5T400-560t56.5-23.5M412-240",
+    permisos:
+        "M511-160H160v-112q0-34 17.5-62.5T224-378q62-31 126-46.5T480-440v80q-56 0-111 13.5T260-306q-9 5-14.5 14t-5.5 20v32h245q4 21 10.5 41t15.5 39m209 80q-73-18-116.5-80T560-298v-102l160-80 160 80v102q0 76-43.5 138T720-80m0-84q38-18 59-55t21-79v-52l-80-40-80 40v52q0 42 21 79t59 55M367-527q-47-47-47-113t47-113 113-47 113 47 47 113-47 113-113 47-113-47m169.5-56.5Q560-607 560-640t-23.5-56.5T480-720t-56.5 23.5T400-640t23.5 56.5T480-560t56.5-23.5M720-277",
+    configuracio:
+        "m370-80-16-128q-13-5-24.5-12T307-235l-119 50L78-375l103-78q-1-7-1-13.5v-27q0-6.5 1-13.5L78-585l110-190 119 50q11-8 23-15t24-12l16-128h220l16 128q13 5 24.5 12t22.5 15l119-50 110 190-103 78q1 7 1 13.5v27q0 6.5-2 13.5l103 78-110 190-118-50q-11 8-23 15t-24 12L590-80zm70-80h79l14-106q31-8 57.5-23.5T639-327l99 41 39-68-86-65q5-14 7-29.5t2-31.5-2-31.5-7-29.5l86-65-39-68-99 42q-22-23-48.5-38.5T533-694l-13-106h-79l-14 106q-31 8-57.5 23.5T321-633l-99-41-39 68 86 64q-5 15-7 30t-2 32q0 16 2 31t7 30l-86 65 39 68 99-42q22 23 48.5 38.5T427-266zm42-180q58 0 99-41t41-99-41-99-99-41q-59 0-99.5 41T342-480t40.5 99 99.5 41m-2-140"
+};
+
+export default function AccesosPanel({
+    accesos
+}: {
+    accesos: AccesoPanel[];
+}) {
+    if (accesos.length === 0) return null;
+
+    return (
+        <section>
+            <h2 className="mb-3 text-xl font-bold text-neutral-titulos">
+                Accés ràpid
+            </h2>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                {accesos.map(acceso => (
+                    <a
+                        key={acceso.id}
+                        href={acceso.enlace}
+                        className="rounded-lg border border-border bg-card p-4 flex flex-col gap-3 hover:border-secondary hover:bg-secondary/10 focus-visible:outline-2 focus-visible:outline-secondary"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-7 w-7 fill-secondary"
+                            viewBox="0 -960 960 960"
+                            aria-hidden="true"
+                        >
+                            <path d={iconos[acceso.id]} />
+                        </svg>
+
+                        <div>
+                            <h3 className="font-semibold text-neutral-titulos">
+                                {acceso.nombre}
+                            </h3>
+
+                            <p className="mt-1 text-sm text-neutral">
+                                {acceso.descripcion}
+                            </p>
+                        </div>
+                    </a>
+                ))}
+            </div>
+        </section>
+    );
+}
