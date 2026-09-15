@@ -1,434 +1,851 @@
 import { useId } from "react";
+
 import {
-    NIVELES_ROL,
     NOMBRES_ROL,
     NOMBRES_ACCIONES,
-    ROLES_ORDENADOS,
-    obtenerNivelRequerido,
+    completarPermisosAmbito,
+    obtenerSecciones,
+    permisoPermitidoPorRol,
+    requiereConcesionExplicita,
     type AccionesPermisos,
+    type PermisosAmbito,
     type Rol,
     type SeccionPermisos,
 } from "@const/Permisos";
 
-type Props = {
-    seccion: SeccionPermisos;
+// ============================================================
+// PROPS
+// ============================================================
+
+/*
+ * Formato definitivo.
+ *
+ * Una única slide recibe TODOS los permisos generales.
+ */
+type PropsNuevo = {
     rolGeneral: Rol | null;
-    valor: AccionesPermisos;
-    accesoPanel: boolean;
+
+    valor: PermisosAmbito;
+
     soloLectura?: boolean;
     bloqueado?: boolean;
-    onCambiar: (valor: AccionesPermisos) => void;
+
+    onCambiar: (
+        valor: PermisosAmbito,
+    ) => void;
 };
 
-const DESCRIPCIONES_SECCIONES: Record<string, string> = {
-    panell:
-        "Define si l'usuari pot entrar al panell d'administració.",
-    tornejos:
-        "Configura la consulta dels tornejos i la creació de nous tornejos.",
-    usuaris:
-        "Defineix les accions disponibles sobre els comptes dels usuaris.",
-    permisos:
-        "Configura les accions de gestió dels accessos al panell.",
-    configuracio:
-        "Defineix l'accés a la configuració general de la plataforma.",
+/*
+ * Compatibilidad temporal con el Asistente.tsx actual.
+ *
+ * El asistente antiguo todavía crea una slide
+ * por sección y pasa AccionesPermisos.
+ *
+ * Cuando lleguemos a Asistente.tsx esta interfaz
+ * dejará de utilizarse.
+ */
+type PropsLegacy = {
+    seccion: SeccionPermisos;
+
+    rolGeneral: Rol | null;
+
+    valor: AccionesPermisos;
+
+    /*
+     * Ya no se utiliza.
+     *
+     * Se conserva únicamente para que el Asistente
+     * antiguo siga compilando.
+     */
+    accesoPanel: boolean;
+
+    soloLectura?: boolean;
+    bloqueado?: boolean;
+
+    onCambiar: (
+        valor: AccionesPermisos,
+    ) => void;
 };
 
-const DESCRIPCIONES_ACCIONES: Record<string, Record<string, string>> = {
-    panell: {
-        ver:
-            "Permet entrar al panell d'administració. És necessari per mantenir aquest accés.",
-    },
-    tornejos: {
-        ver:
-            "Permet consultar la secció general de tornejos. L'accés a cada torneig depèn de les seves assignacions.",
-        crear:
-            "Permet crear nous tornejos a la plataforma.",
-    },
-    usuaris: {
-        ver:
-            "Permet consultar el llistat d'usuaris i les seves fitxes.",
-        bloquear:
-            "Permet bloquejar un compte i impedir que continuï utilitzant la seva sessió.",
-        desbloquear:
-            "Permet tornar a activar un compte bloquejat.",
-    },
-    permisos: {
-        ver:
-            "Permet consultar els usuaris amb accés al panell i els seus permisos.",
-        crear:
-            "Permet concedir accés al panell a usuaris registrats.",
-        editar:
-            "Permet modificar les assignacions i els permisos que pugui gestionar.",
-        eliminar:
-            "Permet retirar l'accés administratiu sense eliminar el compte de l'usuari.",
-    },
-    configuracio: {
-        ver:
-            "Permet consultar la configuració general de la plataforma.",
-        editar:
-            "Permet modificar els paràmetres de configuració disponibles.",
-    },
-};
+type Props =
+    | PropsNuevo
+    | PropsLegacy;
 
-export default function PasoGeneral({
-    seccion,
-    rolGeneral,
-    valor,
-    accesoPanel,
-    soloLectura = false,
-    bloqueado = false,
-    onCambiar,
-}: Props) {
-    const baseID = useId();
-    const tituloID = `${baseID}-titulo`;
+// ============================================================
+// HELPERS
+// ============================================================
 
-    const nivelUsuario = rolGeneral
-        ? NIVELES_ROL[rolGeneral]
-        : -1;
+function esLegacy(
+    props: Props,
+): props is PropsLegacy {
+    return (
+        "seccion" in props
+    );
+}
 
-    const desactivado = soloLectura || bloqueado;
-    const esAccesoPanel = seccion.id === "panell";
+function nombrePermiso(
+    accion: string,
+) {
+    return (
+        NOMBRES_ACCIONES[
+            accion
+        ] ?? accion
+    );
+}
 
-    const activados = seccion.acciones.filter(
-        (accion) =>
-            valor[accion] === true &&
-            nivelUsuario >= obtenerNivelRequerido(seccion.id, accion),
-    ).length;
+const DESCRIPCIONES:
+    Record<
+        string,
+        Record<
+            string,
+            string
+        >
+    > = {
+        tornejos: {
+            ver:
+                "Permet consultar la gestió general dels tornejos.",
 
-    function cambiarAccion(accion: string) {
-        if (desactivado || !seccion.acciones.includes(accion)) {
-            return;
-        }
+            crear:
+                "Permet crear nous tornejos a la plataforma.",
+        },
 
-        const actual = valor[accion] === true;
-        const nivelRequerido = obtenerNivelRequerido(
-            seccion.id,
-            accion,
+        usuaris: {
+            ver:
+                "Permet consultar els comptes registrats.",
+
+            bloquear:
+                "Permet bloquejar comptes d'usuaris que pugui gestionar.",
+
+            desbloquear:
+                "Permet tornar a activar comptes bloquejats que pugui gestionar.",
+        },
+
+        permisos: {
+            ver:
+                "Permet consultar usuaris amb accés administratiu i la seva configuració.",
+
+            crear:
+                "Permet concedir accés administratiu a altres usuaris dins dels límits del seu rol.",
+
+            editar:
+                "Permet modificar rols, tornejos i permisos d'usuaris de nivell inferior.",
+
+            eliminar:
+                "Permet retirar completament l'accés administratiu d'usuaris que pugui gestionar.",
+        },
+
+        configuracio: {
+            ver:
+                "Permet consultar la configuració general de la plataforma.",
+
+            editar:
+                "Permet modificar la configuració general de la plataforma.",
+        },
+    };
+
+// ============================================================
+// COMPONENTE
+// ============================================================
+
+export default function PasoGeneral(
+    props: Props,
+) {
+    const tituloID =
+        useId();
+
+    const rolGeneral =
+        props.rolGeneral;
+
+    const soloLectura =
+        props.soloLectura ??
+        false;
+
+    const bloqueado =
+        props.bloqueado ??
+        false;
+
+    const desactivado =
+        soloLectura ||
+        bloqueado;
+
+    const desarrollador =
+        rolGeneral ===
+        "desarrollador";
+
+    const legacy =
+        esLegacy(props);
+
+    /*
+     * Nuevo modo:
+     * todas las secciones configurables.
+     *
+     * Modo antiguo:
+     * solo la sección que todavía manda Asistente.
+     */
+    const secciones =
+        legacy
+            ? [props.seccion]
+            : [
+                  ...obtenerSecciones(
+                      "general",
+                      true,
+                  ),
+              ];
+
+    /*
+     * El panell sigue existiendo internamente,
+     * pero nunca debe aparecer como permiso
+     * configurable.
+     */
+    const seccionesConfigurables =
+        secciones.filter(
+            (seccion) =>
+                seccion.id !==
+                    "panell" &&
+                seccion.configurable !==
+                    false,
         );
 
-        // Un valor antiguo incompatible puede desactivarse,
-        // pero no volver a activarse sin el nivel necesario.
-        if (!actual && nivelUsuario < nivelRequerido) {
+    const valorCompleto:
+        PermisosAmbito =
+        legacy
+            ? {
+                  [props.seccion.id]:
+                      props.valor,
+              }
+            : props.valor;
+
+    /*
+     * Rellena cualquier booleano ausente según
+     * las reglas actuales.
+     *
+     * - permisos normales: valor por defecto
+     * - sensibles: false
+     * - desarrollador: todo true
+     */
+    const permisos =
+        completarPermisosAmbito(
+            "general",
+            rolGeneral,
+            valorCompleto,
+        );
+
+    const filas =
+        seccionesConfigurables.flatMap(
+            (seccion) =>
+                seccion.acciones.map(
+                    (accion) => ({
+                        seccion,
+                        accion,
+
+                        permitido:
+                            permisoPermitidoPorRol(
+                                "general",
+                                rolGeneral,
+                                seccion.id,
+                                accion,
+                            ),
+
+                        sensible:
+                            requiereConcesionExplicita(
+                                "general",
+                                seccion.id,
+                                accion,
+                            ),
+
+                        activo:
+                            permisos[
+                                seccion.id
+                            ]?.[
+                                accion
+                            ] === true,
+                    }),
+                ),
+        );
+
+    /*
+     * No mostramos permisos imposibles para el rol.
+     *
+     * Por ejemplo:
+     * - Staff
+     * - Administrador de torneo
+     *
+     * no tienen configuración general disponible.
+     */
+    const filasDisponibles =
+        filas.filter(
+            (fila) =>
+                fila.permitido,
+        );
+
+    function cambiar(
+        seccionID: string,
+        accion: string,
+        activado: boolean,
+    ) {
+        if (
+            desactivado ||
+            desarrollador
+        ) {
             return;
         }
 
-        onCambiar({
-            ...valor,
-            [accion]: !actual,
+        if (
+            !permisoPermitidoPorRol(
+                "general",
+                rolGeneral,
+                seccionID,
+                accion,
+            )
+        ) {
+            return;
+        }
+
+        /*
+         * Compatibilidad temporal.
+         */
+        if (legacy) {
+            if (
+                props.seccion.id !==
+                seccionID
+            ) {
+                return;
+            }
+
+            props.onCambiar({
+                ...props.valor,
+
+                [accion]:
+                    activado,
+            });
+
+            return;
+        }
+
+        props.onCambiar({
+            ...props.valor,
+
+            [seccionID]: {
+                ...props.valor[
+                    seccionID
+                ],
+
+                [accion]:
+                    activado,
+            },
         });
     }
 
-    return (
-        <section
-            aria-labelledby={tituloID}
-            className="space-y-7 text-neutral"
-        >
-            <header className="border-b border-border pb-5">
-                <div className="mb-3 flex flex-wrap items-center gap-2">
-                    <span
-                        aria-hidden="true"
+    // ========================================================
+    // COMPATIBILIDAD: SLIDE ANTIGUA panell
+    // ========================================================
+
+    /*
+     * Hasta actualizar Asistente.tsx seguirá existiendo
+     * temporalmente el paso general:panell.
+     *
+     * En vez de mostrar una checkbox, explicamos que el
+     * acceso ya es implícito.
+     */
+    if (
+        legacy &&
+        props.seccion.id ===
+            "panell"
+    ) {
+        return (
+            <section
+                aria-labelledby={
+                    tituloID
+                }
+                className="space-y-7 text-neutral"
+            >
+                <header className="border-b border-border pb-5">
+                    <p className="mb-3 text-xs font-medium tracking-wide">
+                        PERMISOS GENERALS
+                    </p>
+
+                    <h2
+                        id={tituloID}
                         className="
-                            flex h-8 w-8 items-center justify-center
-                            rounded-lg border border-border bg-card
+                            text-xl font-semibold
+                            tracking-tight
+                            text-neutral-titulos
                         "
                     >
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.6"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="h-4 w-4"
-                        >
-                            <rect x="3" y="3" width="7" height="7" rx="1.5" />
-                            <rect x="14" y="3" width="7" height="7" rx="1.5" />
-                            <rect x="3" y="14" width="7" height="7" rx="1.5" />
-                            <rect x="14" y="14" width="7" height="7" rx="1.5" />
-                        </svg>
-                    </span>
+                        Accés al panell
+                    </h2>
 
-                    <span className="text-xs font-medium tracking-wide">
-                        PERMISOS GENERALS
-                    </span>
+                    <p className="mt-2 max-w-2xl text-sm leading-6">
+                        Aquest accés ja no es configura manualment.
+                    </p>
+                </header>
+
+                <div
+                    className="
+                        flex items-start gap-3
+                        rounded-xl border
+                        border-border
+                        bg-card p-5
+                    "
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.7"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="mt-0.5 h-5 w-5 shrink-0"
+                        aria-hidden="true"
+                    >
+                        <path d="m5 12 4 4L19 6" />
+                    </svg>
+
+                    <div>
+                        <h3 className="text-sm font-semibold text-neutral-titulos">
+                            Accés implícit
+                        </h3>
+
+                        <p className="mt-1 text-sm leading-6">
+                            Assignar un rol administratiu ja concedeix
+                            l&apos;entrada al panell. Per tant, no existeix
+                            cap permís independent per activar o
+                            desactivar aquest accés.
+                        </p>
+
+                        <p className="mt-2 text-xs leading-5">
+                            Per retirar completament l&apos;accés
+                            administratiu s&apos;ha d&apos;utilitzar
+                            l&apos;acció «Retirar» de la gestió
+                            d&apos;usuaris.
+                        </p>
+                    </div>
                 </div>
+            </section>
+        );
+    }
+
+    // ========================================================
+    // RENDER
+    // ========================================================
+
+    return (
+        <section
+            aria-labelledby={
+                tituloID
+            }
+            className="space-y-7 text-neutral"
+        >
+            {/* CABECERA */}
+
+            <header className="border-b border-border pb-5">
+                <p className="mb-3 text-xs font-medium tracking-wide">
+                    PERMISOS GENERALS
+                </p>
 
                 <h2
                     id={tituloID}
-                    className="text-xl font-semibold tracking-tight"
+                    className="
+                        text-xl font-semibold
+                        tracking-tight
+                        text-neutral-titulos
+                    "
                 >
-                    {seccion.nombre}
+                    Configuració general
                 </h2>
 
-                <p className="mt-2 max-w-2xl text-sm leading-6">
-                    {DESCRIPCIONES_SECCIONES[seccion.id] ||
-                        "Configura les accions disponibles en aquesta secció general."}
+                <p className="mt-2 max-w-3xl text-sm leading-6">
+                    Configura els permisos generals de la plataforma.
+                    El rol determina quins permisos poden existir i
+                    aquesta taula només permet concedir-los o
+                    retirar-los dins d&apos;aquest límit.
                 </p>
             </header>
 
+            {/* ROL */}
+
             <div
                 className="
-                    flex flex-col gap-4 rounded-xl
-                    border border-border bg-card p-4
-                    sm:flex-row sm:items-center sm:justify-between
+                    flex flex-col gap-3
+                    rounded-xl border
+                    border-border bg-card
+                    p-4
+                    sm:flex-row
+                    sm:items-center
+                    sm:justify-between
                 "
             >
                 <div>
-                    <p className="text-xs">Rol general aplicable</p>
+                    <p className="text-xs">
+                        Rol general
+                    </p>
 
-                    <p className="mt-1 text-sm font-semibold">
+                    <p className="mt-1 text-sm font-semibold text-neutral-titulos">
                         {rolGeneral
-                            ? NOMBRES_ROL[rolGeneral]
+                            ? NOMBRES_ROL[
+                                  rolGeneral
+                              ]
                             : "Pendent d'assignació"}
                     </p>
                 </div>
 
-                <span
-                    className="
-                        self-start rounded-full border
-                        border-border bg-background px-3 py-1.5
-                        text-xs sm:self-center
-                    "
-                >
-                    {activados} de {seccion.acciones.length} accions
-                    habilitades pel rol
-                </span>
+                {desarrollador && (
+                    <span
+                        className="
+                            self-start rounded-full
+                            border border-border
+                            bg-background
+                            px-3 py-1.5
+                            text-xs
+                            sm:self-center
+                        "
+                    >
+                        Accés complet
+                    </span>
+                )}
             </div>
+
+            {/* SIN ROL */}
 
             {!rolGeneral && (
                 <div
                     role="status"
-                    className="rounded-xl border border-border p-4"
+                    className="
+                        rounded-xl border
+                        border-border p-5
+                    "
                 >
-                    <p className="text-sm font-semibold">
-                        Primer cal assignar un rol
-                    </p>
+                    <h3 className="text-sm font-semibold text-neutral-titulos">
+                        Falta seleccionar el rol general
+                    </h3>
 
                     <p className="mt-1 text-sm leading-6">
-                        Torna al pas de tornejos i rols. El rol general
-                        es calcularà a partir de les assignacions amb accés.
+                        Torna al pas anterior i assigna un rol abans
+                        de configurar els permisos generals.
                     </p>
                 </div>
             )}
 
-            {!esAccesoPanel && !accesoPanel && (
+            {/* SIN PERMISOS GENERALES */}
+
+            {rolGeneral &&
+                filasDisponibles.length ===
+                    0 && (
+                    <div
+                        className="
+                            rounded-xl border
+                            border-border bg-card
+                            p-5
+                        "
+                    >
+                        <h3 className="text-sm font-semibold text-neutral-titulos">
+                            Aquest rol no disposa de configuració general
+                        </h3>
+
+                        <p className="mt-1 text-sm leading-6">
+                            Els permisos d&apos;aquest usuari es
+                            configuraran únicament dins dels tornejos
+                            als quals tingui accés.
+                        </p>
+
+                        <p className="mt-2 text-xs leading-5">
+                            Aquest pas desapareixerà automàticament del
+                            flux quan actualitzem l&apos;assistent.
+                        </p>
+                    </div>
+                )}
+
+            {/* TABLA */}
+
+            {filasDisponibles.length >
+                0 && (
                 <div
-                    role="status"
-                    className="rounded-xl border border-border p-4"
+                    className="
+                        overflow-hidden
+                        rounded-xl border
+                        border-border
+                    "
                 >
-                    <p className="text-sm font-semibold">
-                        L'accés general al panell està desactivat
-                    </p>
+                    <div className="overflow-x-auto">
+                        <table className="w-full min-w-180 text-left">
+                            <thead
+                                className="
+                                    border-b
+                                    border-border
+                                    bg-card
+                                    text-xs
+                                "
+                            >
+                                <tr>
+                                    <th
+                                        scope="col"
+                                        className="px-4 py-3.5 font-semibold"
+                                    >
+                                        Secció
+                                    </th>
 
-                    <p className="mt-1 text-sm leading-6">
-                        Pots preparar aquesta configuració, però les
-                        accions no seran accessibles fins que activis
-                        l'entrada al panell.
-                    </p>
+                                    <th
+                                        scope="col"
+                                        className="px-4 py-3.5 font-semibold"
+                                    >
+                                        Permís
+                                    </th>
+
+                                    <th
+                                        scope="col"
+                                        className="px-4 py-3.5 font-semibold"
+                                    >
+                                        Regla del rol
+                                    </th>
+
+                                    <th
+                                        scope="col"
+                                        className="px-4 py-3.5 text-center font-semibold"
+                                    >
+                                        Personalitzat
+                                    </th>
+                                </tr>
+                            </thead>
+
+                            <tbody className="divide-y divide-border">
+                                {filasDisponibles.map(
+                                    ({
+                                        seccion,
+                                        accion,
+                                        sensible,
+                                        activo,
+                                    }) => {
+                                        const id =
+                                            `${tituloID}-${seccion.id}-${accion}`;
+
+                                        const descripcion =
+                                            DESCRIPCIONES[
+                                                seccion.id
+                                            ]?.[
+                                                accion
+                                            ] ??
+                                            `Permet utilitzar l'acció «${nombrePermiso(
+                                                accion,
+                                            )}» en aquesta secció.`;
+
+                                        return (
+                                            <tr
+                                                key={`${seccion.id}:${accion}`}
+                                                className="
+                                                    align-top
+                                                    transition-colors
+                                                    hover:bg-card/30
+                                                "
+                                            >
+                                                {/* SECCIÓN */}
+
+                                                <td className="px-4 py-4">
+                                                    <p className="text-sm font-semibold text-neutral-titulos">
+                                                        {
+                                                            seccion.nombre
+                                                        }
+                                                    </p>
+                                                </td>
+
+                                                {/* PERMISO */}
+
+                                                <td className="px-4 py-4">
+                                                    <label
+                                                        htmlFor={
+                                                            id
+                                                        }
+                                                        className="block"
+                                                    >
+                                                        <span className="text-sm font-semibold text-neutral-titulos">
+                                                            {nombrePermiso(
+                                                                accion,
+                                                            )}
+                                                        </span>
+
+                                                        <span className="mt-1 block max-w-xl text-xs leading-5">
+                                                            {
+                                                                descripcion
+                                                            }
+                                                        </span>
+                                                    </label>
+                                                </td>
+
+                                                {/* REGLA */}
+
+                                                <td className="px-4 py-4">
+                                                    {desarrollador ? (
+                                                        <span
+                                                            className="
+                                                                inline-flex
+                                                                rounded-full
+                                                                border
+                                                                border-border
+                                                                bg-card
+                                                                px-2.5 py-1
+                                                                text-xs
+                                                            "
+                                                        >
+                                                            Sempre concedit
+                                                        </span>
+                                                    ) : sensible ? (
+                                                        <span
+                                                            className="
+                                                                inline-flex
+                                                                rounded-full
+                                                                border
+                                                                border-border
+                                                                bg-background
+                                                                px-2.5 py-1
+                                                                text-xs
+                                                            "
+                                                        >
+                                                            Requereix concessió
+                                                        </span>
+                                                    ) : (
+                                                        <span
+                                                            className="
+                                                                inline-flex
+                                                                rounded-full
+                                                                border
+                                                                border-border
+                                                                bg-card
+                                                                px-2.5 py-1
+                                                                text-xs
+                                                            "
+                                                        >
+                                                            Inclòs pel rol
+                                                        </span>
+                                                    )}
+                                                </td>
+
+                                                {/* CHECKBOX */}
+
+                                                <td className="px-4 py-4">
+                                                    <div className="flex justify-center">
+                                                        <input
+                                                            id={
+                                                                id
+                                                            }
+                                                            type="checkbox"
+                                                            checked={
+                                                                activo
+                                                            }
+                                                            disabled={
+                                                                desactivado ||
+                                                                desarrollador
+                                                            }
+                                                            onChange={(
+                                                                evento,
+                                                            ) =>
+                                                                cambiar(
+                                                                    seccion.id,
+                                                                    accion,
+                                                                    evento
+                                                                        .target
+                                                                        .checked,
+                                                                )
+                                                            }
+                                                            aria-label={`${nombrePermiso(
+                                                                accion,
+                                                            )} · ${seccion.nombre}`}
+                                                            className="
+                                                                h-5 w-5
+                                                                shrink-0
+                                                                accent-primary
+                                                                disabled:cursor-not-allowed
+                                                                disabled:opacity-60
+                                                            "
+                                                        />
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    },
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             )}
 
-            <div className="space-y-3">
-                {seccion.acciones.map((accion) => {
-                    const accionID = `${baseID}-${accion}`;
-                    const tituloAccionID = `${accionID}-titulo`;
-                    const descripcionID = `${accionID}-descripcion`;
-                    const motivoID = `${accionID}-motivo`;
+            {/* EXPLICACIÓN */}
 
-                    const activo = valor[accion] === true;
-
-                    const nivelRequerido = obtenerNivelRequerido(
-                        seccion.id,
-                        accion,
-                    );
-
-                    const nivelSuficiente =
-                        nivelUsuario >= nivelRequerido;
-
-                    const rolMinimo = ROLES_ORDENADOS.find(
-                        (rol) => NIVELES_ROL[rol] >= nivelRequerido,
-                    );
-
-                    const noSePuedeActivar =
-                        !nivelSuficiente && !activo;
-
-                    const interruptorDesactivado =
-                        desactivado || noSePuedeActivar;
-
-                    const titulo =
-                        NOMBRES_ACCIONES[accion] || accion;
-
-                    const descripcion =
-                        DESCRIPCIONES_ACCIONES[seccion.id]?.[accion] ||
-                        `Permet utilitzar l'acció «${titulo}» en aquesta secció.`;
-
-                    const motivo = !nivelSuficiente
-                        ? !rolGeneral
-                            ? "Cal assignar un rol per habilitar aquesta acció."
-                            : rolMinimo
-                              ? `Aquesta acció requereix com a mínim el rol ${NOMBRES_ROL[rolMinimo]}.`
-                              : "Aquesta acció no està disponible amb els rols actuals."
-                        : null;
-
-                    return (
+            {filasDisponibles.length >
+                0 &&
+                !desarrollador && (
+                    <div
+                        className="
+                            grid gap-3
+                            sm:grid-cols-2
+                        "
+                    >
                         <div
-                            key={accion}
-                            className={`
-                                rounded-xl border p-4
-                                transition-colors sm:p-5
-                                ${
-                                    activo && nivelSuficiente
-                                        ? "border-neutral/35 bg-card/50"
-                                        : "border-border bg-background"
-                                }
-                            `}
+                            className="
+                                rounded-xl border
+                                border-border p-4
+                            "
                         >
-                            <div className="flex items-start justify-between gap-5">
-                                <div className="min-w-0">
-                                    <h3
-                                        id={tituloAccionID}
-                                        className="text-sm font-semibold"
-                                    >
-                                        {titulo}
-                                    </h3>
+                            <h3 className="text-sm font-semibold text-neutral-titulos">
+                                Inclòs pel rol
+                            </h3>
 
-                                    <p
-                                        id={descripcionID}
-                                        className="mt-1 max-w-xl text-xs leading-5"
-                                    >
-                                        {descripcion}
-                                    </p>
-                                </div>
-
-                                <div className="flex shrink-0 flex-col items-center gap-2">
-                                    <button
-                                        type="button"
-                                        role="switch"
-                                        aria-checked={activo}
-                                        aria-labelledby={tituloAccionID}
-                                        aria-describedby={[
-                                            descripcionID,
-                                            motivo ? motivoID : null,
-                                        ]
-                                            .filter(Boolean)
-                                            .join(" ")}
-                                        disabled={interruptorDesactivado}
-                                        onClick={() => cambiarAccion(accion)}
-                                        className={`
-                                            relative inline-flex h-7 w-12
-                                            shrink-0 items-center rounded-full
-                                            border text-neutral
-                                            transition-colors
-                                            focus-visible:outline-none
-                                            focus-visible:ring-2
-                                            focus-visible:ring-neutral/40
-                                            focus-visible:ring-offset-2
-                                            focus-visible:ring-offset-background
-                                            disabled:cursor-not-allowed
-                                            disabled:opacity-50
-                                            motion-reduce:transition-none
-                                            ${
-                                                activo
-                                                    ? "border-primary bg-primary"
-                                                    : "border-border bg-neutral/15"
-                                            }
-                                        `}
-                                    >
-                                        <span
-                                            aria-hidden="true"
-                                            className={`
-                                                block h-5 w-5 rounded-full
-                                                bg-white shadow-sm
-                                                transition-transform
-                                                motion-reduce:transition-none
-                                                ${
-                                                    activo
-                                                        ? "translate-x-6"
-                                                        : "translate-x-0.5"
-                                                }
-                                            `}
-                                        />
-                                    </button>
-
-                                    <span
-                                        aria-hidden="true"
-                                        className="text-[11px] font-medium"
-                                    >
-                                        {activo ? "Activat" : "Desactivat"}
-                                    </span>
-                                </div>
-                            </div>
-
-                            {motivo && (
-                                <div
-                                    id={motivoID}
-                                    className="
-                                        mt-4 flex items-start gap-2
-                                        border-t border-border pt-3
-                                        text-xs leading-5
-                                    "
-                                >
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="1.6"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        className="mt-0.5 h-4 w-4 shrink-0"
-                                        aria-hidden="true"
-                                    >
-                                        <rect
-                                            x="5"
-                                            y="10"
-                                            width="14"
-                                            height="11"
-                                            rx="2"
-                                        />
-                                        <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-                                    </svg>
-
-                                    <p>
-                                        {motivo}
-                                        {activo && (
-                                            <>
-                                                {" "}El valor guardat està
-                                                activat, però no és efectiu
-                                                amb aquest rol.
-                                            </>
-                                        )}
-                                    </p>
-                                </div>
-                            )}
+                            <p className="mt-1 text-xs leading-5">
+                                El permís s&apos;activa inicialment
+                                perquè forma part de les funcions
+                                habituals del rol. Pots desmarcar-lo
+                                per restringir l&apos;accés.
+                            </p>
                         </div>
-                    );
-                })}
-            </div>
 
-            {esAccesoPanel && !accesoPanel && (
-                <p className="rounded-xl border border-border bg-card p-4 text-sm leading-6">
-                    Per desar una assignació d'accés al panell,
-                    l'entrada ha d'estar activada. Si vols retirar
-                    l'accés complet, utilitza «Retirar» al llistat
-                    d'usuaris amb permisos.
-                </p>
-            )}
+                        <div
+                            className="
+                                rounded-xl border
+                                border-border p-4
+                            "
+                        >
+                            <h3 className="text-sm font-semibold text-neutral-titulos">
+                                Requereix concessió
+                            </h3>
 
-            {seccion.id === "permisos" && (
-                <p className="text-xs leading-6">
-                    Les accions de gestió també estan subjectes
-                    als límits d'assignació de rols i permisos
-                    comprovats pel servidor.
-                </p>
+                            <p className="mt-1 text-xs leading-5">
+                                És un permís sensible. Encara que el
+                                rol tingui nivell suficient, comença
+                                desactivat i s&apos;ha de concedir
+                                expressament.
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+            {/* DESARROLLADOR */}
+
+            {desarrollador && (
+                <div
+                    className="
+                        rounded-xl border
+                        border-border bg-card
+                        p-4
+                    "
+                >
+                    <p className="text-sm font-semibold text-neutral-titulos">
+                        Desenvolupador
+                    </p>
+
+                    <p className="mt-1 text-sm leading-6">
+                        Aquest rol disposa sempre de tots els permisos
+                        generals. Els permisos no es poden desactivar
+                        individualment.
+                    </p>
+                </div>
             )}
 
             <footer className="border-t border-border pt-5">
                 <p className="text-xs leading-6">
-                    Els permisos generals s'apliquen al conjunt
-                    de la plataforma. Els permisos de cada torneig
-                    es configuren als seus passos corresponents.
+                    El rol estableix el límit màxim de seguretat.
+                    Una configuració personalitzada pot retirar o
+                    concedir permisos disponibles per al rol, però
+                    mai pot superar aquest límit.
                 </p>
             </footer>
         </section>

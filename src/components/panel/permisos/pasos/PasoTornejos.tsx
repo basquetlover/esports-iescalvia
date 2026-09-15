@@ -1,4 +1,9 @@
-import { useId, useState } from "react";
+import {
+    useId,
+    useMemo,
+    useState,
+} from "react";
+
 import {
     NIVELES_ROL,
     NOMBRES_ROL,
@@ -9,10 +14,22 @@ import {
     type Rol,
 } from "@const/Permisos";
 
+// ============================================================
+// TIPOS
+// ============================================================
+
 export type TorneoDisponible = {
     id: string;
     nombre: string | null;
     deporte: string | null;
+
+    /*
+     * Rol con el que el administrador actual
+     * gestiona ESTE torneo.
+     *
+     * Sirve para calcular qué roles puede
+     * conceder dentro del torneo.
+     */
     rolAdministrador: Rol | null;
 };
 
@@ -23,54 +40,114 @@ export type RolDisponible = {
 };
 
 export type AccesosTorneos = {
-    acceso_torneos: ConfiguracionTodosTorneos;
-    torneos: Record<string, AsignacionTorneo>;
+    acceso_torneos:
+        ConfiguracionTodosTorneos;
+
+    torneos:
+        Record<
+            string,
+            AsignacionTorneo
+        >;
 };
 
 type Props = {
+    /*
+     * NUEVO.
+     *
+     * El rol general ya no se calcula utilizando
+     * los torneos. Se selecciona explícitamente.
+     *
+     * Se deja opcional temporalmente para que
+     * Asistente.tsx antiguo siga compilando hasta
+     * que lleguemos a ese archivo.
+     */
+    rolGeneral?: Rol | null;
+
     valor: AccesosTorneos;
-    torneos: readonly TorneoDisponible[];
-    roles: readonly RolDisponible[];
+
+    torneos:
+        readonly TorneoDisponible[];
+
+    roles:
+        readonly RolDisponible[];
+
     puedeConcederTodos: boolean;
+
     soloLectura?: boolean;
     bloqueado?: boolean;
-    onCambiar: (valor: AccesosTorneos) => void;
+
+    onCambiarRolGeneral?: (
+        rol: Rol,
+    ) => void;
+
+    onCambiar: (
+        valor: AccesosTorneos,
+    ) => void;
 };
 
-type TipoAcceso = "heredar" | "personalizado" | "denegado";
+// ============================================================
+// ESTILOS
+// ============================================================
 
 const campo =
-    "w-full rounded-lg border border-border bg-card px-3.5 py-3 " +
-    "text-sm text-neutral outline-none " +
+    "w-full rounded-lg border border-border bg-card " +
+    "px-3.5 py-3 text-sm text-neutral outline-none " +
     "focus:border-neutral/50 focus:ring-2 focus:ring-neutral/10 " +
     "disabled:cursor-not-allowed disabled:opacity-60";
 
-function obtenerTipo(
-    asignacion: AsignacionTorneo | undefined,
-): TipoAcceso {
-    if (!asignacion) return "heredar";
-    return asignacion.acceso ? "personalizado" : "denegado";
-}
+// ============================================================
+// HELPERS
+// ============================================================
 
-function calcularRolGeneral(valor: AccesosTorneos): Rol | null {
-    const asignados: Rol[] = [];
+function calcularRolLegacy(
+    valor: AccesosTorneos,
+): Rol | null {
+    /*
+     * Compatibilidad temporal.
+     *
+     * Desaparecerá cuando Asistente.tsx ya
+     * proporcione rolGeneral explícitamente.
+     */
+    const encontrados:
+        Rol[] = [];
 
-    if (valor.acceso_torneos.todos && valor.acceso_torneos.rol) {
-        asignados.push(valor.acceso_torneos.rol);
+    if (
+        valor.acceso_torneos.todos &&
+        valor.acceso_torneos.rol
+    ) {
+        encontrados.push(
+            valor.acceso_torneos.rol,
+        );
     }
 
-    for (const asignacion of Object.values(valor.torneos)) {
-        if (asignacion.acceso && asignacion.rol) {
-            asignados.push(asignacion.rol);
+    for (
+        const asignacion
+        of Object.values(
+            valor.torneos,
+        )
+    ) {
+        if (
+            asignacion.acceso &&
+            asignacion.rol
+        ) {
+            encontrados.push(
+                asignacion.rol,
+            );
         }
     }
 
-    return asignados.reduce<Rol | null>(
-        (menor, rol) =>
-            menor === null || NIVELES_ROL[rol] < NIVELES_ROL[menor]
-                ? rol
-                : menor,
-        null,
+    if (
+        encontrados.length === 0
+    ) {
+        return null;
+    }
+
+    return encontrados.reduce(
+        (mayor, actual) =>
+            NIVELES_ROL[actual] >
+            NIVELES_ROL[mayor]
+                ? actual
+                : mayor,
     );
 }
 
@@ -79,17 +156,32 @@ function SelectorRol({
     valor,
     opciones,
     desactivado,
+    placeholder = "Selecciona un rol",
     onCambiar,
 }: {
     etiqueta: string;
-    valor: Rol | null;
-    opciones: readonly RolDisponible[];
-    desactivado: boolean;
-    onCambiar: (rol: Rol) => void;
+
+    valor:
+        Rol | null;
+
+    opciones:
+        readonly RolDisponible[];
+
+    desactivado:
+        boolean;
+
+    placeholder?:
+        string;
+
+    onCambiar:
+        (rol: Rol) => void;
 }) {
-    const actualDisponible = opciones.some(
-        (opcion) => opcion.valor === valor,
-    );
+    const actualDisponible =
+        opciones.some(
+            (opcion) =>
+                opcion.valor ===
+                valor,
+        );
 
     return (
         <label className="block">
@@ -98,318 +190,847 @@ function SelectorRol({
             </span>
 
             <select
-                value={valor ?? ""}
-                disabled={desactivado || opciones.length === 0}
-                className={campo}
-                onChange={(evento) => {
-                    const nuevo = normalizarRol(evento.target.value);
+                value={
+                    valor ?? ""
+                }
+                disabled={
+                    desactivado ||
+                    opciones.length ===
+                        0
+                }
+                className={
+                    campo
+                }
+                onChange={(
+                    evento,
+                ) => {
+                    const nuevo =
+                        normalizarRol(
+                            evento
+                                .target
+                                .value,
+                        );
 
                     if (
-                        nuevo &&
-                        opciones.some((opcion) => opcion.valor === nuevo)
+                        !nuevo ||
+                        !opciones.some(
+                            (
+                                opcion,
+                            ) =>
+                                opcion.valor ===
+                                nuevo,
+                        )
                     ) {
-                        onCambiar(nuevo);
+                        return;
                     }
+
+                    onCambiar(
+                        nuevo,
+                    );
                 }}
             >
-                <option value="" disabled>
-                    Selecciona un rol
+                <option
+                    value=""
+                    disabled
+                >
+                    {placeholder}
                 </option>
 
-                {valor && !actualDisponible && (
-                    <option value={valor} disabled>
-                        {NOMBRES_ROL[valor]} · Rol actual
-                    </option>
-                )}
+                {valor &&
+                    !actualDisponible && (
+                        <option
+                            value={
+                                valor
+                            }
+                            disabled
+                        >
+                            {
+                                NOMBRES_ROL[
+                                    valor
+                                ]
+                            }{" "}
+                            · Rol actual
+                        </option>
+                    )}
 
-                {opciones.map((opcion) => (
-                    <option key={opcion.valor} value={opcion.valor}>
-                        {opcion.nombre}
-                    </option>
-                ))}
+                {opciones.map(
+                    (opcion) => (
+                        <option
+                            key={
+                                opcion.valor
+                            }
+                            value={
+                                opcion.valor
+                            }
+                        >
+                            {
+                                opcion.nombre
+                            }
+                        </option>
+                    ),
+                )}
             </select>
         </label>
     );
 }
 
+// ============================================================
+// COMPONENTE
+// ============================================================
+
 export default function PasoTornejos({
+    rolGeneral,
     valor,
     torneos,
     roles,
     puedeConcederTodos,
     soloLectura = false,
     bloqueado = false,
+    onCambiarRolGeneral,
     onCambiar,
 }: Props) {
-    const tituloID = useId();
-    const busquedaID = useId();
+    const tituloID =
+        useId();
 
-    const [busqueda, setBusqueda] = useState("");
-    const [soloConfigurados, setSoloConfigurados] = useState(false);
+    const busquedaID =
+        useId();
 
-    const desactivado = soloLectura || bloqueado;
-    const todos = valor.acceso_torneos.todos;
-    const rolGeneral = calcularRolGeneral(valor);
+    const [
+        busqueda,
+        setBusqueda,
+    ] = useState("");
 
-    const rolesOrdenados = [...roles].sort(
-        (a, b) => a.nivel - b.nivel,
-    );
+    const desactivado =
+        soloLectura ||
+        bloqueado;
 
-    // Las claves del documento deben estar normalizadas a minúsculas
-    // al cargarse en el asistente.
-    const torneosPorID = new Map(
-        torneos.map((torneo) => [
-            torneo.id.toLowerCase(),
-            torneo,
-        ]),
-    );
+    const todos =
+        valor.acceso_torneos
+            .todos;
 
-    const ids = [
-        ...new Set([
-            ...torneosPorID.keys(),
-            ...Object.keys(valor.torneos),
-        ]),
-    ];
+    /*
+     * Hasta actualizar Asistente.tsx:
+     *
+     * - si recibe rolGeneral, usa el nuevo sistema;
+     * - si no, muestra el resultado legacy.
+     */
+    const rolGeneralActual =
+        rolGeneral ===
+        undefined
+            ? calcularRolLegacy(
+                  valor,
+              )
+            : rolGeneral;
 
-    const consulta = busqueda.trim().toLocaleLowerCase("ca-ES");
+    const rolesOrdenados =
+        useMemo(
+            () =>
+                [...roles].sort(
+                    (a, b) =>
+                        a.nivel -
+                        b.nivel,
+                ),
+            [roles],
+        );
 
-    const visibles = ids
-        .filter((id) => {
-            const torneo = torneosPorID.get(id);
+    const torneosPorID =
+        useMemo(
+            () =>
+                new Map(
+                    torneos.map(
+                        (
+                            torneo,
+                        ) => [
+                            torneo.id.toLowerCase(),
+                            torneo,
+                        ],
+                    ),
+                ),
+            [torneos],
+        );
 
-            const texto = [
-                torneo?.nombre,
-                torneo?.deporte,
-                id,
-            ]
-                .filter(Boolean)
-                .join(" ")
-                .toLocaleLowerCase("ca-ES");
+    /*
+     * También conservamos temporalmente
+     * asignaciones antiguas cuyo torneo ya
+     * no aparezca en la configuración.
+     */
+    const idsDisponibles =
+        useMemo(
+            () => [
+                ...new Set([
+                    ...torneosPorID.keys(),
 
-            return (
-                (!consulta || texto.includes(consulta)) &&
-                (
-                    !soloConfigurados ||
-                    Object.hasOwn(valor.torneos, id)
-                )
+                    ...Object.keys(
+                        valor.torneos,
+                    ).map(
+                        (id) =>
+                            id.toLowerCase(),
+                    ),
+                ]),
+            ],
+            [
+                torneosPorID,
+                valor.torneos,
+            ],
+        );
+
+    const consulta =
+        busqueda
+            .trim()
+            .toLocaleLowerCase(
+                "ca-ES",
             );
-        })
-        .sort((a, b) => {
-            const nombreA = torneosPorID.get(a)?.nombre || a;
-            const nombreB = torneosPorID.get(b)?.nombre || b;
 
-            return nombreA.localeCompare(nombreB, "ca");
-        });
+    const idsVisibles =
+        useMemo(
+            () =>
+                idsDisponibles
+                    .filter(
+                        (id) => {
+                            const torneo =
+                                torneosPorID.get(
+                                    id,
+                                );
 
-    const personalizados = Object.values(valor.torneos).filter(
-        (asignacion) => asignacion.acceso,
-    ).length;
+                            const texto =
+                                [
+                                    torneo?.nombre,
+                                    torneo?.deporte,
+                                    id,
+                                ]
+                                    .filter(
+                                        Boolean,
+                                    )
+                                    .join(
+                                        " ",
+                                    )
+                                    .toLocaleLowerCase(
+                                        "ca-ES",
+                                    );
 
-    const excluidos = Object.values(valor.torneos).filter(
-        (asignacion) => !asignacion.acceso,
-    ).length;
+                            return (
+                                !consulta ||
+                                texto.includes(
+                                    consulta,
+                                )
+                            );
+                        },
+                    )
+                    .sort(
+                        (
+                            a,
+                            b,
+                        ) => {
+                            const nombreA =
+                                torneosPorID.get(
+                                    a,
+                                )?.nombre ||
+                                a;
 
-    function rolesParaTorneo(id: string) {
-        const rolAdministrador =
-            torneosPorID.get(id)?.rolAdministrador;
+                            const nombreB =
+                                torneosPorID.get(
+                                    b,
+                                )?.nombre ||
+                                b;
 
-        if (!rolAdministrador) return [];
+                            return nombreA.localeCompare(
+                                nombreB,
+                                "ca",
+                            );
+                        },
+                    ),
+            [
+                idsDisponibles,
+                consulta,
+                torneosPorID,
+            ],
+        );
 
+    // ========================================================
+    // ROLES DISPONIBLES
+    // ========================================================
+
+    function rolesParaTorneo(
+        id: string,
+    ): RolDisponible[] {
+        const torneo =
+            torneosPorID.get(
+                id,
+            );
+
+        const rolGestor =
+            torneo?.rolAdministrador;
+
+        if (!rolGestor) {
+            return [];
+        }
+
+        /*
+         * REGLA IMPORTANTE:
+         *
+         * estrictamente inferior.
+         *
+         * admintorneo -> staff / voluntario
+         * NO admintorneo -> admintorneo
+         */
         return rolesOrdenados.filter(
             (opcion) =>
-                opcion.nivel <= NIVELES_ROL[rolAdministrador],
+                opcion.nivel <
+                NIVELES_ROL[
+                    rolGestor
+                ],
         );
     }
 
-    function cambiarModalidad(nuevosTodos: boolean) {
-        if (desactivado || nuevosTodos === todos) return;
+    /*
+     * Para "todos los torneos", una opción
+     * solo aparece si puede concederse en
+     * TODOS los torneos actuales.
+     *
+     * El servidor volverá a comprobarlo.
+     */
+    const rolesComunes =
+        useMemo(
+            () =>
+                rolesOrdenados.filter(
+                    (opcion) => {
+                        if (
+                            torneos.length ===
+                            0
+                        ) {
+                            return true;
+                        }
 
-        if (nuevosTodos && !puedeConcederTodos) return;
+                        return torneos.every(
+                            (
+                                torneo,
+                            ) => {
+                                if (
+                                    !torneo
+                                        .rolAdministrador
+                                ) {
+                                    return false;
+                                }
 
-        const rol = nuevosTodos
-            ? valor.acceso_torneos.rol ??
-              rolesOrdenados[0]?.valor ??
-              null
-            : null;
+                                return (
+                                    opcion.nivel <
+                                    NIVELES_ROL[
+                                        torneo
+                                            .rolAdministrador
+                                    ]
+                                );
+                            },
+                        );
+                    },
+                ),
+            [
+                rolesOrdenados,
+                torneos,
+            ],
+        );
 
-        onCambiar({
-            ...valor,
-            acceso_torneos: {
-                todos: nuevosTodos,
-                rol,
-                permisos: completarPermisosAmbito("torneo", rol),
-            },
-        });
-    }
+    // ========================================================
+    // CAMBIOS: ROL GENERAL
+    // ========================================================
 
-    function cambiarRolComun(rol: Rol) {
-        if (desactivado || !todos || !puedeConcederTodos) return;
-
-        if (!rolesOrdenados.some((opcion) => opcion.valor === rol)) {
+    function cambiarRolGeneral(
+        rol: Rol,
+    ) {
+        if (
+            desactivado ||
+            !onCambiarRolGeneral
+        ) {
             return;
         }
 
-        onCambiar({
-            ...valor,
-            acceso_torneos: {
-                ...valor.acceso_torneos,
-                rol,
-                permisos: completarPermisosAmbito(
-                    "torneo",
+        if (
+            !rolesOrdenados.some(
+                (opcion) =>
+                    opcion.valor ===
                     rol,
-                    valor.acceso_torneos.rol
-                        ? valor.acceso_torneos.permisos
-                        : undefined,
-                ),
+            )
+        ) {
+            return;
+        }
+
+        onCambiarRolGeneral(
+            rol,
+        );
+    }
+
+    // ========================================================
+    // CAMBIOS: TODOS / ALGUNOS
+    // ========================================================
+
+    function seleccionarTodos() {
+        if (
+            desactivado ||
+            todos ||
+            !puedeConcederTodos
+        ) {
+            return;
+        }
+
+        /*
+         * Nuevo modelo:
+         *
+         * "Todos" utiliza una única configuración
+         * común y no mantiene excepciones creadas
+         * desde este paso.
+         *
+         * Las personalizaciones de permisos se
+         * tratarán posteriormente en las slides
+         * de cada torneo.
+         */
+        onCambiar({
+            acceso_torneos: {
+                todos: true,
+                rol: null,
+
+                permisos:
+                    completarPermisosAmbito(
+                        "torneo",
+                        null,
+                    ),
             },
+
+            torneos: {},
         });
     }
 
-    function cambiarAcceso(id: string, tipo: TipoAcceso) {
-        if (desactivado) return;
+    function seleccionarAlgunos() {
+        if (
+            desactivado ||
+            !todos
+        ) {
+            return;
+        }
 
-        const nuevasAsignaciones = { ...valor.torneos };
+        const rolAnterior =
+            valor
+                .acceso_torneos
+                .rol;
 
-        if (tipo === "heredar") {
-            delete nuevasAsignaciones[id];
-        } else if (tipo === "denegado") {
-            nuevasAsignaciones[id] = {
-                acceso: false,
-                rol: null,
-                permisos: completarPermisosAmbito("torneo", null),
-            };
-        } else {
-            const opciones = rolesParaTorneo(id);
-            if (opciones.length === 0) return;
+        const permisosAnteriores =
+            valor
+                .acceso_torneos
+                .permisos;
 
-            const anterior = nuevasAsignaciones[id];
+        const nuevasAsignaciones:
+            Record<
+                string,
+                AsignacionTorneo
+            > = {};
 
-            const candidato =
-                anterior?.rol ??
-                (
-                    todos
-                        ? valor.acceso_torneos.rol
-                        : null
+        /*
+         * Al pasar de TODOS -> ALGUNOS conservamos
+         * el acceso a los torneos actuales.
+         *
+         * Después el administrador puede
+         * desmarcar los que no quiera.
+         */
+        for (
+            const torneo
+            of torneos
+        ) {
+            const id =
+                torneo.id.toLowerCase();
+
+            const opciones =
+                rolesParaTorneo(
+                    id,
                 );
 
-            const rol =
-                opciones.find((opcion) => opcion.valor === candidato)
-                    ?.valor ??
-                opciones[0].valor;
+            const rolValido =
+                rolAnterior &&
+                opciones.some(
+                    (opcion) =>
+                        opcion.valor ===
+                        rolAnterior,
+                )
+                    ? rolAnterior
+                    : null;
 
-            nuevasAsignaciones[id] = {
+            nuevasAsignaciones[
+                id
+            ] = {
                 acceso: true,
-                rol,
-                permisos: completarPermisosAmbito(
-                    "torneo",
-                    rol,
-                    anterior?.acceso
-                        ? anterior.permisos
-                        : todos
-                          ? valor.acceso_torneos.permisos
-                          : undefined,
-                ),
+
+                rol:
+                    rolValido,
+
+                permisos:
+                    completarPermisosAmbito(
+                        "torneo",
+                        rolValido,
+                        rolValido
+                            ? permisosAnteriores
+                            : undefined,
+                    ),
             };
         }
 
         onCambiar({
-            ...valor,
-            torneos: nuevasAsignaciones,
+            acceso_torneos: {
+                todos: false,
+                rol: null,
+
+                permisos:
+                    completarPermisosAmbito(
+                        "torneo",
+                        null,
+                    ),
+            },
+
+            torneos:
+                nuevasAsignaciones,
         });
     }
 
-    function cambiarRolIndividual(id: string, rol: Rol) {
-        if (desactivado) return;
+    // ========================================================
+    // CAMBIOS: ROL COMÚN
+    // ========================================================
 
-        const asignacion = valor.torneos[id];
-        const opciones = rolesParaTorneo(id);
+    function cambiarRolComun(
+        rol: Rol,
+    ) {
+        if (
+            desactivado ||
+            !todos ||
+            !puedeConcederTodos
+        ) {
+            return;
+        }
 
         if (
-            !asignacion?.acceso ||
-            !opciones.some((opcion) => opcion.valor === rol)
+            !rolesComunes.some(
+                (opcion) =>
+                    opcion.valor ===
+                    rol,
+            )
         ) {
             return;
         }
 
         onCambiar({
             ...valor,
-            torneos: {
-                ...valor.torneos,
-                [id]: {
-                    ...asignacion,
-                    rol,
-                    permisos: completarPermisosAmbito(
+
+            acceso_torneos: {
+                ...valor.acceso_torneos,
+
+                rol,
+
+                permisos:
+                    completarPermisosAmbito(
                         "torneo",
                         rol,
-                        asignacion.rol
-                            ? asignacion.permisos
+                        valor
+                            .acceso_torneos
+                            .rol
+                            ? valor
+                                  .acceso_torneos
+                                  .permisos
                             : undefined,
                     ),
+            },
+        });
+    }
+
+    // ========================================================
+    // CAMBIOS: SELECCIÓN INDIVIDUAL
+    // ========================================================
+
+    function cambiarSeleccionTorneo(
+        idOriginal: string,
+        seleccionado: boolean,
+    ) {
+        if (
+            desactivado ||
+            todos
+        ) {
+            return;
+        }
+
+        const id =
+            idOriginal.toLowerCase();
+
+        const nuevasAsignaciones = {
+            ...valor.torneos,
+        };
+
+        if (!seleccionado) {
+            delete nuevasAsignaciones[
+                id
+            ];
+
+            onCambiar({
+                ...valor,
+
+                torneos:
+                    nuevasAsignaciones,
+            });
+
+            return;
+        }
+
+        /*
+         * Al seleccionar un torneo NO escogemos
+         * automáticamente un rol.
+         *
+         * El administrador debe decidirlo
+         * expresamente.
+         */
+        nuevasAsignaciones[
+            id
+        ] = {
+            acceso: true,
+            rol: null,
+
+            permisos:
+                completarPermisosAmbito(
+                    "torneo",
+                    null,
+                ),
+        };
+
+        onCambiar({
+            ...valor,
+
+            torneos:
+                nuevasAsignaciones,
+        });
+    }
+
+    function cambiarRolIndividual(
+        idOriginal: string,
+        rol: Rol,
+    ) {
+        if (
+            desactivado ||
+            todos
+        ) {
+            return;
+        }
+
+        const id =
+            idOriginal.toLowerCase();
+
+        const asignacion =
+            valor.torneos[
+                id
+            ];
+
+        if (
+            !asignacion?.acceso
+        ) {
+            return;
+        }
+
+        const opciones =
+            rolesParaTorneo(
+                id,
+            );
+
+        if (
+            !opciones.some(
+                (opcion) =>
+                    opcion.valor ===
+                    rol,
+            )
+        ) {
+            return;
+        }
+
+        onCambiar({
+            ...valor,
+
+            torneos: {
+                ...valor.torneos,
+
+                [id]: {
+                    ...asignacion,
+
+                    rol,
+
+                    permisos:
+                        completarPermisosAmbito(
+                            "torneo",
+                            rol,
+                            asignacion.rol
+                                ? asignacion.permisos
+                                : undefined,
+                        ),
                 },
             },
         });
     }
 
+    // ========================================================
+    // DATOS VISUALES
+    // ========================================================
+
+    const seleccionados =
+        Object.values(
+            valor.torneos,
+        ).filter(
+            (asignacion) =>
+                asignacion.acceso,
+        ).length;
+
+    const rolGeneralEditable =
+        Boolean(
+            onCambiarRolGeneral,
+        );
+
+    const desarrollador =
+        rolGeneralActual ===
+        "desarrollador";
+
+    // ========================================================
+    // RENDER
+    // ========================================================
+
     return (
         <section
-            aria-labelledby={tituloID}
-            className="space-y-7 text-neutral"
+            aria-labelledby={
+                tituloID
+            }
+            className="space-y-8 text-neutral"
         >
+            {/* =================================================
+                CABECERA
+            ================================================= */}
+
             <header className="border-b border-border pb-5">
                 <p className="mb-3 text-xs font-medium tracking-wide">
-                    ACCESSOS I ROLS
+                    ROL I TORNEJOS
                 </p>
 
                 <h2
                     id={tituloID}
-                    className="text-xl font-semibold tracking-tight"
+                    className="text-xl font-semibold tracking-tight text-neutral-titulos"
                 >
-                    A quins tornejos tindrà accés?
+                    Defineix el rol i els tornejos
                 </h2>
 
-                <p className="mt-2 max-w-2xl text-sm leading-6">
-                    Defineix l'abast de l'accés i el rol de cada
-                    assignació. Després configuraràs els permisos
-                    de cada secció.
+                <p className="mt-2 max-w-3xl text-sm leading-6">
+                    Primer assigna el rol general de l'usuari.
+                    Després indica si tindrà accés a tots els tornejos
+                    o només a alguns i selecciona el rol aplicable.
                 </p>
             </header>
 
-            <fieldset disabled={desactivado} className="space-y-3">
-                <legend className="mb-3 text-xs font-semibold">
-                    Modalitat d'accés
-                </legend>
+            {/* =================================================
+                1. ROL GENERAL
+            ================================================= */}
 
-                <div className="grid gap-3 sm:grid-cols-2">
-                    {[
-                        {
-                            activo: !todos,
-                            todos: false,
-                            titulo: "Tornejos seleccionats",
-                            descripcion:
-                                "Només podrà accedir als tornejos que assignis individualment.",
-                            disponible: true,
-                        },
-                        {
-                            activo: todos,
-                            todos: true,
-                            titulo: "Tots els tornejos",
-                            descripcion:
-                                "Inclou els tornejos actuals i els que es creïn en el futur.",
-                            disponible: puedeConcederTodos || todos,
-                        },
-                    ].map((opcion) => (
+            <div className="space-y-4">
+                <div>
+                    <p className="text-xs font-medium tracking-wide">
+                        1 · ROL GENERAL
+                    </p>
+
+                    <h3 className="mt-1 text-base font-semibold text-neutral-titulos">
+                        Rol de l'usuari
+                    </h3>
+
+                    <p className="mt-1 max-w-2xl text-sm leading-6">
+                        El rol general determina el nivell màxim
+                        disponible a la configuració general de la
+                        plataforma. Els rols dels tornejos es configuren
+                        per separat.
+                    </p>
+                </div>
+
+                <div className="max-w-lg rounded-xl border border-border bg-background p-5">
+                    <SelectorRol
+                        etiqueta="Rol general"
+                        valor={
+                            rolGeneralActual
+                        }
+                        opciones={
+                            rolesOrdenados
+                        }
+                        desactivado={
+                            desactivado ||
+                            !rolGeneralEditable
+                        }
+                        placeholder="Selecciona el rol general"
+                        onCambiar={
+                            cambiarRolGeneral
+                        }
+                    />
+
+                    {!rolGeneralEditable &&
+                        !soloLectura && (
+                            <p className="mt-3 text-xs leading-5">
+                                El selector quedarà habilitat quan
+                                l'assistent utilitzi el nou sistema
+                                de rol general explícit.
+                            </p>
+                        )}
+
+                    {desarrollador && (
+                        <div
+                            className="
+                                mt-4 rounded-lg border border-border
+                                bg-card p-3 text-xs leading-5
+                            "
+                        >
+                            El rol Desenvolupador té accés complet a
+                            la plataforma, a tots els tornejos i a tots
+                            els permisos.
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* =================================================
+                2. MODALIDAD
+            ================================================= */}
+
+            <div className="space-y-4">
+                <div>
+                    <p className="text-xs font-medium tracking-wide">
+                        2 · ABAST DELS TORNEJOS
+                    </p>
+
+                    <h3 className="mt-1 text-base font-semibold text-neutral-titulos">
+                        A quins tornejos tindrà accés?
+                    </h3>
+
+                    <p className="mt-1 max-w-2xl text-sm leading-6">
+                        Pots donar accés als tornejos actuals i futurs
+                        o seleccionar-los individualment.
+                    </p>
+                </div>
+
+                <fieldset
+                    disabled={
+                        desactivado ||
+                        desarrollador
+                    }
+                >
+                    <legend className="sr-only">
+                        Modalitat d'accés als tornejos
+                    </legend>
+
+                    <div className="grid gap-3 md:grid-cols-2">
+                        {/* ALGUNOS */}
+
                         <label
-                            key={opcion.titulo}
                             className={`
-                                flex items-start gap-3 rounded-xl
-                                border p-4 transition-colors
+                                flex items-start gap-4 rounded-xl
+                                border p-5 transition-colors
+
                                 ${
-                                    opcion.activo
+                                    !todos
                                         ? "border-primary/60 bg-card"
                                         : "border-border bg-background"
                                 }
+
                                 ${
-                                    desactivado || !opcion.disponible
+                                    desactivado || desarrollador
                                         ? "cursor-default"
                                         : "cursor-pointer hover:border-neutral/40"
                                 }
@@ -417,366 +1038,630 @@ export default function PasoTornejos({
                         >
                             <input
                                 type="radio"
-                                name={`${tituloID}-modalitat`}
-                                checked={opcion.activo}
-                                disabled={!opcion.disponible}
-                                onChange={() =>
-                                    cambiarModalidad(opcion.todos)
+                                name={`${tituloID}-abast`}
+                                checked={
+                                    !todos &&
+                                    !desarrollador
+                                }
+                                onChange={
+                                    seleccionarAlgunos
                                 }
                                 className="mt-1 h-4 w-4 shrink-0 accent-primary"
                             />
 
-                            <span>
-                                <span className="block text-sm font-semibold">
-                                    {opcion.titulo}
+                            <span className="min-w-0">
+                                <span className="block text-sm font-semibold text-neutral-titulos">
+                                    Només alguns tornejos
                                 </span>
 
                                 <span className="mt-1 block text-xs leading-5">
-                                    {opcion.descripcion}
+                                    Selecciona manualment els tornejos
+                                    als quals podrà accedir i assigna
+                                    un rol diferent a cadascun si ho
+                                    necessites.
                                 </span>
                             </span>
                         </label>
-                    ))}
-                </div>
 
-                {!soloLectura && !puedeConcederTodos && (
-                    <div
-                        role="alert"
-                        className="
-                            flex items-start gap-3
-                            rounded-xl border
-                            border-error/30
-                            bg-error-container/40
-                            p-4
-                            text-error-foreground
-                        "
-                    >
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.7"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="mt-0.5 h-5 w-5 shrink-0"
-                            aria-hidden="true"
+                        {/* TODOS */}
+
+                        <label
+                            className={`
+                                flex items-start gap-4 rounded-xl
+                                border p-5 transition-colors
+
+                                ${
+                                    todos || desarrollador
+                                        ? "border-primary/60 bg-card"
+                                        : "border-border bg-background"
+                                }
+
+                                ${
+                                    desactivado ||
+                                    desarrollador ||
+                                    !puedeConcederTodos
+                                        ? "cursor-default"
+                                        : "cursor-pointer hover:border-neutral/40"
+                                }
+                            `}
                         >
-                            <circle cx="12" cy="12" r="9" />
-                            <path d="M12 8v5" />
-                            <path d="M12 16h.01" />
-                        </svg>
+                            <input
+                                type="radio"
+                                name={`${tituloID}-abast`}
+                                checked={
+                                    todos ||
+                                    desarrollador
+                                }
+                                disabled={
+                                    !puedeConcederTodos &&
+                                    !todos
+                                }
+                                onChange={
+                                    seleccionarTodos
+                                }
+                                className="mt-1 h-4 w-4 shrink-0 accent-primary"
+                            />
 
-                        <div>
-                            <p className="text-sm font-semibold">
-                                Accés no disponible
-                            </p>
+                            <span className="min-w-0">
+                                <span className="block text-sm font-semibold text-neutral-titulos">
+                                    Tots els tornejos
+                                </span>
 
-                            <p className="mt-1 text-sm leading-6">
-                                El teu compte no pot concedir accés comú
-                                a tots els tornejos.
-                            </p>
-                        </div>
+                                <span className="mt-1 block text-xs leading-5">
+                                    Inclou tots els tornejos actuals
+                                    i també els que es creïn en el futur.
+                                </span>
+                            </span>
+                        </label>
                     </div>
-                )}
-            </fieldset>
+                </fieldset>
 
-            {todos && (
-                <div className="space-y-4 rounded-xl border border-border p-5">
+                {!soloLectura &&
+                    !desarrollador &&
+                    !puedeConcederTodos && (
+                        <div
+                            role="alert"
+                            className="
+                                flex items-start gap-3
+                                rounded-xl border
+                                border-error/30
+                                bg-error-container/40
+                                p-4
+                                text-error-foreground
+                            "
+                        >
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.7"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="mt-0.5 h-5 w-5 shrink-0"
+                                aria-hidden="true"
+                            >
+                                <circle
+                                    cx="12"
+                                    cy="12"
+                                    r="9"
+                                />
+                                <path d="M12 8v5" />
+                                <path d="M12 16h.01" />
+                            </svg>
+
+                            <div>
+                                <p className="text-sm font-semibold">
+                                    Accés no disponible
+                                </p>
+
+                                <p className="mt-1 text-sm leading-6">
+                                    El teu compte no pot concedir accés
+                                    comú a tots els tornejos.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+            </div>
+
+            {/* =================================================
+                3A. TODOS LOS TORNEOS
+            ================================================= */}
+
+            {(todos ||
+                desarrollador) && (
+                <div className="space-y-4">
                     <div>
-                        <h3 className="text-sm font-semibold">
-                            Configuració comuna
+                        <p className="text-xs font-medium tracking-wide">
+                            3 · ROL DELS TORNEJOS
+                        </p>
+
+                        <h3 className="mt-1 text-base font-semibold text-neutral-titulos">
+                            Rol comú
                         </h3>
 
-                        <p className="mt-1 text-xs leading-5">
-                            S'aplicarà als tornejos sense una excepció
-                            individual.
+                        <p className="mt-1 max-w-2xl text-sm leading-6">
+                            Aquest rol s'aplicarà a tots els tornejos
+                            actuals i futurs.
                         </p>
                     </div>
 
-                    <div className="max-w-md">
-                        <SelectorRol
-                            etiqueta="Rol comú dels tornejos"
-                            valor={valor.acceso_torneos.rol}
-                            opciones={rolesOrdenados}
-                            desactivado={
-                                desactivado || !puedeConcederTodos
-                            }
-                            onCambiar={cambiarRolComun}
-                        />
-                    </div>
+                    <div className="max-w-lg rounded-xl border border-border bg-background p-5">
+                        {desarrollador ? (
+                            <div>
+                                <p className="text-xs font-semibold">
+                                    Rol als tornejos
+                                </p>
 
-                    <p className="text-xs leading-5">
-                        Els permisos comuns es configuraran als passos
-                        següents. Un torneig amb configuració pròpia
-                        utilitzarà el seu rol i els seus permisos.
-                    </p>
+                                <p
+                                    className="
+                                        mt-2 rounded-lg border
+                                        border-border bg-card
+                                        px-3.5 py-3 text-sm
+                                        font-semibold
+                                    "
+                                >
+                                    Desenvolupador
+                                </p>
+
+                                <p className="mt-3 text-xs leading-5">
+                                    El Desenvolupador disposa de tots
+                                    els permisos en tots els tornejos.
+                                </p>
+                            </div>
+                        ) : (
+                            <SelectorRol
+                                etiqueta="Rol comú dels tornejos"
+                                valor={
+                                    valor
+                                        .acceso_torneos
+                                        .rol
+                                }
+                                opciones={
+                                    rolesComunes
+                                }
+                                desactivado={
+                                    desactivado ||
+                                    !puedeConcederTodos
+                                }
+                                placeholder="Selecciona el rol dels tornejos"
+                                onCambiar={
+                                    cambiarRolComun
+                                }
+                            />
+                        )}
+
+                        {!desarrollador &&
+                            rolesComunes.length ===
+                                0 && (
+                                <div
+                                    role="alert"
+                                    className="
+                                        mt-4 rounded-lg
+                                        border border-error/30
+                                        bg-error-container/40
+                                        p-3
+                                        text-sm
+                                        text-error-foreground
+                                    "
+                                >
+                                    No tens cap rol que puguis concedir
+                                    de manera comuna a tots els tornejos.
+                                </div>
+                            )}
+                    </div>
                 </div>
             )}
 
-            <div className="grid gap-3 sm:grid-cols-3">
-                {[
-                    {
-                        etiqueta: "Rol general resultant",
-                        contenido: rolGeneral
-                            ? NOMBRES_ROL[rolGeneral]
-                            : "Pendent d'assignació",
-                    },
-                    {
-                        etiqueta: "Configuracions individuals",
-                        contenido: String(personalizados),
-                    },
-                    {
-                        etiqueta: "Accessos denegats",
-                        contenido: String(excluidos),
-                    },
-                ].map((dato) => (
-                    <div
-                        key={dato.etiqueta}
-                        className="rounded-xl border border-border bg-card p-4"
-                    >
-                        <p className="text-xs">{dato.etiqueta}</p>
-                        <p className="mt-2 text-sm font-semibold">
-                            {dato.contenido}
-                        </p>
-                    </div>
-                ))}
-            </div>
+            {/* =================================================
+                3B. ALGUNOS TORNEOS
+            ================================================= */}
 
-            <div className="space-y-4">
-                <div>
-                    <h3 className="text-base font-semibold">
-                        {todos
-                            ? "Excepcions per torneig"
-                            : "Assignació de tornejos"}
-                    </h3>
+            {!todos &&
+                !desarrollador && (
+                    <div className="space-y-5">
+                        <div>
+                            <p className="text-xs font-medium tracking-wide">
+                                3 · TORNEJOS I ROLS
+                            </p>
 
-                    <p className="mt-1 text-sm leading-6">
-                        {todos
-                            ? "Mantén la configuració comuna, assigna una configuració pròpia o denega l'accés."
-                            : "Selecciona els tornejos als quals podrà accedir i assigna un rol a cadascun."}
-                    </p>
-                </div>
+                            <h3 className="mt-1 text-base font-semibold text-neutral-titulos">
+                                Selecciona els tornejos
+                            </h3>
 
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                    <div className="flex-1">
-                        <label
-                            htmlFor={busquedaID}
-                            className="mb-2 block text-xs font-semibold"
-                        >
-                            Cercar torneig
-                        </label>
+                            <p className="mt-1 max-w-2xl text-sm leading-6">
+                                Marca els tornejos als quals tindrà
+                                accés. Quan seleccionis un torneig
+                                hauràs d'assignar-li un rol.
+                            </p>
+                        </div>
 
-                        <input
-                            id={busquedaID}
-                            type="search"
-                            value={busqueda}
-                            onChange={(evento) =>
-                                setBusqueda(evento.target.value)
-                            }
-                            placeholder="Nom o esport"
-                            className={campo}
-                        />
-                    </div>
+                        {/* BUSCADOR */}
 
-                    <label className="flex min-h-11 items-center gap-2 text-xs">
-                        <input
-                            type="checkbox"
-                            checked={soloConfigurados}
-                            onChange={(evento) =>
-                                setSoloConfigurados(evento.target.checked)
-                            }
-                            className="h-4 w-4 accent-primary"
-                        />
-                        Només configuracions individuals
-                    </label>
-                </div>
+                        <div className="max-w-lg">
+                            <label
+                                htmlFor={
+                                    busquedaID
+                                }
+                                className="mb-2 block text-xs font-semibold"
+                            >
+                                Cercar torneig
+                            </label>
 
-                {visibles.length === 0 && (
-                    <div className="rounded-xl border border-dashed border-border p-8 text-center">
-                        <p className="text-sm font-semibold">
-                            {ids.length === 0
-                                ? "No hi ha tornejos disponibles"
-                                : "No s'han trobat coincidències"}
-                        </p>
+                            <input
+                                id={
+                                    busquedaID
+                                }
+                                type="search"
+                                value={
+                                    busqueda
+                                }
+                                onChange={(
+                                    evento,
+                                ) =>
+                                    setBusqueda(
+                                        evento
+                                            .target
+                                            .value,
+                                    )
+                                }
+                                placeholder="Nom o esport"
+                                className={
+                                    campo
+                                }
+                            />
+                        </div>
 
-                        <p className="mt-2 text-xs leading-5">
-                            {ids.length === 0
-                                ? "Aquí apareixeran els tornejos que puguis gestionar."
-                                : "Prova de canviar la cerca o el filtre."}
-                        </p>
+                        {/* SIN RESULTADOS */}
+
+                        {idsVisibles.length ===
+                            0 && (
+                            <div
+                                className="
+                                    rounded-xl border
+                                    border-dashed
+                                    border-border
+                                    p-8 text-center
+                                "
+                            >
+                                <p className="text-sm font-semibold text-neutral-titulos">
+                                    {idsDisponibles.length ===
+                                    0
+                                        ? "No hi ha tornejos disponibles"
+                                        : "No s'han trobat coincidències"}
+                                </p>
+
+                                <p className="mt-2 text-xs leading-5">
+                                    {idsDisponibles.length ===
+                                    0
+                                        ? "No hi ha cap torneig que el teu compte pugui gestionar."
+                                        : "Prova de canviar el text de la cerca."}
+                                </p>
+                            </div>
+                        )}
+
+                        {/* LISTA */}
+
+                        <div className="space-y-3">
+                            {idsVisibles.map(
+                                (id) => {
+                                    const torneo =
+                                        torneosPorID.get(
+                                            id,
+                                        );
+
+                                    const asignacion =
+                                        valor
+                                            .torneos[
+                                            id
+                                        ];
+
+                                    const seleccionado =
+                                        asignacion?.acceso ===
+                                        true;
+
+                                    const opciones =
+                                        rolesParaTorneo(
+                                            id,
+                                        );
+
+                                    const nombre =
+                                        torneo
+                                            ?.nombre
+                                            ?.trim() ||
+                                        "Torneig no disponible";
+
+                                    return (
+                                        <article
+                                            key={
+                                                id
+                                            }
+                                            className={`
+                                                overflow-hidden
+                                                rounded-xl border
+                                                transition-colors
+
+                                                ${
+                                                    seleccionado
+                                                        ? "border-neutral/40 bg-card/35"
+                                                        : "border-border bg-background"
+                                                }
+                                            `}
+                                        >
+                                            <div
+                                                className="
+                                                    flex flex-col
+                                                    gap-4 p-4
+                                                    sm:flex-row
+                                                    sm:items-center
+                                                    sm:justify-between
+                                                    sm:p-5
+                                                "
+                                            >
+                                                <label
+                                                    className={`
+                                                        flex min-w-0
+                                                        items-start gap-3
+
+                                                        ${
+                                                            desactivado ||
+                                                            opciones.length ===
+                                                                0
+                                                                ? "cursor-default"
+                                                                : "cursor-pointer"
+                                                        }
+                                                    `}
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={
+                                                            seleccionado
+                                                        }
+                                                        disabled={
+                                                            desactivado ||
+                                                            opciones.length ===
+                                                                0
+                                                        }
+                                                        onChange={(
+                                                            evento,
+                                                        ) =>
+                                                            cambiarSeleccionTorneo(
+                                                                id,
+                                                                evento
+                                                                    .target
+                                                                    .checked,
+                                                            )
+                                                        }
+                                                        className="
+                                                            mt-0.5
+                                                            h-4 w-4
+                                                            shrink-0
+                                                            accent-primary
+                                                        "
+                                                    />
+
+                                                    <span className="min-w-0">
+                                                        <span className="block wrap-break-words text-sm font-semibold text-neutral-titulos">
+                                                            {
+                                                                nombre
+                                                            }
+                                                        </span>
+
+                                                        {torneo?.deporte && (
+                                                            <span className="mt-1 block text-xs">
+                                                                {
+                                                                    torneo.deporte
+                                                                }
+                                                            </span>
+                                                        )}
+
+                                                        {!torneo && (
+                                                            <span className="mt-1 block break-all text-xs">
+                                                                {
+                                                                    id
+                                                                }
+                                                            </span>
+                                                        )}
+                                                    </span>
+                                                </label>
+
+                                                <span
+                                                    className="
+                                                        self-start
+                                                        rounded-full
+                                                        border
+                                                        border-border
+                                                        bg-background
+                                                        px-2.5 py-1
+                                                        text-xs
+                                                        sm:self-center
+                                                    "
+                                                >
+                                                    {seleccionado
+                                                        ? "Seleccionat"
+                                                        : "Sense accés"}
+                                                </span>
+                                            </div>
+
+                                            {/* ROL */}
+
+                                            {seleccionado && (
+                                                <div
+                                                    className="
+                                                        border-t
+                                                        border-border
+                                                        bg-background
+                                                        p-4 sm:p-5
+                                                    "
+                                                >
+                                                    <div className="max-w-md">
+                                                        <SelectorRol
+                                                            etiqueta="Rol en aquest torneig"
+                                                            valor={
+                                                                asignacion
+                                                                    ?.rol ??
+                                                                null
+                                                            }
+                                                            opciones={
+                                                                opciones
+                                                            }
+                                                            desactivado={
+                                                                desactivado
+                                                            }
+                                                            placeholder="Selecciona el rol"
+                                                            onCambiar={(
+                                                                rol,
+                                                            ) =>
+                                                                cambiarRolIndividual(
+                                                                    id,
+                                                                    rol,
+                                                                )
+                                                            }
+                                                        />
+                                                    </div>
+
+                                                    {asignacion &&
+                                                        !asignacion.rol && (
+                                                            <p
+                                                                role="status"
+                                                                className="
+                                                                    mt-3
+                                                                    text-xs
+                                                                    leading-5
+                                                                "
+                                                            >
+                                                                Selecciona un rol
+                                                                per continuar amb
+                                                                la configuració
+                                                                d'aquest torneig.
+                                                            </p>
+                                                        )}
+                                                </div>
+                                            )}
+
+                                            {/* SIN ROLES */}
+
+                                            {torneo &&
+                                                opciones.length ===
+                                                    0 && (
+                                                    <div
+                                                        className="
+                                                            border-t
+                                                            border-error/20
+                                                            bg-error-container/30
+                                                            p-4
+                                                            text-error-foreground
+                                                            sm:p-5
+                                                        "
+                                                    >
+                                                        <p className="text-xs leading-5">
+                                                            No pots concedir
+                                                            cap rol en aquest
+                                                            torneig perquè no
+                                                            tens un nivell
+                                                            superior a cap dels
+                                                            rols assignables.
+                                                        </p>
+                                                    </div>
+                                                )}
+
+                                            {/* ORPHAN */}
+
+                                            {!torneo && (
+                                                <div
+                                                    className="
+                                                        border-t
+                                                        border-border
+                                                        p-4 sm:p-5
+                                                    "
+                                                >
+                                                    <p className="text-xs leading-5">
+                                                        Aquesta assignació
+                                                        existeix a les dades
+                                                        de l'usuari, però
+                                                        el torneig ja no està
+                                                        disponible per al teu
+                                                        compte. No
+                                                        s'eliminarà
+                                                        automàticament mentre
+                                                        no modifiquis aquesta
+                                                        selecció.
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </article>
+                                    );
+                                },
+                            )}
+                        </div>
                     </div>
                 )}
 
-                <div className="space-y-3">
-                    {visibles.map((id) => {
-                        const torneo = torneosPorID.get(id);
-                        const asignacion = valor.torneos[id];
-                        const tipo = obtenerTipo(asignacion);
-                        const opciones = rolesParaTorneo(id);
+            {/* =================================================
+                RESUM DEL PAS
+            ================================================= */}
 
-                        const nombre =
-                            torneo?.nombre || "Torneig no disponible";
+            <div
+                className="
+                    grid gap-3
+                    border-t border-border
+                    pt-6
+                    sm:grid-cols-3
+                "
+            >
+                <div className="rounded-xl border border-border bg-card p-4">
+                    <p className="text-xs">
+                        Rol general
+                    </p>
 
-                        const rolEfectivo =
-                            tipo === "personalizado"
-                                ? asignacion?.rol
-                                : tipo === "heredar" && todos
-                                  ? valor.acceso_torneos.rol
-                                  : null;
+                    <p className="mt-2 text-sm font-semibold text-neutral-titulos">
+                        {rolGeneralActual
+                            ? NOMBRES_ROL[
+                                  rolGeneralActual
+                              ]
+                            : "Pendent d'assignació"}
+                    </p>
+                </div>
 
-                        const estado =
-                            tipo === "personalizado"
-                                ? "Configuració pròpia"
-                                : tipo === "denegado"
-                                  ? "Accés denegat"
-                                  : todos
-                                    ? "Configuració comuna"
-                                    : "Sense accés";
+                <div className="rounded-xl border border-border bg-card p-4">
+                    <p className="text-xs">
+                        Accés als tornejos
+                    </p>
 
-                        return (
-                            <article
-                                key={id}
-                                className={`
-                                    overflow-hidden rounded-xl border
-                                    ${
-                                        tipo === "personalizado"
-                                            ? "border-neutral/35"
-                                            : "border-border"
-                                    }
-                                `}
-                            >
-                                <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between sm:p-5">
-                                    <div className="min-w-0">
-                                        <h4 className="wrap-break-words text-sm font-semibold">
-                                            {nombre}
-                                        </h4>
+                    <p className="mt-2 text-sm font-semibold text-neutral-titulos">
+                        {desarrollador ||
+                        todos
+                            ? "Tots els tornejos"
+                            : seleccionados >
+                                0
+                              ? "Tornejos seleccionats"
+                              : "Cap torneig"}
+                    </p>
+                </div>
 
-                                        {torneo?.deporte && (
-                                            <p className="mt-1 text-xs">
-                                                {torneo.deporte}
-                                            </p>
-                                        )}
+                <div className="rounded-xl border border-border bg-card p-4">
+                    <p className="text-xs">
+                        Tornejos seleccionats
+                    </p>
 
-                                        {!torneo && (
-                                            <p className="mt-1 break-all text-xs">
-                                                {id}
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    <span className="self-start rounded-full border border-border bg-card px-2.5 py-1 text-xs">
-                                        {estado}
-                                    </span>
-                                </div>
-
-                                <div className="grid gap-4 border-t border-border bg-background p-4 sm:grid-cols-2 sm:p-5">
-                                    <label className="block">
-                                        <span className="mb-2 block text-xs font-semibold">
-                                            Accés al torneig
-                                        </span>
-
-                                        <select
-                                            value={tipo}
-                                            disabled={desactivado}
-                                            className={campo}
-                                            onChange={(evento) => {
-                                                const nuevo =
-                                                    evento.target.value;
-
-                                                if (
-                                                    nuevo === "heredar" ||
-                                                    nuevo === "personalizado" ||
-                                                    nuevo === "denegado"
-                                                ) {
-                                                    cambiarAcceso(id, nuevo);
-                                                }
-                                            }}
-                                        >
-                                            <option value="heredar">
-                                                {todos
-                                                    ? "Utilitzar la configuració comuna"
-                                                    : "Sense assignació"}
-                                            </option>
-
-                                            <option
-                                                value="personalizado"
-                                                disabled={opciones.length === 0}
-                                            >
-                                                Assignar configuració pròpia
-                                            </option>
-
-                                            <option value="denegado">
-                                                Denegar l'accés
-                                            </option>
-                                        </select>
-                                    </label>
-
-                                    {tipo === "personalizado" ? (
-                                        <SelectorRol
-                                            etiqueta="Rol en aquest torneig"
-                                            valor={asignacion?.rol ?? null}
-                                            opciones={opciones}
-                                            desactivado={desactivado}
-                                            onCambiar={(rol) =>
-                                                cambiarRolIndividual(id, rol)
-                                            }
-                                        />
-                                    ) : (
-                                        <div>
-                                            <p className="mb-2 text-xs font-semibold">
-                                                Rol aplicable
-                                            </p>
-
-                                            <p className="rounded-lg border border-border bg-card px-3.5 py-3 text-sm">
-                                                {rolEfectivo
-                                                    ? NOMBRES_ROL[rolEfectivo]
-                                                    : "Sense rol"}
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    {!torneo && (
-                                        <p className="text-xs leading-5 sm:col-span-2">
-                                            Aquesta assignació ja existeix,
-                                            però el torneig no apareix entre
-                                            els disponibles per al teu compte.
-                                            No se n'eliminarà la configuració
-                                            automàticament.
-                                        </p>
-                                    )}
-
-                                    {torneo &&
-                                        opciones.length === 0 &&
-                                        !soloLectura && (
-                                            <p className="text-xs leading-5 sm:col-span-2">
-                                                No tens cap rol disponible
-                                                per assignar en aquest torneig.
-                                            </p>
-                                        )}
-
-                                    {tipo === "personalizado" && (
-                                        <p className="text-xs leading-5 sm:col-span-2">
-                                            Els permisos d'aquest torneig
-                                            tindran els seus propis passos
-                                            dins de l'assistent.
-                                        </p>
-                                    )}
-                                </div>
-                            </article>
-                        );
-                    })}
+                    <p className="mt-2 text-sm font-semibold text-neutral-titulos">
+                        {desarrollador ||
+                        todos
+                            ? "Tots"
+                            : seleccionados}
+                    </p>
                 </div>
             </div>
 
-            <div className="border-t border-border pt-5">
+            <footer className="border-t border-border pt-5">
                 <p className="text-xs leading-6">
-                    El rol general es calcula amb el rol més baix
-                    de les assignacions amb accés. Si està activat
-                    l'accés a tots els tornejos, també es té en compte
-                    el rol comú. Les exclusions no participen en aquest càlcul.
+                    El rol d'un torneig sempre ha de ser
+                    estrictament inferior al rol amb què el gestor
+                    administra aquell torneig. Disposar del nivell
+                    necessari no concedeix automàticament permisos
+                    sensibles com la gestió d'accessos.
                 </p>
-            </div>
+            </footer>
         </section>
     );
 }

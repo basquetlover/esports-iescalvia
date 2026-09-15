@@ -1,4 +1,11 @@
-import { useEffect, useRef } from "react";
+import {
+    useEffect,
+    useRef,
+} from "react";
+
+// ============================================================
+// TIPOS
+// ============================================================
 
 export type PasoProgreso = {
     id: string;
@@ -7,12 +14,25 @@ export type PasoProgreso = {
 };
 
 type Props = {
-    pasos: readonly PasoProgreso[];
-    pasoActual: string;
-    pasosCompletados: readonly string[];
-    onCambiarPaso: (id: string) => void;
+    pasos:
+        readonly PasoProgreso[];
+
+    pasoActual:
+        string;
+
+    pasosCompletados:
+        readonly string[];
+
+    onCambiarPaso: (
+        id: string,
+    ) => void;
+
     bloqueado?: boolean;
 };
+
+// ============================================================
+// COMPONENTE
+// ============================================================
 
 export default function Progreso({
     pasos,
@@ -21,193 +41,370 @@ export default function Progreso({
     onCambiarPaso,
     bloqueado = false,
 }: Props) {
-    const contenedorRef = useRef<HTMLDivElement>(null);
-    const pasoActivoRef = useRef<HTMLLIElement>(null);
+    const contenedorRef =
+        useRef<HTMLDivElement>(
+            null,
+        );
 
-    const indiceActual = pasos.findIndex(
-        (paso) => paso.id === pasoActual,
-    );
+    const pasoActivoRef =
+        useRef<HTMLButtonElement>(
+            null,
+        );
 
-    const completados = new Set(pasosCompletados);
-    const actual = pasos[indiceActual];
+    const indiceActual =
+        pasos.findIndex(
+            (paso) =>
+                paso.id ===
+                pasoActual,
+        );
+
+    const completados =
+        new Set(
+            pasosCompletados,
+        );
+
+    const actual =
+        indiceActual >= 0
+            ? pasos[
+                  indiceActual
+              ]
+            : null;
+
+    // ========================================================
+    // CENTRAR PASO ACTUAL
+    // ========================================================
 
     useEffect(() => {
-        const contenedor = contenedorRef.current;
-        const elemento = pasoActivoRef.current;
+        const contenedor =
+            contenedorRef.current;
 
-        if (!contenedor || !elemento) return;
+        const elemento =
+            pasoActivoRef.current;
 
-        const marco = contenedor.getBoundingClientRect();
-        const posicion = elemento.getBoundingClientRect();
+        if (
+            !contenedor ||
+            !elemento
+        ) {
+            return;
+        }
+
+        const marco =
+            contenedor.getBoundingClientRect();
+
+        const posicion =
+            elemento.getBoundingClientRect();
 
         const destino =
             contenedor.scrollLeft +
             posicion.left -
             marco.left -
-            (marco.width - posicion.width) / 2;
+            (
+                marco.width -
+                posicion.width
+            ) /
+                2;
 
-        const movimientoReducido = window.matchMedia(
-            "(prefers-reduced-motion: reduce)",
-        ).matches;
+        const movimientoReducido =
+            window
+                .matchMedia(
+                    "(prefers-reduced-motion: reduce)",
+                )
+                .matches;
 
         contenedor.scrollTo({
-            left: Math.max(0, destino),
-            behavior: movimientoReducido ? "auto" : "smooth",
-        });
-    }, [pasoActual, pasos.length]);
+            left:
+                Math.max(
+                    0,
+                    destino,
+                ),
 
-    if (!actual) return null;
+            behavior:
+                movimientoReducido
+                    ? "auto"
+                    : "smooth",
+        });
+    }, [
+        pasoActual,
+        pasos.length,
+    ]);
+
+    if (
+        !actual ||
+        pasos.length === 0
+    ) {
+        return null;
+    }
+
+    // ========================================================
+    // RENDER
+    // ========================================================
 
     return (
         <nav
             aria-label="Passos de la configuració de permisos"
             className="w-full text-neutral"
         >
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-                <p className="text-xs font-medium tracking-wide">
-                    CONFIGURACIÓ DE PERMISOS
-                </p>
+            {/* =================================================
+                CABECERA
+            ================================================= */}
 
-                <span className="rounded-full border border-border bg-card px-3 py-1 text-xs font-medium">
-                    Pas {indiceActual + 1} de {pasos.length}
+            <div
+                className="
+                    mb-4
+                    flex flex-wrap
+                    items-center
+                    justify-between
+                    gap-3
+                "
+            >
+                <div>
+                    <p className="text-xs font-medium tracking-wide">
+                        CONFIGURACIÓ DE PERMISOS
+                    </p>
+
+                    <p className="mt-1 text-sm font-semibold text-neutral-titulos">
+                        {actual.titulo}
+                    </p>
+                </div>
+
+                <span
+                    className="
+                        rounded-full
+                        border
+                        border-border
+                        bg-card
+                        px-3 py-1.5
+                        text-xs
+                        font-medium
+                    "
+                >
+                    Pas{" "}
+                    {indiceActual + 1}{" "}
+                    de{" "}
+                    {pasos.length}
                 </span>
             </div>
 
+            {/* =================================================
+                PASOS
+            ================================================= */}
+
             <div
-                ref={contenedorRef}
-                className="overflow-x-auto overscroll-x-contain pb-3"
+                ref={
+                    contenedorRef
+                }
+                className="
+                    scroll-personalizada
+                    overflow-x-auto
+                    overscroll-x-contain
+                    pb-1
+                "
             >
-                <ol className="flex min-w-full items-start py-2">
-                    {pasos.map((paso, indice) => {
-                        const activo = paso.id === pasoActual;
-                        const completado = completados.has(paso.id);
+                <ol
+                    className="
+                        flex min-w-max
+                        items-stretch
+                        gap-2
+                    "
+                >
+                    {pasos.map(
+                        (
+                            paso,
+                            indice,
+                        ) => {
+                            const activo =
+                                paso.id ===
+                                pasoActual;
 
-                        const anteriorCompletado =
-                            indice > 0 &&
-                            completados.has(pasos[indice - 1].id);
+                            const completado =
+                                completados.has(
+                                    paso.id,
+                                );
 
-                        const circulo = activo
-                            ? "border-primary bg-card ring-4 ring-primary/10"
-                            : completado
-                              ? "border-neutral/40 bg-card"
-                              : "border-border bg-background";
+                            const anterior =
+                                indice <
+                                indiceActual;
 
-                        return (
-                            <li
-                                key={paso.id}
-                                ref={activo ? pasoActivoRef : null}
-                                className="relative min-w-36 flex-1 px-2 sm:min-w-44"
-                            >
-                                {indice > 0 && (
-                                    <span
-                                        aria-hidden="true"
-                                        className={`absolute left-0 right-1/2 top-5 h-px ${
-                                            anteriorCompletado
-                                                ? "bg-neutral/40"
-                                                : "bg-border"
-                                        }`}
-                                    />
-                                )}
+                            const terminado =
+                                completado ||
+                                anterior;
 
-                                {indice < pasos.length - 1 && (
-                                    <span
-                                        aria-hidden="true"
-                                        className={`absolute left-1/2 right-0 top-5 h-px ${
-                                            completado
-                                                ? "bg-neutral/40"
-                                                : "bg-border"
-                                        }`}
-                                    />
-                                )}
-
-                                <button
-                                    type="button"
-                                    disabled={bloqueado}
-                                    aria-current={activo ? "step" : undefined}
-                                    aria-label={[
-                                        `Pas ${indice + 1}`,
-                                        paso.contexto,
-                                        paso.titulo,
-                                        completado ? "Completat" : null,
-                                    ]
-                                        .filter(Boolean)
-                                        .join(". ")}
-                                    onClick={() => {
-                                        if (!activo) {
-                                            onCambiarPaso(paso.id);
-                                        }
-                                    }}
-                                    className="
-                                        relative flex w-full flex-col
-                                        items-center rounded-xl px-2 pb-2
-                                        text-center text-neutral
-                                        outline-none
-                                        focus-visible:ring-2
-                                        focus-visible:ring-neutral/40
-                                        disabled:cursor-wait
-                                        disabled:opacity-60
-                                    "
+                            return (
+                                <li
+                                    key={
+                                        paso.id
+                                    }
+                                    className="flex"
                                 >
-                                    <span
+                                    <button
+                                        ref={
+                                            activo
+                                                ? pasoActivoRef
+                                                : undefined
+                                        }
+                                        type="button"
+                                        disabled={
+                                            bloqueado
+                                        }
+                                        aria-current={
+                                            activo
+                                                ? "step"
+                                                : undefined
+                                        }
+                                        aria-label={[
+                                            `Pas ${indice + 1}`,
+                                            paso.contexto,
+                                            paso.titulo,
+                                            terminado
+                                                ? "Completat"
+                                                : null,
+                                        ]
+                                            .filter(
+                                                Boolean,
+                                            )
+                                            .join(
+                                                ". ",
+                                            )}
+                                        onClick={() => {
+                                            if (
+                                                !activo
+                                            ) {
+                                                onCambiarPaso(
+                                                    paso.id,
+                                                );
+                                            }
+                                        }}
                                         className={`
-                                            relative z-10 flex h-10 w-10
-                                            shrink-0 items-center justify-center
-                                            rounded-full border-2
-                                            text-sm font-semibold
-                                            transition-[background-color,border-color,box-shadow]
-                                            motion-reduce:transition-none
-                                            ${circulo}
+                                            group
+                                            flex min-w-40
+                                            items-center
+                                            gap-3
+                                            rounded-xl
+                                            border
+                                            px-3 py-2.5
+                                            text-left
+                                            transition-colors
+
+                                            focus-visible:outline-none
+                                            focus-visible:ring-2
+                                            focus-visible:ring-neutral/30
+
+                                            disabled:cursor-wait
+                                            disabled:opacity-60
+
+                                            ${
+                                                activo
+                                                    ? "border-neutral/40 bg-background"
+                                                    : "border-transparent bg-transparent hover:border-border hover:bg-background/70"
+                                            }
                                         `}
                                     >
-                                        {completado && !activo ? (
-                                            <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                viewBox="0 0 24 24"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                strokeWidth="1.8"
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                className="h-5 w-5"
-                                                aria-hidden="true"
-                                            >
-                                                <path d="m5 12 4 4L19 6" />
-                                            </svg>
-                                        ) : (
-                                            indice + 1
-                                        )}
-                                    </span>
+                                        {/* NÚMERO / CHECK */}
 
-                                    <span className="mt-3 flex min-h-14 max-w-40 flex-col items-center">
-                                        {paso.contexto && (
-                                            <span className="mb-1 line-clamp-2 text-[11px] leading-4">
-                                                {paso.contexto}
-                                            </span>
-                                        )}
-
-                                        <span
-                                            className={`text-xs leading-5 ${
-                                                activo
-                                                    ? "font-bold"
-                                                    : "font-medium"
-                                            }`}
-                                        >
-                                            {paso.titulo}
-                                        </span>
-                                    </span>
-
-                                    {activo && (
                                         <span
                                             aria-hidden="true"
-                                            className="mt-1 h-1 w-5 rounded-full bg-neutral/50"
-                                        />
-                                    )}
-                                </button>
-                            </li>
-                        );
-                    })}
+                                            className={`
+                                                flex h-8 w-8
+                                                shrink-0
+                                                items-center
+                                                justify-center
+                                                rounded-lg
+                                                border
+                                                text-xs
+                                                font-semibold
+                                                transition-colors
+
+                                                ${
+                                                    activo
+                                                        ? "border-neutral/40 bg-card text-neutral-titulos"
+                                                        : terminado
+                                                          ? "border-border bg-background text-neutral"
+                                                          : "border-border bg-card text-neutral"
+                                                }
+                                            `}
+                                        >
+                                            {terminado &&
+                                            !activo ? (
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    strokeWidth="1.8"
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    className="h-4 w-4"
+                                                >
+                                                    <path d="m5 12 4 4L19 6" />
+                                                </svg>
+                                            ) : (
+                                                indice +
+                                                1
+                                            )}
+                                        </span>
+
+                                        {/* TEXTO */}
+
+                                        <span className="min-w-0">
+                                            <span
+                                                className="
+                                                    block
+                                                    text-[10px]
+                                                    leading-none
+                                                "
+                                            >
+                                                PAS{" "}
+                                                {indice +
+                                                    1}
+                                            </span>
+
+                                            <span
+                                                className={`
+                                                    mt-1
+                                                    block
+                                                    max-w-44
+                                                    truncate
+                                                    text-xs
+
+                                                    ${
+                                                        activo
+                                                            ? "font-semibold text-neutral-titulos"
+                                                            : "font-medium"
+                                                    }
+                                                `}
+                                            >
+                                                {
+                                                    paso.titulo
+                                                }
+                                            </span>
+
+                                            {paso.contexto && (
+                                                <span
+                                                    className="
+                                                        mt-1
+                                                        block
+                                                        max-w-44
+                                                        truncate
+                                                        text-[10px]
+                                                    "
+                                                >
+                                                    {
+                                                        paso.contexto
+                                                    }
+                                                </span>
+                                            )}
+                                        </span>
+                                    </button>
+                                </li>
+                            );
+                        },
+                    )}
                 </ol>
             </div>
+
+            {/* =================================================
+                ACCESIBILIDAD
+            ================================================= */}
 
             <p
                 role="status"
@@ -215,8 +412,13 @@ export default function Progreso({
                 aria-atomic="true"
                 className="sr-only"
             >
-                Pas {indiceActual + 1} de {pasos.length}:{" "}
-                {actual.contexto ? `${actual.contexto}. ` : ""}
+                Pas{" "}
+                {indiceActual + 1}{" "}
+                de{" "}
+                {pasos.length}:{" "}
+                {actual.contexto
+                    ? `${actual.contexto}. `
+                    : ""}
                 {actual.titulo}
             </p>
         </nav>

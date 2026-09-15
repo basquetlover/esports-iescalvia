@@ -1,4 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import {
+    useEffect,
+    useRef,
+    useState,
+} from "react";
+
 import Asistente from "./Asistente";
 
 import {
@@ -7,25 +12,45 @@ import {
     normalizarRol,
 } from "@const/Permisos";
 
-const API = "/api/panell/permisos";
+const API =
+    "/api/panell/permisos";
+
+// ============================================================
+// TIPOS
+// ============================================================
 
 type UsuarioFila = {
     id: string;
+
     nombre: string | null;
     apellido1: string | null;
     apellido2: string | null;
+
     email: string | null;
+
+    /*
+     * Ahora representa el rol GENERAL explícito.
+     */
     rol: string | null;
-    origen_permisos: string | null;
+
+    origen_permisos:
+        string | null;
+
     activa: boolean | null;
-    fecha_actualizacion: string | null;
+
+    fecha_actualizacion:
+        string | null;
+
     puedeEditar: boolean;
     puedeRetirar: boolean;
 };
 
 type RespuestaLista = {
     success: true;
-    filas: UsuarioFila[];
+
+    filas:
+        UsuarioFila[];
+
     total: number;
     pagina: number;
     porPagina: number;
@@ -34,6 +59,7 @@ type RespuestaLista = {
 
 type Configuracion = {
     success: true;
+
     capacidades: {
         crear: boolean;
         editar: boolean;
@@ -44,29 +70,49 @@ type Configuracion = {
 
 type Seleccion = {
     id: string;
-    modo: "crear" | "editar" | "ver";
+
+    modo:
+        | "crear"
+        | "editar"
+        | "ver";
 };
 
-async function consultar<T>(
-    parametros: URLSearchParams,
-    signal: AbortSignal,
-): Promise<T> {
-    const respuesta = await fetch(
-        `${API}?${parametros.toString()}`,
-        {
-            credentials: "same-origin",
-            cache: "no-store",
-            signal,
-        },
-    );
+// ============================================================
+// CONSULTA
+// ============================================================
 
-    const datos = await respuesta
-        .json()
-        .catch(() => null);
+async function consultar<T>(
+    parametros:
+        URLSearchParams,
+
+    signal:
+        AbortSignal,
+): Promise<T> {
+    const respuesta =
+        await fetch(
+            `${API}?${parametros.toString()}`,
+            {
+                credentials:
+                    "same-origin",
+
+                cache:
+                    "no-store",
+
+                signal,
+            },
+        );
+
+    const datos =
+        await respuesta
+            .json()
+            .catch(
+                () => null,
+            );
 
     if (
         !respuesta.ok ||
-        datos?.success !== true
+        datos?.success !==
+            true
     ) {
         throw new Error(
             datos?.mensaje ||
@@ -77,30 +123,44 @@ async function consultar<T>(
     return datos as T;
 }
 
+// ============================================================
+// HELPERS
+// ============================================================
+
 function nombreUsuario(
-    usuario: UsuarioFila,
+    usuario:
+        UsuarioFila,
 ) {
-    return [
-        usuario.nombre,
-        usuario.apellido1,
-        usuario.apellido2,
-    ]
-        .filter(Boolean)
-        .join(" ")
-        .trim() || "Usuari sense nom";
+    return (
+        [
+            usuario.nombre,
+            usuario.apellido1,
+            usuario.apellido2,
+        ]
+            .filter(Boolean)
+            .join(" ")
+            .trim() ||
+        "Usuari sense nom"
+    );
 }
 
 function inicialesUsuario(
-    usuario: UsuarioFila,
+    usuario:
+        UsuarioFila,
 ) {
     const partes = [
         usuario.nombre,
         usuario.apellido1,
         usuario.apellido2,
     ].filter(
-        (valor): valor is string =>
-            typeof valor === "string" &&
-            valor.trim().length > 0,
+        (
+            valor,
+        ): valor is string =>
+            typeof valor ===
+                "string" &&
+            valor
+                .trim()
+                .length > 0,
     );
 
     return (
@@ -120,21 +180,30 @@ function inicialesUsuario(
 }
 
 function nombreRol(
-    valor: string | null,
+    valor:
+        string | null,
 ) {
     const rol =
-        normalizarRol(valor);
+        normalizarRol(
+            valor,
+        );
 
     return rol
-        ? NOMBRES_ROL[rol]
-        : valor || "Sense rol";
+        ? NOMBRES_ROL[
+              rol
+          ]
+        : valor ||
+              "Sense rol";
 }
 
 function nombreOrigen(
-    valor: string | null,
+    valor:
+        string | null,
 ) {
     switch (
-        valor?.trim().toLowerCase()
+        valor
+            ?.trim()
+            .toLowerCase()
     ) {
         case "manual":
             return "Manual";
@@ -146,6 +215,10 @@ function nombreOrigen(
             return "Sense especificar";
     }
 }
+
+// ============================================================
+// ESTILOS
+// ============================================================
 
 const botonBase =
     "inline-flex items-center justify-center gap-2 rounded-lg " +
@@ -170,110 +243,129 @@ const campo =
     "focus:ring-2 focus:ring-neutral/10 " +
     "disabled:cursor-not-allowed disabled:opacity-60";
 
+// ============================================================
+// COMPONENTE
+// ============================================================
+
 export default function Gestion() {
     const [
         vista,
         setVista,
-    ] = useState<
-        "lista" | "candidatos"
-    >("lista");
+    ] =
+        useState<
+            | "lista"
+            | "candidatos"
+        >("lista");
 
     const [
         seleccion,
         setSeleccion,
     ] =
-        useState<Seleccion | null>(
-            null,
-        );
+        useState<
+            Seleccion | null
+        >(null);
 
     const [
         busqueda,
         setBusqueda,
-    ] = useState("");
+    ] =
+        useState("");
 
     const [
         consulta,
         setConsulta,
-    ] = useState("");
+    ] =
+        useState("");
 
     const [
         rol,
         setRol,
-    ] = useState("");
+    ] =
+        useState("");
 
     const [
         origen,
         setOrigen,
-    ] = useState("");
+    ] =
+        useState("");
 
     const [
         pagina,
         setPagina,
-    ] = useState(1);
+    ] =
+        useState(1);
 
     const [
         configuracion,
         setConfiguracion,
     ] =
-        useState<Configuracion | null>(
-            null,
-        );
+        useState<
+            Configuracion | null
+        >(null);
 
     const [
         lista,
         setLista,
     ] =
-        useState<RespuestaLista | null>(
-            null,
-        );
+        useState<
+            RespuestaLista | null
+        >(null);
 
     const [
         cargandoConfiguracion,
         setCargandoConfiguracion,
-    ] = useState(true);
+    ] =
+        useState(true);
 
     const [
         cargandoLista,
         setCargandoLista,
-    ] = useState(true);
+    ] =
+        useState(true);
 
     const [
         errorConfiguracion,
         setErrorConfiguracion,
-    ] = useState("");
+    ] =
+        useState("");
 
     const [
         errorLista,
         setErrorLista,
-    ] = useState("");
+    ] =
+        useState("");
 
     const [
         aviso,
         setAviso,
-    ] = useState("");
+    ] =
+        useState("");
 
     const [
         revision,
         setRevision,
-    ] = useState(0);
+    ] =
+        useState(0);
 
     const [
         retirada,
         setRetirada,
     ] =
-        useState<UsuarioFila | null>(
-            null,
-        );
+        useState<
+            UsuarioFila | null
+        >(null);
 
     const [
         retirando,
         setRetirando,
-    ] = useState(false);
+    ] =
+        useState(false);
 
     const [
         errorRetirada,
         setErrorRetirada,
-    ] = useState("");
+    ] =
+        useState("");
 
     const bloqueoRetirada =
         useRef(false);
@@ -288,9 +380,10 @@ export default function Gestion() {
             null,
         );
 
-    /*
-     * Debounce de la búsqueda.
-     */
+    // ========================================================
+    // BÚSQUEDA
+    // ========================================================
+
     useEffect(() => {
         const temporizador =
             window.setTimeout(
@@ -299,7 +392,9 @@ export default function Gestion() {
                         busqueda.trim(),
                     );
 
-                    setPagina(1);
+                    setPagina(
+                        1,
+                    );
                 },
                 300,
             );
@@ -308,14 +403,14 @@ export default function Gestion() {
             window.clearTimeout(
                 temporizador,
             );
-    }, [busqueda]);
+    }, [
+        busqueda,
+    ]);
 
-    /*
-     * Capacidades.
-     *
-     * Se cargan separadas del listado para evitar que
-     * desaparezcan botones cada vez que cambia un filtro.
-     */
+    // ========================================================
+    // CONFIGURACIÓN / CAPACIDADES
+    // ========================================================
+
     useEffect(() => {
         if (seleccion) {
             return;
@@ -328,16 +423,23 @@ export default function Gestion() {
             true,
         );
 
-        setErrorConfiguracion("");
+        setErrorConfiguracion(
+            "",
+        );
 
         async function cargar() {
             try {
                 const datos =
                     await consultar<Configuracion>(
-                        new URLSearchParams({
-                            vista: "configuracion",
-                        }),
-                        controlador.signal,
+                        new URLSearchParams(
+                            {
+                                vista:
+                                    "configuracion",
+                            },
+                        ),
+
+                        controlador
+                            .signal,
                     );
 
                 if (
@@ -361,7 +463,8 @@ export default function Gestion() {
                 }
 
                 setErrorConfiguracion(
-                    err instanceof Error
+                    err instanceof
+                    Error
                         ? err.message
                         : "No s'ha pogut carregar la configuració.",
                 );
@@ -382,11 +485,15 @@ export default function Gestion() {
 
         return () =>
             controlador.abort();
-    }, [revision, seleccion]);
+    }, [
+        revision,
+        seleccion,
+    ]);
 
-    /*
-     * Listado.
-     */
+    // ========================================================
+    // LISTADO
+    // ========================================================
+
     useEffect(() => {
         if (seleccion) {
             return;
@@ -395,19 +502,27 @@ export default function Gestion() {
         const controlador =
             new AbortController();
 
-        setCargandoLista(true);
-        setErrorLista("");
+        setCargandoLista(
+            true,
+        );
+
+        setErrorLista(
+            "",
+        );
 
         async function cargar() {
             try {
                 const parametros =
-                    new URLSearchParams({
-                        vista,
-                        pagina:
-                            String(
-                                pagina,
-                            ),
-                    });
+                    new URLSearchParams(
+                        {
+                            vista,
+
+                            pagina:
+                                String(
+                                    pagina,
+                                ),
+                        },
+                    );
 
                 if (consulta) {
                     parametros.set(
@@ -417,7 +532,8 @@ export default function Gestion() {
                 }
 
                 if (
-                    vista === "lista"
+                    vista ===
+                    "lista"
                 ) {
                     if (rol) {
                         parametros.set(
@@ -437,7 +553,9 @@ export default function Gestion() {
                 const nuevaLista =
                     await consultar<RespuestaLista>(
                         parametros,
-                        controlador.signal,
+
+                        controlador
+                            .signal,
                     );
 
                 if (
@@ -451,7 +569,8 @@ export default function Gestion() {
                 const ultimaPagina =
                     Math.max(
                         1,
-                        nuevaLista.totalPaginas,
+                        nuevaLista
+                            .totalPaginas,
                     );
 
                 if (
@@ -478,7 +597,8 @@ export default function Gestion() {
                 }
 
                 setErrorLista(
-                    err instanceof Error
+                    err instanceof
+                    Error
                         ? err.message
                         : "No s'ha pogut carregar la informació.",
                 );
@@ -509,42 +629,78 @@ export default function Gestion() {
         seleccion,
     ]);
 
+    // ========================================================
+    // FOCO DEL MODAL
+    // ========================================================
+
     useEffect(() => {
-        if (retirada) {
-            window.requestAnimationFrame(
-                () =>
-                    confirmacionRef.current?.focus(),
-            );
+        if (!retirada) {
+            return;
         }
-    }, [retirada]);
+
+        window.requestAnimationFrame(
+            () =>
+                confirmacionRef
+                    .current
+                    ?.focus(),
+        );
+    }, [
+        retirada,
+    ]);
+
+    // ========================================================
+    // CAMBIAR VISTA
+    // ========================================================
 
     function cambiarVista(
         nuevaVista:
             | "lista"
             | "candidatos",
     ) {
-        setVista(nuevaVista);
+        setVista(
+            nuevaVista,
+        );
 
         setBusqueda("");
         setConsulta("");
+
         setRol("");
         setOrigen("");
+
         setPagina(1);
 
-        setRetirada(null);
-        setErrorRetirada("");
+        setRetirada(
+            null,
+        );
+
+        setErrorRetirada(
+            "",
+        );
+
         setAviso("");
     }
 
+    // ========================================================
+    // ABRIR ASISTENTE
+    // ========================================================
+
     function abrir(
-        usuario: UsuarioFila,
-        modo: Seleccion["modo"],
+        usuario:
+            UsuarioFila,
+
+        modo:
+            Seleccion["modo"],
     ) {
         setAviso("");
-        setRetirada(null);
+
+        setRetirada(
+            null,
+        );
 
         setSeleccion({
-            id: usuario.id,
+            id:
+                usuario.id,
+
             modo,
         });
     }
@@ -552,21 +708,34 @@ export default function Gestion() {
     function volverDelAsistente(
         mensaje?: string,
     ) {
-        setSeleccion(null);
+        setSeleccion(
+            null,
+        );
 
-        setRetirada(null);
-        setErrorRetirada("");
+        setRetirada(
+            null,
+        );
+
+        setErrorRetirada(
+            "",
+        );
 
         if (mensaje) {
-            setVista("lista");
+            setVista(
+                "lista",
+            );
 
             setBusqueda("");
             setConsulta("");
+
             setRol("");
             setOrigen("");
+
             setPagina(1);
 
-            setAviso(mensaje);
+            setAviso(
+                mensaje,
+            );
         }
 
         setRevision(
@@ -576,30 +745,43 @@ export default function Gestion() {
 
         window.requestAnimationFrame(
             () =>
-                tituloRef.current?.focus(),
+                tituloRef
+                    .current
+                    ?.focus(),
         );
     }
+
+    // ========================================================
+    // RETIRAR ACCESO
+    // ========================================================
 
     async function confirmarRetirada() {
         if (
             !retirada ||
-            bloqueoRetirada.current
+            bloqueoRetirada
+                .current
         ) {
             return;
         }
 
-        bloqueoRetirada.current =
-            true;
+        bloqueoRetirada
+            .current = true;
 
-        setRetirando(true);
-        setErrorRetirada("");
+        setRetirando(
+            true,
+        );
+
+        setErrorRetirada(
+            "",
+        );
 
         try {
             const respuesta =
                 await fetch(
                     API,
                     {
-                        method: "POST",
+                        method:
+                            "POST",
 
                         credentials:
                             "same-origin",
@@ -609,17 +791,20 @@ export default function Gestion() {
                                 "application/json",
                         },
 
-                        body: JSON.stringify(
-                            {
-                                accion:
-                                    "eliminar",
+                        body:
+                            JSON.stringify(
+                                {
+                                    accion:
+                                        "eliminar",
 
-                                id: retirada.id,
+                                    id:
+                                        retirada.id,
 
-                                fecha_actualizacion:
-                                    retirada.fecha_actualizacion,
-                            },
-                        ),
+                                    fecha_actualizacion:
+                                        retirada
+                                            .fecha_actualizacion,
+                                },
+                            ),
                     },
                 );
 
@@ -642,7 +827,9 @@ export default function Gestion() {
                 );
             }
 
-            setRetirada(null);
+            setRetirada(
+                null,
+            );
 
             setAviso(
                 "S'ha retirat l'accés al panell.",
@@ -655,26 +842,31 @@ export default function Gestion() {
 
             window.requestAnimationFrame(
                 () =>
-                    tituloRef.current?.focus(),
+                    tituloRef
+                        .current
+                        ?.focus(),
             );
         } catch (err) {
             setErrorRetirada(
-                err instanceof Error
+                err instanceof
+                Error
                     ? err.message
                     : "No s'ha pogut retirar l'accés.",
             );
         } finally {
-            bloqueoRetirada.current =
-                false;
+            bloqueoRetirada
+                .current = false;
 
-            setRetirando(false);
+            setRetirando(
+                false,
+            );
         }
     }
 
-    /*
-     * El asistente sustituye completamente el listado
-     * mientras estamos gestionando un usuario.
-     */
+    // ========================================================
+    // ASISTENTE
+    // ========================================================
+
     if (seleccion) {
         return (
             <Asistente
@@ -699,8 +891,13 @@ export default function Gestion() {
         );
     }
 
+    // ========================================================
+    // VARIABLES DERIVADAS
+    // ========================================================
+
     const candidatos =
-        vista === "candidatos";
+        vista ===
+        "candidatos";
 
     const cargando =
         cargandoLista;
@@ -709,9 +906,17 @@ export default function Gestion() {
         errorLista ||
         errorConfiguracion;
 
+    // ========================================================
+    // ACCIONES POR USUARIO
+    // ========================================================
+
     function accionesUsuario(
-        usuario: UsuarioFila,
+        usuario:
+            UsuarioFila,
     ) {
+        /*
+         * Candidatos todavía no tienen rol general.
+         */
         if (candidatos) {
             if (
                 !configuracion
@@ -763,18 +968,22 @@ export default function Gestion() {
                     onClick={() =>
                         abrir(
                             usuario,
-                            usuario.puedeEditar
+
+                            usuario
+                                .puedeEditar
                                 ? "editar"
                                 : "ver",
                         )
                     }
                 >
-                    {usuario.puedeEditar
+                    {usuario
+                        .puedeEditar
                         ? "Gestionar"
                         : "Consultar"}
                 </button>
 
-                {usuario.puedeRetirar && (
+                {usuario
+                    .puedeRetirar && (
                     <button
                         type="button"
                         disabled={
@@ -789,7 +998,9 @@ export default function Gestion() {
                                 "",
                             );
 
-                            setAviso("");
+                            setAviso(
+                                "",
+                            );
                         }}
                         className={`
                             ${botonBase}
@@ -807,14 +1018,23 @@ export default function Gestion() {
         );
     }
 
+    // ========================================================
+    // RENDER
+    // ========================================================
+
     return (
         <>
             <div className="space-y-6 text-neutral">
-                {/* Cabecera */}
+                {/* =============================================
+                    CABECERA
+                ============================================= */}
+
                 <header
                     className="
-                        flex flex-col gap-5
-                        border-b border-border
+                        flex flex-col
+                        gap-5
+                        border-b
+                        border-border
                         pb-6
                         lg:flex-row
                         lg:items-end
@@ -831,9 +1051,12 @@ export default function Gestion() {
                                     )
                                 }
                                 className="
-                                    mb-4 inline-flex
-                                    items-center gap-2
-                                    text-sm font-medium
+                                    mb-4
+                                    inline-flex
+                                    items-center
+                                    gap-2
+                                    text-sm
+                                    font-medium
                                     text-neutral
                                     hover:underline
                                     focus-visible:outline-none
@@ -862,13 +1085,18 @@ export default function Gestion() {
                         </p>
 
                         <h1
-                            ref={tituloRef}
-                            tabIndex={-1}
+                            ref={
+                                tituloRef
+                            }
+                            tabIndex={
+                                -1
+                            }
                             className="
-                                mt-2 text-2xl
+                                mt-2
+                                text-2xl
                                 font-semibold
                                 tracking-tight
-                                text-neutral
+                                text-neutral-titulos
                                 outline-none
                                 sm:text-3xl
                             "
@@ -880,8 +1108,8 @@ export default function Gestion() {
 
                         <p className="mt-2 max-w-2xl text-sm leading-6">
                             {candidatos
-                                ? "Selecciona un usuari registrat i configura els seus accessos, rols i permisos."
-                                : "Consulta els usuaris amb accés administratiu i gestiona els seus rols, tornejos i permisos."}
+                                ? "Selecciona un usuari registrat i configura el seu rol general, els tornejos i els permisos."
+                                : "Consulta els usuaris amb accés administratiu i gestiona el seu rol general, els tornejos i els permisos."}
                         </p>
                     </div>
 
@@ -921,15 +1149,22 @@ export default function Gestion() {
                         )}
                 </header>
 
-                {/* Aviso de operación correcta */}
+                {/* =============================================
+                    AVISO DE ÉXITO
+                ============================================= */}
+
                 {aviso && (
                     <div
                         role="status"
                         className="
-                            flex items-start gap-3
-                            rounded-xl border
+                            flex
+                            items-start
+                            gap-3
+                            rounded-xl
+                            border
                             border-border
-                            bg-card p-4
+                            bg-card
+                            p-4
                         "
                     >
                         <span
@@ -960,30 +1195,38 @@ export default function Gestion() {
                         </span>
 
                         <div>
-                            <p className="text-sm font-semibold">
+                            <p className="text-sm font-semibold text-neutral-titulos">
                                 Operació completada
                             </p>
 
                             <p className="mt-1 text-sm leading-6">
-                                {aviso}
+                                {
+                                    aviso
+                                }
                             </p>
                         </div>
                     </div>
                 )}
 
-                {/* Filtros */}
+                {/* =============================================
+                    FILTROS
+                ============================================= */}
+
                 <section
                     aria-label="Filtres"
                     className="
-                        rounded-2xl border
+                        rounded-2xl
+                        border
                         border-border
-                        bg-background p-4
+                        bg-background
+                        p-4
                         sm:p-5
                     "
                 >
                     <div
                         className={`
                             grid gap-4
+
                             ${
                                 candidatos
                                     ? "grid-cols-1"
@@ -991,6 +1234,8 @@ export default function Gestion() {
                             }
                         `}
                     >
+                        {/* BÚSQUEDA */}
+
                         <label
                             className={
                                 candidatos
@@ -1014,8 +1259,10 @@ export default function Gestion() {
                                     aria-hidden="true"
                                     className="
                                         pointer-events-none
-                                        absolute left-3.5
-                                        top-1/2 h-4 w-4
+                                        absolute
+                                        left-3.5
+                                        top-1/2
+                                        h-4 w-4
                                         -translate-y-1/2
                                     "
                                 >
@@ -1024,6 +1271,7 @@ export default function Gestion() {
                                         cy="11"
                                         r="7"
                                     />
+
                                     <path d="m20 20-3.5-3.5" />
                                 </svg>
 
@@ -1052,9 +1300,11 @@ export default function Gestion() {
 
                         {!candidatos && (
                             <>
+                                {/* ROL GENERAL */}
+
                                 <label>
                                     <span className="mb-2 block text-xs font-semibold">
-                                        Rol
+                                        Rol general
                                     </span>
 
                                     <select
@@ -1105,6 +1355,8 @@ export default function Gestion() {
                                     </select>
                                 </label>
 
+                                {/* ORIGEN */}
+
                                 <label>
                                     <span className="mb-2 block text-xs font-semibold">
                                         Origen
@@ -1149,15 +1401,21 @@ export default function Gestion() {
                     </div>
                 </section>
 
-                {/* Error */}
+                {/* =============================================
+                    ERROR
+                ============================================= */}
+
                 {error && (
                     <div
                         role="alert"
                         className="
-                            flex items-start gap-3
-                            rounded-xl border
-                            border-error/25
-                            bg-error-container/30
+                            flex
+                            items-start
+                            gap-3
+                            rounded-xl
+                            border
+                            border-error/30
+                            bg-error-container/40
                             p-4
                             text-error-foreground
                         "
@@ -1167,7 +1425,7 @@ export default function Gestion() {
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"
-                            strokeWidth="1.6"
+                            strokeWidth="1.7"
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             className="mt-0.5 h-5 w-5 shrink-0"
@@ -1178,6 +1436,7 @@ export default function Gestion() {
                                 cy="12"
                                 r="9"
                             />
+
                             <path d="M12 8v5" />
                             <path d="M12 16h.01" />
                         </svg>
@@ -1188,7 +1447,9 @@ export default function Gestion() {
                             </p>
 
                             <p className="mt-1 text-sm leading-6">
-                                {error}
+                                {
+                                    error
+                                }
                             </p>
 
                             <button
@@ -1203,7 +1464,8 @@ export default function Gestion() {
                                     )
                                 }
                                 className="
-                                    mt-3 text-sm
+                                    mt-3
+                                    text-sm
                                     font-semibold
                                     underline
                                 "
@@ -1214,7 +1476,10 @@ export default function Gestion() {
                     </div>
                 )}
 
-                {/* Listado */}
+                {/* =============================================
+                    LISTADO
+                ============================================= */}
+
                 {!error && (
                     <section
                         aria-label={
@@ -1224,11 +1489,14 @@ export default function Gestion() {
                         }
                         className="
                             overflow-hidden
-                            rounded-2xl border
+                            rounded-2xl
+                            border
                             border-border
                             bg-background
                         "
                     >
+                        {/* CARGANDO */}
+
                         {cargando ? (
                             <div
                                 role="status"
@@ -1237,7 +1505,8 @@ export default function Gestion() {
                                     flex-col
                                     items-center
                                     justify-center
-                                    gap-3 p-8
+                                    gap-3
+                                    p-8
                                     text-center
                                 "
                             >
@@ -1254,7 +1523,7 @@ export default function Gestion() {
                                 />
 
                                 <div>
-                                    <p className="text-sm font-semibold">
+                                    <p className="text-sm font-semibold text-neutral-titulos">
                                         Carregant usuaris
                                     </p>
 
@@ -1263,16 +1532,18 @@ export default function Gestion() {
                                     </p>
                                 </div>
                             </div>
-                        ) : lista?.filas
-                              .length ===
+                        ) : lista?.filas.length ===
                           0 ? (
+                            /* VACÍO */
+
                             <div
                                 className="
                                     flex min-h-64
                                     flex-col
                                     items-center
                                     justify-center
-                                    p-8 text-center
+                                    p-8
+                                    text-center
                                 "
                             >
                                 <span
@@ -1302,13 +1573,16 @@ export default function Gestion() {
                                             cy="8"
                                             r="3"
                                         />
+
                                         <path d="M4 19v-1a6 6 0 0 1 11.3-2.8" />
+
                                         <path d="m17 17 4 4" />
+
                                         <path d="m21 17-4 4" />
                                     </svg>
                                 </span>
 
-                                <h2 className="mt-4 text-sm font-semibold">
+                                <h2 className="mt-4 text-sm font-semibold text-neutral-titulos">
                                     No s&apos;han trobat usuaris
                                 </h2>
 
@@ -1319,12 +1593,15 @@ export default function Gestion() {
                                         ? "Prova de canviar la cerca o els filtres."
                                         : candidatos
                                           ? "No hi ha usuaris actius disponibles per afegir al panell."
-                                          : "Encara no hi ha usuaris amb permisos assignats."}
+                                          : "Encara no hi ha usuaris amb accés administratiu assignat."}
                                 </p>
                             </div>
                         ) : lista ? (
                             <>
-                                {/* Escritorio */}
+                                {/* =================================
+                                    ESCRITORIO
+                                ================================= */}
+
                                 <div className="hidden overflow-x-auto md:block">
                                     <table className="w-full text-left text-sm">
                                         <thead
@@ -1349,7 +1626,7 @@ export default function Gestion() {
                                                             scope="col"
                                                             className="px-5 py-3.5 font-semibold"
                                                         >
-                                                            Rol
+                                                            Rol general
                                                         </th>
 
                                                         <th
@@ -1391,6 +1668,8 @@ export default function Gestion() {
                                                             hover:bg-card/40
                                                         "
                                                     >
+                                                        {/* USUARIO */}
+
                                                         <td className="px-5 py-4">
                                                             <div className="flex items-center gap-3">
                                                                 <div
@@ -1406,6 +1685,7 @@ export default function Gestion() {
                                                                         bg-card
                                                                         text-xs
                                                                         font-semibold
+                                                                        text-neutral-titulos
                                                                     "
                                                                 >
                                                                     {inicialesUsuario(
@@ -1414,7 +1694,7 @@ export default function Gestion() {
                                                                 </div>
 
                                                                 <div className="min-w-0">
-                                                                    <p className="font-semibold">
+                                                                    <p className="font-semibold text-neutral-titulos">
                                                                         {nombreUsuario(
                                                                             usuario,
                                                                         )}
@@ -1430,6 +1710,8 @@ export default function Gestion() {
 
                                                         {!candidatos && (
                                                             <>
+                                                                {/* ROL GENERAL */}
+
                                                                 <td className="whitespace-nowrap px-5 py-4">
                                                                     <span
                                                                         className="
@@ -1450,6 +1732,8 @@ export default function Gestion() {
                                                                     </span>
                                                                 </td>
 
+                                                                {/* ORIGEN */}
+
                                                                 <td className="whitespace-nowrap px-5 py-4 text-xs">
                                                                     {nombreOrigen(
                                                                         usuario.origen_permisos,
@@ -1458,16 +1742,23 @@ export default function Gestion() {
                                                             </>
                                                         )}
 
+                                                        {/* ESTADO */}
+
                                                         <td className="whitespace-nowrap px-5 py-4">
                                                             <span className="inline-flex items-center gap-2 text-xs">
                                                                 <span
                                                                     aria-hidden="true"
-                                                                    className={`h-2 w-2 rounded-full ${
-                                                                        usuario.activa ===
-                                                                        true
-                                                                            ? "bg-primary"
-                                                                            : "bg-error"
-                                                                    }`}
+                                                                    className={`
+                                                                        h-2 w-2
+                                                                        rounded-full
+
+                                                                        ${
+                                                                            usuario.activa ===
+                                                                            true
+                                                                                ? "bg-primary"
+                                                                                : "bg-error"
+                                                                        }
+                                                                    `}
                                                                 />
 
                                                                 {usuario.activa ===
@@ -1476,6 +1767,8 @@ export default function Gestion() {
                                                                     : "Inactiu"}
                                                             </span>
                                                         </td>
+
+                                                        {/* ACCIONES */}
 
                                                         <td className="px-5 py-4">
                                                             <div className="flex justify-end gap-2">
@@ -1491,7 +1784,10 @@ export default function Gestion() {
                                     </table>
                                 </div>
 
-                                {/* Móvil */}
+                                {/* =================================
+                                    MÓVIL
+                                ================================= */}
+
                                 <div className="divide-y divide-border md:hidden">
                                     {lista.filas.map(
                                         (
@@ -1517,6 +1813,7 @@ export default function Gestion() {
                                                             bg-card
                                                             text-xs
                                                             font-semibold
+                                                            text-neutral-titulos
                                                         "
                                                     >
                                                         {inicialesUsuario(
@@ -1525,7 +1822,7 @@ export default function Gestion() {
                                                     </div>
 
                                                     <div className="min-w-0 flex-1">
-                                                        <h3 className="wrap-break-words text-sm font-semibold">
+                                                        <h3 className="wrap-break-words text-sm font-semibold text-neutral-titulos">
                                                             {nombreUsuario(
                                                                 usuario,
                                                             )}
@@ -1550,6 +1847,7 @@ export default function Gestion() {
                                                                             text-xs
                                                                         "
                                                                     >
+                                                                        Rol:{" "}
                                                                         {nombreRol(
                                                                             usuario.rol,
                                                                         )}
@@ -1589,12 +1887,17 @@ export default function Gestion() {
                                                             >
                                                                 <span
                                                                     aria-hidden="true"
-                                                                    className={`h-1.5 w-1.5 rounded-full ${
-                                                                        usuario.activa ===
-                                                                        true
-                                                                            ? "bg-primary"
-                                                                            : "bg-error"
-                                                                    }`}
+                                                                    className={`
+                                                                        h-1.5 w-1.5
+                                                                        rounded-full
+
+                                                                        ${
+                                                                            usuario.activa ===
+                                                                            true
+                                                                                ? "bg-primary"
+                                                                                : "bg-error"
+                                                                        }
+                                                                    `}
                                                                 />
 
                                                                 {usuario.activa ===
@@ -1606,7 +1909,17 @@ export default function Gestion() {
                                                     </div>
                                                 </div>
 
-                                                <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
+                                                <div
+                                                    className="
+                                                        mt-4
+                                                        flex
+                                                        flex-wrap
+                                                        gap-2
+                                                        border-t
+                                                        border-border
+                                                        pt-4
+                                                    "
+                                                >
                                                     {accionesUsuario(
                                                         usuario,
                                                     )}
@@ -1616,10 +1929,14 @@ export default function Gestion() {
                                     )}
                                 </div>
 
-                                {/* Paginación */}
+                                {/* =================================
+                                    PAGINACIÓN
+                                ================================= */}
+
                                 <footer
                                     className="
-                                        flex flex-col gap-3
+                                        flex flex-col
+                                        gap-3
                                         border-t
                                         border-border
                                         bg-card/30
@@ -1630,7 +1947,9 @@ export default function Gestion() {
                                     "
                                 >
                                     <p className="text-xs">
-                                        {lista.total}{" "}
+                                        {
+                                            lista.total
+                                        }{" "}
                                         {lista.total ===
                                         1
                                             ? "usuari"
@@ -1639,7 +1958,9 @@ export default function Gestion() {
                                         {" · "}
 
                                         Pàgina{" "}
-                                        {lista.pagina}{" "}
+                                        {
+                                            lista.pagina
+                                        }{" "}
                                         de{" "}
                                         {Math.max(
                                             1,
@@ -1732,31 +2053,42 @@ export default function Gestion() {
                     </section>
                 )}
 
+                {/* =============================================
+                    ACLARACIÓN DEL ROL
+                ============================================= */}
+
                 {!candidatos &&
                     !cargando &&
                     lista &&
                     lista.filas.length >
                         0 && (
                         <p className="text-xs leading-6">
-                            El rol mostrat correspon al rol general resultant
-                            de l&apos;usuari. Dins de cada configuració pots
-                            consultar els accessos i permisos específics de
-                            cada torneig.
+                            El rol mostrat és el rol general assignat
+                            directament a l&apos;usuari. Els rols i
+                            permisos de cada torneig es configuren
+                            de manera independent dins de la seva
+                            configuració.
                         </p>
                     )}
             </div>
 
-            {/* Modal retirada */}
+            {/* =================================================
+                MODAL DE RETIRADA
+            ================================================= */}
+
             {retirada && (
                 <div
                     role="dialog"
                     aria-modal="true"
                     aria-labelledby="retirar-acces-titol"
                     className="
-                        fixed inset-0 z-100
-                        flex items-center
+                        fixed inset-0
+                        z-100
+                        flex
+                        items-center
                         justify-center
-                        bg-black/35 p-4
+                        bg-black/35
+                        p-4
                         backdrop-blur-sm
                     "
                     onMouseDown={(
@@ -1782,10 +2114,13 @@ export default function Gestion() {
                             retirando
                         }
                         className="
-                            w-full max-w-md
+                            w-full
+                            max-w-md
                             rounded-2xl
-                            border border-border
-                            bg-background p-6
+                            border
+                            border-border
+                            bg-background
+                            p-6
                             text-neutral
                             shadow-2xl
                         "
@@ -1827,10 +2162,13 @@ export default function Gestion() {
                                     ref={
                                         confirmacionRef
                                     }
-                                    tabIndex={-1}
+                                    tabIndex={
+                                        -1
+                                    }
                                     className="
                                         text-lg
                                         font-semibold
+                                        text-neutral-titulos
                                         outline-none
                                     "
                                 >
@@ -1838,13 +2176,14 @@ export default function Gestion() {
                                 </h2>
 
                                 <p className="mt-2 text-sm leading-6">
-                                    <strong className="font-semibold">
+                                    <strong className="font-semibold text-neutral-titulos">
                                         {nombreUsuario(
                                             retirada,
                                         )}
                                     </strong>{" "}
-                                    perdrà els permisos generals i
-                                    l&apos;accés administratiu als tornejos.
+                                    perdrà el rol general, els permisos
+                                    generals i l&apos;accés administratiu
+                                    als tornejos.
                                 </p>
 
                                 <p className="mt-2 text-xs leading-5">
@@ -1855,27 +2194,29 @@ export default function Gestion() {
                         </div>
 
                         {errorRetirada && (
-                            <p
+                            <div
                                 role="alert"
                                 className="
                                     mt-5
                                     rounded-lg
                                     border
-                                    border-error/25
-                                    bg-error-container/30
-                                    p-3 text-sm
+                                    border-error/30
+                                    bg-error-container/40
+                                    p-3
+                                    text-sm
                                     text-error-foreground
                                 "
                             >
                                 {
                                     errorRetirada
                                 }
-                            </p>
+                            </div>
                         )}
 
                         <div
                             className="
-                                mt-6 flex
+                                mt-6
+                                flex
                                 flex-col-reverse
                                 gap-2
                                 sm:flex-row
