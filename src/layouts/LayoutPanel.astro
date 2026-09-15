@@ -1,191 +1,558 @@
 ---
 import NavBar from "@components/panel/NavBar.astro";
 import Cargando from "@components/Cargando.astro";
-import "../global.css";
-import Footer from "@components/panel/Footer.astro";
 import Hero from "@components/panel/Hero.astro";
-import { obtenerUsuarioPorToken } from "@pages/api/sesiones/sesiones";
-import { tienePermiso } from "@const/Permisos";
+import "../global.css";
 
-const {title, seccion = Astro.url.pathname.split("/")[2] || "panell", accion = "ver"} = Astro.props;
-let tituloCompleto = title ? `${title} | ` : "";
+import { obtenerUsuarioPorToken } from "@pages/api/sesiones/sesiones";
+import {
+    tienePermiso,
+    tieneAccesoTorneo,
+} from "@const/Permisos";
+
+import { supabaseAdmin } from "@utils/supabase";
+
+interface Props {
+    title?: string;
+    seccion?: string;
+    accion?: string;
+}
+
+type ErrorPanel = {
+    estado: 400 | 403 | 404 | 503;
+    titulo: string;
+    descripcion: string;
+};
+
+const {
+    title,
+    seccion = Astro.url.pathname.split("/")[2] || "panell",
+    accion = "ver",
+} = Astro.props;
+
+Astro.response.headers.set(
+    "Cache-Control",
+    "private, no-store"
+);
 
 const token = Astro.cookies.get("token_sesion")?.value;
-let usuario = null;
-if(token){
-    usuario = await obtenerUsuarioPorToken(token);
-    // console.log("Usuario obtenido:", usuario);
+
+const usuario = token
+    ? await obtenerUsuarioPorToken(token)
+    : null;
+
+if (!usuario) {
+    Astro.cookies.delete("token_sesion", {
+        path: "/",
+    });
+
+    const retorno = Astro.url.pathname + Astro.url.search;
+
+    return Astro.redirect(
+        `/iniciar-sessio?redirect=${encodeURIComponent(retorno)}`,
+        303
+    );
 }
-const torneoID = accion === "crear" && seccion === "tornejos" ? undefined : Astro.url.searchParams.get("torneoID") ?? undefined;
-const acceso = tienePermiso(usuario, "panell") && tienePermiso(usuario, seccion, accion, torneoID);
-Astro.response.headers.set("Cache-Control", "private, no-store");
-if (!usuario) Astro.response.status = 401;
-else if (!acceso) Astro.response.status = 403;
+
+// Sin acceso general: página independiente, sin el layout del panel.
+if (!tienePermiso(usuario, "panell", "ver")) {
+    return Astro.rewrite("/acces-denegat");
+}
+
+const usuarioAutenticado = usuario;
+
+const UUID =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const parametros = Astro.url.searchParams;
+
+// Crear un torneo es una acción general.
+// No utiliza el contexto de un torneo o edición anterior.
+const creandoTorneo =
+    seccion === "tornejos" && accion === "crear";
+
+const tieneParametroTorneo =
+    !creandoTorneo && parametros.has("torneoID");
+
+const tieneParametroEdicion =
+    !creandoTorneo && parametros.has("edicionID");
+
+const torneoID = tieneParametroTorneo
+    ? parametros.get("torneoID")?.trim().toLowerCase()
+    : undefined;
+
+const edicionID = tieneParametroEdicion
+    ? parametros.get("edicionID")?.trim().toLowerCase()
+    : undefined;
+
+let torneoAccesible = false;
+
+async function validarContenido(): Promise<ErrorPanel | null> {
+    if (
+        !creandoTorneo &&
+        (
+            parametros.getAll("torneoID").length > 1 ||
+            parametros.getAll("edicionID").length > 1
+        )
+    ) {
+        return {
+            estado: 400,
+            titulo: "Selecció no vàlida",
+            descripcion:
+                "La petició conté més d’un torneig o més d’una edició.",
+        };
+    }
+
+    if (tieneParametroTorneo && !torneoID) {
+        return {
+            estado: 400,
+            titulo: "Falta el torneig",
+            descripcion:
+                "Selecciona un torneig per continuar.",
+        };
+    }
+
+    if (tieneParametroEdicion && !edicionID) {
+        return {
+            estado: 400,
+            titulo: "Falta l’edició",
+            descripcion:
+                "Selecciona una edició vàlida per continuar.",
+        };
+    }
+
+    if (edicionID && !torneoID) {
+        return {
+            estado: 400,
+            titulo: "Falta seleccionar el torneig",
+            descripcion:
+                "Per consultar una edició, primer has de seleccionar el torneig al qual pertany.",
+        };
+    }
+
+    if (torneoID) {
+        if (!UUID.test(torneoID)) {
+            return {
+                estado: 404,
+                titulo: "Torneig no trobat",
+                descripcion:
+                    "L’identificador del torneig no és vàlid. Torna al panell general i selecciona un torneig.",
+            };
+        }
+
+        const {
+            data: torneo,
+            error: errorTorneo,
+        } = await supabaseAdmin
+            .from("torneos")
+            .select("id")
+            .eq("id", torneoID)
+            .maybeSingle();
+
+        if (errorTorneo) throw errorTorneo;
+
+        if (!torneo) {
+            return {
+                estado: 404,
+                titulo: "Torneig no trobat",
+                descripcion:
+                    "El torneig que intentes consultar no existeix o ja no està disponible.",
+            };
+        }
+
+        if (
+            !tieneAccesoTorneo(usuarioAutenticado, torneoID) ||
+            !tienePermiso(
+                usuarioAutenticado,
+                "panell",
+                "ver",
+                torneoID
+            )
+        ) {
+            return {
+                estado: 403,
+                titulo: "No tens accés a aquest torneig",
+                descripcion:
+                    "El teu compte té accés al panell, però no disposa dels permisos necessaris per accedir a aquest torneig.",
+            };
+        }
+
+        torneoAccesible = true;
+    }
+
+    if (edicionID && torneoID) {
+        if (!UUID.test(edicionID)) {
+            return {
+                estado: 404,
+                titulo: "Edició no trobada",
+                descripcion:
+                    "L’identificador de l’edició no és vàlid. Selecciona una altra edició del torneig.",
+            };
+        }
+
+        const {
+            data: edicion,
+            error: errorEdicion,
+        } = await supabaseAdmin
+            .from("ediciones")
+            .select("id,torneo_id")
+            .eq("id", edicionID)
+            .maybeSingle();
+
+        if (errorEdicion) throw errorEdicion;
+
+        if (!edicion) {
+            return {
+                estado: 404,
+                titulo: "Edició no trobada",
+                descripcion:
+                    "L’edició que intentes consultar no existeix o ja no està disponible.",
+            };
+        }
+
+        const torneoDeEdicion =
+            typeof edicion.torneo_id === "string"
+                ? edicion.torneo_id.trim().toLowerCase()
+                : null;
+
+        if (torneoDeEdicion !== torneoID) {
+            return {
+                estado: 404,
+                titulo: "L’edició no pertany a aquest torneig",
+                descripcion:
+                    "L’edició indicada no correspon al torneig seleccionat. Torna al resum del torneig i selecciona una de les seves edicions.",
+            };
+        }
+
+        if (
+            !tienePermiso(
+                usuarioAutenticado,
+                "edicions",
+                "ver",
+                torneoID
+            )
+        ) {
+            return {
+                estado: 403,
+                titulo: "No tens accés a aquesta edició",
+                descripcion:
+                    "El teu compte no té permís per consultar les edicions d’aquest torneig.",
+            };
+        }
+
+        /*
+         * FUTURO:
+         * Solo para usuarios con rol efectivo de voluntario:
+         * comprobar que su formulario para esta edición está aceptado.
+         *
+         * No se aplica todavía porque los formularios
+         * y sus relaciones aún no están implementados.
+         */
+    }
+
+    if (
+        !tienePermiso(
+            usuarioAutenticado,
+            seccion,
+            accion,
+            torneoID
+        )
+    ) {
+        return {
+            estado: 403,
+            titulo:
+                accion === "ver"
+                    ? "No tens accés a aquesta secció"
+                    : "No tens permís per fer aquesta acció",
+            descripcion:
+                accion === "ver"
+                    ? "Pots continuar utilitzant el panell, però el teu compte no té accés a aquesta secció."
+                    : "El teu compte no disposa dels permisos necessaris per fer l’acció sol·licitada.",
+        };
+    }
+
+    return null;
+}
+
+let errorPanel: ErrorPanel | null = null;
+
+try {
+    errorPanel = await validarContenido();
+} catch (error) {
+    console.error(
+        "Error comprovant el context del panell:",
+        error
+    );
+
+    errorPanel = {
+        estado: 503,
+        titulo: "No s’ha pogut carregar la informació",
+        descripcion:
+            "No hem pogut comprovar l’accés o carregar les dades del torneig o de l’edició. Torna-ho a provar més tard.",
+    };
+}
+
+if (errorPanel) {
+    Astro.response.status = errorPanel.estado;
+}
+
+const tituloPagina = errorPanel?.titulo || title;
+const tituloCompleto = tituloPagina
+    ? `${tituloPagina} | Esports IES Calvià`
+    : "Esports IES Calvià";
+
+const enlaceTorneo =
+    torneoAccesible && torneoID
+        ? `/panell?${new URLSearchParams({ torneoID }).toString()}`
+        : null;
 ---
+
 <!doctype html>
 <html lang="ca">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width" />
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Geist:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
-		<!-- <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" /> -->
-    <link rel="icon" type="image/png" sizes="any" href="/logo-temporal.png" />
-		<meta name="generator" content={Astro.generator} />
-		<title>{tituloCompleto}Esports IES Calvià</title>
-	</head>
-	<body class="bg-background text-neutral text-sm">
-    <Cargando />
+    <head>
+        <meta charset="UTF-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1"
+        />
 
-    {
-        usuario && acceso ? (
-            <div id="layout" class="h-dvh grid grid-cols-[auto_1fr] overflow-hidden">
-                <div>
-                    <div id="MenuDesktop" class="overflow-hidden max-md:absolute max-md:bg-background/60 max-md:z-50 max-md:w-0 w-56 transition-all duration-300 ease-in-out">
-                        <div class="h-[98%]">
-                            {/* <NavBar usuario={usuario} /> */}
-                            <NavBar usuario={usuario} />
-                        </div>
-                    </div>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+            rel="preconnect"
+            href="https://fonts.gstatic.com"
+            crossorigin
+        />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Geist:ital,wght@0,100..900;1,100..900&display=swap"
+            rel="stylesheet"
+        />
+
+        <link
+            rel="icon"
+            type="image/png"
+            sizes="any"
+            href="/logo-temporal.png"
+        />
+
+        <meta name="generator" content={Astro.generator} />
+        <title>{tituloCompleto}</title>
+
+        <script is:inline>
+            (() => {
+                let temaGuardado = null;
+
+                try {
+                    temaGuardado = localStorage.getItem("theme");
+                } catch {
+                    // Si no hay almacenamiento disponible,
+                    // utiliza la preferencia del sistema.
+                }
+
+                const oscuro =
+                    temaGuardado === "dark" ||
+                    (
+                        temaGuardado !== "light" &&
+                        window.matchMedia(
+                            "(prefers-color-scheme: dark)"
+                        ).matches
+                    );
+
+                document.documentElement.classList.toggle(
+                    "oscuro",
+                    oscuro
+                );
+            })();
+        </script>
+    </head>
+
+    <body class="bg-background text-sm text-neutral">
+        <Cargando />
+
+        <div
+            id="layout"
+            class="grid h-dvh grid-cols-[auto_minmax(0,1fr)] overflow-hidden"
+        >
+            <div>
+                <div
+                    id="MenuDesktop"
+                    class="w-56 overflow-hidden transition-all duration-300 ease-in-out max-md:absolute max-md:z-50 max-md:w-0 max-md:bg-background/60"
+                >
+                    <NavBar usuario={usuarioAutenticado} />
+                </div>
+            </div>
+
+            <div
+                class="grid h-dvh min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden"
+            >
+                <div
+                    class="flex w-full items-center gap-x-4 border-b border-on-background bg-card"
+                >
+                    <button
+                        type="button"
+                        class="btn-MenuDesktop h-max w-max shrink-0 rounded-full p-2 transition hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        aria-label="Obrir o tancar el menú"
+                        aria-controls="MenuDesktop"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-6 w-6 fill-secondary"
+                            viewBox="0 -960 960 960"
+                            aria-hidden="true"
+                        >
+                            <path
+                                d="M120-240v-80h720v80H120Zm0-200v-80h720v80H120Zm0-200v-80h720v80H120Z"
+                            />
+                        </svg>
+                    </button>
+
+                    <Hero usuario={usuarioAutenticado} />
                 </div>
 
-                <div class="grid grid-rows-[auto_1fr_auto] overflow-hidden h-dvh min-h-0">
-                    <div class="flex  items-center gap-x-4 w-full bg-card border-b border-on-background">
-                        <span class="btn-MenuDesktop w-max h-max p-2 hover:bg-rosa/50 rounded-full cursor-pointer">
-                            
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 fill-secondary" viewBox="0 -960 960 960">
-                                <path d="M120-240v-80h720v80H120Zm0-200v-80h720v80H120Zm0-200v-80h720v80H120Z"/>
-                            </svg>
-                        </span>
-                        <Hero usuario={usuario} />
-                    </div>
-                    {/* <!-- NOTIFICACIONES --> */}
-                
-                    {/* <!-- CONTENIDO (ÚNICO SCROLL) --> */}
-                        <main class="w-full mx-auto h-screen overflow-y-auto scroll-personalizada">
-                            
+                <main
+                    class="scroll-personalizada mx-auto min-h-0 w-full overflow-y-auto"
+                >
+                    {
+                        errorPanel ? (
+                            <section
+                                class="flex min-h-full items-center justify-center px-4 py-10 md:px-6"
+                                aria-labelledby="error-panel-titol"
+                            >
+                                <div class="relative w-full max-w-xl overflow-hidden rounded-2xl border border-border/40 bg-white p-6 text-center shadow-[0_2px_12px_rgba(15,23,42,0.025)] md:p-10 in-[.oscuro_&]:bg-card">
+                                    <div
+                                        class="pointer-events-none absolute inset-x-0 top-0 h-36 bg-linear-to-b from-primary/10 to-transparent"
+                                        aria-hidden="true"
+                                    />
+
+                                    <div class="relative">
+                                        <div class="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                class="h-8 w-8"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="1.7"
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                aria-hidden="true"
+                                            >
+                                                {errorPanel.estado === 403 ? (
+                                                    <>
+                                                        <path d="m12 3 8 3v6c0 4-3 7-8 9-5-2-8-5-8-9V6l8-3Z" />
+                                                        <path d="m9 9 6 6M15 9l-6 6" />
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <circle cx="12" cy="12" r="9" />
+                                                        <path d="M12 7v6M12 17h.01" />
+                                                    </>
+                                                )}
+                                            </svg>
+                                        </div>
+
+                                        <span class="inline-flex rounded-md bg-[#eef3ff] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-primary in-[.oscuro_&]:bg-background">
+                                            Error {errorPanel.estado}
+                                        </span>
+
+                                        <h1
+                                            id="error-panel-titol"
+                                            class="mt-4 text-xl font-bold tracking-tight text-neutral-titulos md:text-2xl"
+                                        >
+                                            {errorPanel.titulo}
+                                        </h1>
+
+                                        <p class="mt-3 text-sm leading-relaxed text-neutral">
+                                            {errorPanel.descripcion}
+                                        </p>
+
+                                        <div class="mt-7 flex flex-col justify-center gap-3 sm:flex-row sm:flex-wrap">
+                                            {enlaceTorneo && (
+                                                <a
+                                                    href={enlaceTorneo}
+                                                    class="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-xs font-semibold text-white transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                                                >
+                                                    Tornar al resum del torneig
+                                                </a>
+                                            )}
+
+                                            <a
+                                                href="/panell"
+                                                class="inline-flex items-center justify-center rounded-lg border border-border/50 bg-background px-4 py-2.5 text-xs font-semibold text-neutral-titulos transition hover:border-primary/25 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                            >
+                                                Tornar al panell general
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+                        ) : (
                             <slot />
-                        </main>
-
-                    {/* <!-- FOOTER --> */}
-                    {/* <Footer /> */}
-
-                </div>
+                        )
+                    }
+                </main>
             </div>
-        ):(
-            <div class="w-full h-screen p-4 flex items-center place-content-center">
-                <div class="z-10 w-full max-w-md bg-card rounded-xl shadow-lg p-xl border border-border/30 text-center hover-lift p-4">
-                        {/* <!-- Icon/Illustration Section --> */}
-                        <div class="mb-lg flex justify-center">
-                        <div class="relative w-32 h-32 bg-surface-container rounded-full flex items-center justify-center">
-                        <div class="absolute inset-0 border-4 border-dashed border-primary/20 rounded-full animate-[spin_10s_linear_infinite]"></div>
-                        <span class="fill-secondary">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-14 h-14" viewBox="0 -960 960 960">
-                                <path d="M440-480q-66 0-113-47t-47-113 47-113 113-47 113 47 47 113-47 113-113 47m0-80q33 0 56.5-23.5T520-640t-23.5-56.5T440-720t-56.5 23.5T360-640t23.5 56.5T440-560M884-20 756-148q-21 12-45 20t-51 8q-75 0-127.5-52.5T480-300t52.5-127.5T660-480t127.5 52.5T840-300q0 27-8 51t-20 45L940-76zM731-229q29-29 29-71t-29-71-71-29-71 29-29 71 29 71 71 29 71-29m-611 69v-111q0-34 17-63t47-44q51-26 115-44t142-18q-12 18-20.5 38.5T407-359q-60 5-107 20.5T221-306q-10 5-15.5 14.5T200-271v31h207q5 22 13.5 42t20.5 38zm287-80"/>
-                            </svg>
-                        </span>
-                        </div>
-                        </div>
-                        {/* <!-- Text Content --> */}
-                        <h2 class="text-xl text-neutral-titulos font-semibold mb-md">{usuario ? "Accés denegat" : "Usuari no trobat"}</h2>
-                        <p class="font-body-md text-body-md text-on-surface-variant mb-xl leading-relaxed">
-                                        {usuario ? "El teu compte no té accés a aquesta secció o a aquest torneig." : "Inicia sessió per accedir al panell."}
-                                    </p>
-                        {/* <!-- Actions --> */}
-                        <div class="flex flex-col gap-2 mt-5">
-                        <a href={usuario ? "/perfil" : `/iniciar-sessio?redirect=${encodeURIComponent(Astro.url.pathname + Astro.url.search)}`} class="bg-primary text-neutral hover:bg-primary transition-all duration-200 py-3 px-4 rounded-lg  active:scale-[0.98] flex items-center justify-center gap-x-2">
-                            <span class="fill-neutral">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 -960 960 960">
-                                    <path d="M480-120v-80h280v-560H480v-80h280q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120zm-80-160-55-58 102-102H120v-80h327L345-622l55-58 200 200z"/>
-                                </svg>
-                            </span>
-                                            {usuario ? "Tornar al perfil" : "Iniciar sessió"}
-                                        </a>
-                        <a class="border border-primary text-primary hover:bg-primary/10 transition-all duration-200 py-3 px-4 rounded-lg active:scale-[0.98] flex items-center justify-center gap-x-2" >
-                            <span class="fill-primary">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 -960 960 960">
-                                    <path d="M720-400v-120H600v-80h120v-120h80v120h120v80H800v120zM247-527q-47-47-47-113t47-113 113-47 113 47 47 113-47 113-113 47-113-47M40-160v-112q0-34 17.5-62.5T104-378q62-31 126-46.5T360-440t130 15.5T616-378q29 15 46.5 43.5T680-272v112zm80-80h480v-32q0-11-5.5-20T580-306q-54-27-109-40.5T360-360t-111 13.5T140-306q-9 5-14.5 14t-5.5 20zm296.5-343.5Q440-607 440-640t-23.5-56.5T360-720t-56.5 23.5T280-640t23.5 56.5T360-560t56.5-23.5M360-240"/>
-                                </svg>
-                            </span>
-                            Registra't ara
-                        </a>
-                        </div>
-                        {/* <!-- Helpful Hint --> */}
-                        <div class="mt-5 pt-2 border-t border-border/30 flex items-center justify-center gap-1 text-sm">
-                        
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-neutral" viewBox="0 -960 960 960">
-                                <path d="M513.5-254.5Q528-269 528-290t-14.5-35.5T478-340t-35.5 14.5T428-290t14.5 35.5T478-240t35.5-14.5M442-394h74q0-33 7.5-52t42.5-52q26-26 41-49.5t15-56.5q0-56-41-86t-97-30q-57 0-92.5 30T342-618l66 26q5-18 22.5-39t53.5-21q32 0 48 17.5t16 38.5q0 20-12 37.5T506-526q-44 39-54 59t-10 73m38 314q-83 0-156-31.5T197-197t-85.5-127T80-480t31.5-156T197-763t127-85.5T480-880t156 31.5T763-763t85.5 127T880-480t-31.5 156T763-197t-127 85.5T480-80m0-80q134 0 227-93t93-227-93-227-227-93-227 93-93 227 93 227 227 93m0-320"/>
-                            </svg>
-                        
-                        <span>Necessites ajuda? <a href="/contact" class="text-primary hover:underline">Contacta amb el suport.</a></span>
-                        </div>
-                        </div>
-            </div>
-            <Footer />
-        )
-    }
-    
-    
-	</body>
+        </div>
+    </body>
 </html>
 
 <style>
-	html,
-	body {
-		margin: 0;
-		width: 100%;
-		height: 100%;
-	}
+    html,
+    body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+    }
 </style>
 
-<script is:inline>
-  (() => {
-    const savedTheme = localStorage.getItem("theme");
-
-    if (savedTheme) {
-      document.documentElement.classList.toggle(
-        "oscuro",
-        savedTheme === "dark"
-      );
-      return;
-    }
-
-    const prefersDark = window.matchMedia(
-      "(prefers-color-scheme: dark)"
-    ).matches;
-
-    document.documentElement.classList.toggle(
-      "oscuro",
-      prefersDark
-    );
-  })();
-</script>
-
 <script>
-const btnsMenuDesktop = document.querySelectorAll('.btn-MenuDesktop');
-const menuDesktop = document.getElementById('MenuDesktop');
+    const menuDesktop = document.getElementById("MenuDesktop");
+    const botones = document.querySelectorAll(".btn-MenuDesktop");
 
-let abierto = true;
+    if (menuDesktop) {
+        const pantallaMovil = window.matchMedia(
+            "(max-width: 767px)"
+        );
 
-btnsMenuDesktop.forEach(btn => {
-    btn.addEventListener('click', () => {
-        abierto = !abierto;
+        let abierto = !pantallaMovil.matches;
 
-        if (abierto) {
-            menuDesktop?.classList.remove('w-0');
-            menuDesktop?.classList.add('w-56');
+        function actualizarMenu() {
+            if (!menuDesktop) return;
 
-            menuDesktop?.classList.remove('max-md:w-0');
-            menuDesktop?.classList.add('max-md:w-full');
-        } else {
-            menuDesktop?.classList.remove('w-56');
-            menuDesktop?.classList.add('w-0');
+            menuDesktop.classList.toggle("w-56", abierto);
+            menuDesktop.classList.toggle("w-0", !abierto);
 
-            menuDesktop?.classList.remove('max-md:w-full');
-            menuDesktop?.classList.add('max-md:w-0');
+            menuDesktop.classList.toggle(
+                "max-md:w-full",
+                abierto
+            );
+
+            menuDesktop.classList.toggle(
+                "max-md:w-0",
+                !abierto
+            );
+
+            menuDesktop.inert = !abierto;
+
+            botones.forEach((boton) => {
+                boton.setAttribute(
+                    "aria-expanded",
+                    String(abierto)
+                );
+            });
         }
-    });
-});
+
+        botones.forEach((boton) => {
+            boton.addEventListener("click", () => {
+                abierto = !abierto;
+                actualizarMenu();
+            });
+        });
+
+        pantallaMovil.addEventListener("change", () => {
+            abierto = !pantallaMovil.matches;
+            actualizarMenu();
+        });
+
+        actualizarMenu();
+    }
 </script>

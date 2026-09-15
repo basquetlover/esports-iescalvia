@@ -10,18 +10,114 @@ export const prerender = false;
     seccion="usuaris"
     accion="ver"
 >
-    <section class="w-full p-4 md:p-6">
-        <header class="mb-6">
-            <h1 class="text-2xl font-bold text-neutral-titulos">
-                Gestió d’usuaris
-            </h1>
+    <div class="min-h-full w-full bg-background">
+        <header class="border-b border-border/50 bg-card/40">
+            <div
+                class="mx-auto flex w-full max-w-[1600px] flex-wrap items-center justify-between gap-3 px-4 py-3 md:px-6"
+            >
+                <nav aria-label="Fil d’Ariadna">
+                    <ol
+                        class="flex flex-wrap items-center gap-2 text-xs text-neutral"
+                    >
+                        <li>
+                            <a
+                                href="/panell"
+                                class="rounded transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            >
+                                Panell d’administració
+                            </a>
+                        </li>
 
-            <p class="mt-2 text-sm text-neutral">
-                Consulta els usuaris de la plataforma, accedeix a les
-                seves fitxes i gestiona l’estat dels seus comptes.
-            </p>
+                        <li aria-hidden="true" class="text-neutral/40">
+                            /
+                        </li>
+
+                        <li
+                            aria-current="page"
+                            class="font-semibold text-neutral-titulos"
+                        >
+                            Usuaris
+                        </li>
+                    </ol>
+                </nav>
+
+                <a
+                    href="/panell"
+                    class="inline-flex items-center gap-2 rounded-lg border border-border/50 bg-card px-3 py-2 text-xs font-semibold text-neutral-titulos transition hover:border-primary/25 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-3.5 w-3.5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                    >
+                        <path d="m12 19-7-7 7-7M5 12h14" />
+                    </svg>
+
+                    Tornar al panell
+                </a>
+            </div>
         </header>
 
-        <Lista client:load />
-    </section>
+        <section
+            class="mx-auto flex w-full max-w-[1600px] flex-col gap-5 px-4 py-5 md:px-6 md:py-6"
+            aria-labelledby="gestio-usuaris-titol"
+        >
+            <div
+                class="relative overflow-hidden rounded-2xl border border-border/40 bg-white p-5 shadow-[0_2px_12px_rgba(15,23,42,0.025)] md:p-6 in-[.oscuro_&]:bg-card"
+            >
+                <div
+                    class="pointer-events-none absolute inset-0 bg-linear-to-r from-transparent via-transparent to-primary/10"
+                    aria-hidden="true"
+                ></div>
+
+                <div class="relative flex items-start gap-4">
+                    <span
+                        class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-6 w-6"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.7"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            aria-hidden="true"
+                        >
+                            <circle cx="9" cy="8" r="3" />
+                            <path
+                                d="M3 21v-3a6 6 0 0 1 12 0v3M16 5a3 3 0 0 1 0 6M17 15a5 5 0 0 1 4 5v1"
+                            />
+                        </svg>
+                    </span>
+
+                    <div class="min-w-0">
+                        <h1
+                            id="gestio-usuaris-titol"
+                            class="text-xl font-bold tracking-tight text-neutral-titulos md:text-2xl"
+                        >
+                            Gestió d’usuaris
+                        </h1>
+
+                        <p
+                            class="mt-2 max-w-2xl text-xs leading-relaxed text-neutral md:text-sm"
+                        >
+                            Consulta els comptes de la plataforma,
+                            accedeix a les seves fitxes i gestiona
+                            el seu estat.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <Lista client:load />
+        </section>
+    </div>
 </LayoutPanel>

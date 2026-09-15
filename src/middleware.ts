@@ -33,6 +33,7 @@ function cargarOrigenes(): Set<string> {
     }
 
     const origenes = new Set<string>();
+
     const entradas = configuracion
         .split(/[,\n;]+/)
         .map((entrada) =>
@@ -67,7 +68,7 @@ function cargarOrigenes(): Set<string> {
 
         if (!esValido) {
             throw new Error(
-                `ORIGENES_AUTORIZADOS debe contener solo orígens HTTP/HTTPS sin rutas, credencials ni query/hash. Valor inválido: "${valor}".`
+                `ORIGENES_AUTORIZADOS debe contener solo orígenes HTTP/HTTPS sin rutas, credenciales ni query/hash. Valor inválido: "${valor}".`
             );
         }
 
@@ -166,6 +167,8 @@ export const onRequest = defineMiddleware(
             (base) => perteneceA(ruta, base)
         );
 
+        // Incluye /acces-denegat, que debe poder renderizarse
+        // sin volver a exigir acceso al panel.
         if (!esAPI && !esPaginaPrivada) {
             return next();
         }
@@ -272,7 +275,10 @@ export const onRequest = defineMiddleware(
             try {
                 return finalizarAPI(await next());
             } catch (error) {
-                console.error("Error processant la petició API:", error);
+                console.error(
+                    "Error processant la petició API:",
+                    error
+                );
 
                 return finalizarAPI(
                     errorJSON(
@@ -324,17 +330,17 @@ export const onRequest = defineMiddleware(
                 perteneceA(ruta, "/panell") &&
                 !tienePermiso(usuario, "panell", "ver")
             ) {
+                // Renderiza la página visual conservando
+                // la URL solicitada y el estado HTTP 403.
+                const respuesta = await contexto.rewrite(
+                    "/acces-denegat"
+                );
+
                 return finalizarPagina(
-                    new Response(
-                        "No tens accés al panell d’administració.",
-                        {
-                            status: 403,
-                            headers: {
-                                "Content-Type":
-                                    "text/plain; charset=utf-8",
-                            },
-                        }
-                    )
+                    new Response(respuesta.body, {
+                        status: 403,
+                        headers: respuesta.headers,
+                    })
                 );
             }
 
