@@ -1,7 +1,11 @@
-import { useEffect, useRef, useState } from "react";
 import {
-    NOMBRES_ROL,
-    ROLES_ORDENADOS,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from "react";
+
+import {
     calcularRolMinimo,
     completarPermisosAmbito,
     crearDocumentoPermisos,
@@ -11,7 +15,13 @@ import {
     type PermisosAmbito,
     type Rol,
     type SeccionPermisos,
-} from "../../../const/Permisos";
+} from "@const/Permisos";
+
+import PasoUsuario from "./pasos/PasoUsuario";
+import PasoTornejos from "./pasos/PasoTornejos";
+import PasoGeneral from "./pasos/PasoGeneral";
+import PasoTorneo from "./pasos/PasoTorneo";
+import PasoResumen from "./pasos/PasoResumen";
 
 const API = "/api/panell/permisos";
 
@@ -39,13 +49,15 @@ type Torneo = {
     id: string;
     nombre: string | null;
     deporte: string | null;
-    rolAdministrador: Rol;
+    rolAdministrador: Rol | null;
 };
 
 type Configuracion = {
     seccionesGenerales: SeccionPermisos[];
     seccionesTorneo: SeccionPermisos[];
+
     nombresAcciones: Record<string, string>;
+
     nivelesPermisos: Record<
         string,
         {
@@ -53,12 +65,15 @@ type Configuracion = {
             acciones?: Record<string, number>;
         }
     >;
+
     roles: {
         valor: Rol;
         nombre: string;
         nivel: number;
     }[];
+
     torneos: Torneo[];
+
     capacidades: {
         crear: boolean;
         editar: boolean;
@@ -69,6 +84,7 @@ type Configuracion = {
 
 type Detalle = {
     usuario: Usuario;
+
     capacidades: {
         crear: boolean;
         editar: boolean;
@@ -76,106 +92,100 @@ type Detalle = {
     };
 };
 
-type Paso =
-    | { id: string; tipo: "usuario"; titulo: string }
-    | { id: string; tipo: "accesos"; titulo: string }
-    | {
-          id: string;
-          tipo: "permisos";
-          titulo: string;
-          seccion: SeccionPermisos;
-          ambito: "general" | "comun" | "individual";
-          torneoID?: string;
-      }
-    | { id: string; tipo: "resumen"; titulo: string };
-
-const niveles: Record<Rol, number> = {
-    voluntario: 1,
-    staff: 2,
-    admintorneo: 3,
-    admin: 4,
-    desarrollador: 5,
+type PasoUsuario = {
+    id: "usuario";
+    tipo: "usuario";
+    titulo: string;
 };
 
-const boton =
-    "inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 " +
-    "text-sm font-semibold transition-colors focus-visible:outline-none " +
-    "focus-visible:ring-2 focus-visible:ring-primary " +
-    "focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
+type PasoAccesos = {
+    id: "accesos";
+    tipo: "accesos";
+    titulo: string;
+};
 
-const secundario =
-    `${boton} border border-border bg-white text-secondary ` +
-    "hover:bg-primary/5 in-[.oscuro_&]:bg-card";
+type PasoGeneral = {
+    id: string;
+    tipo: "general";
+    titulo: string;
+    seccion: SeccionPermisos;
+};
 
-const principal =
-    `${boton} bg-primary text-white hover:bg-primary/90`;
+type PasoComun = {
+    id: string;
+    tipo: "comun";
+    titulo: string;
+    seccion: SeccionPermisos;
+};
 
-const campo =
-    "w-full rounded-lg border border-border bg-[#f0f5ff] px-3 py-2.5 " +
-    "text-sm text-secondary outline-none focus:border-primary " +
-    "focus:ring-2 focus:ring-primary/15 disabled:opacity-60 " +
-    "in-[.oscuro_&]:bg-background";
+type PasoIndividual = {
+    id: string;
+    tipo: "individual";
+    titulo: string;
+    seccion: SeccionPermisos;
+    torneoID: string;
+};
 
-function objeto(valor: unknown): Record<string, unknown> | null {
-    return valor !== null &&
+type PasoResumen = {
+    id: "resumen";
+    tipo: "resumen";
+    titulo: string;
+};
+
+type Paso =
+    | PasoUsuario
+    | PasoAccesos
+    | PasoGeneral
+    | PasoComun
+    | PasoIndividual
+    | PasoResumen;
+
+function esObjeto(
+    valor: unknown,
+): valor is Record<string, unknown> {
+    return (
+        valor !== null &&
         typeof valor === "object" &&
         !Array.isArray(valor)
-        ? (valor as Record<string, unknown>)
-        : null;
-}
-
-function nombreUsuario(usuario: Usuario) {
-    return [
-        usuario.nombre,
-        usuario.apellido1,
-        usuario.apellido2,
-    ].filter(Boolean).join(" ").trim() || "Usuari sense nom";
-}
-
-function nombreOrigen(valor: string | null) {
-    if (valor?.toLowerCase() === "manual") return "Manual";
-    if (valor?.toLowerCase() === "sistema") return "Sistema";
-    return "Sense especificar";
-}
-
-function fechaVisible(valor: unknown) {
-    if (typeof valor !== "string") return "Sense informació";
-
-    const fecha = new Date(valor);
-
-    return Number.isNaN(fecha.getTime())
-        ? "Sense informació"
-        : new Intl.DateTimeFormat("ca-ES", {
-              dateStyle: "medium",
-              timeStyle: "short",
-          }).format(fecha);
+    );
 }
 
 async function obtener<T>(
     parametros: URLSearchParams,
     signal: AbortSignal,
 ): Promise<T> {
-    const respuesta = await fetch(`${API}?${parametros}`, {
-        credentials: "same-origin",
-        cache: "no-store",
-        signal,
-    });
+    const respuesta = await fetch(
+        `${API}?${parametros.toString()}`,
+        {
+            credentials: "same-origin",
+            cache: "no-store",
+            signal,
+        },
+    );
 
-    const datos = await respuesta.json().catch(() => null);
+    const datos = await respuesta
+        .json()
+        .catch(() => null);
 
-    if (!respuesta.ok || datos?.success !== true) {
+    if (
+        !respuesta.ok ||
+        datos?.success !== true
+    ) {
         throw new Error(
-            datos?.mensaje || "No s'ha pogut carregar la informació.",
+            datos?.mensaje ||
+                "No s'ha pogut carregar la informació.",
         );
     }
 
     return datos as T;
 }
 
-/**
- * Conserva únicamente el catálogo admitido por la API.
- * Si detecta datos antiguos no representables, exige revisión
- * antes de permitir el guardado.
+/*
+ * Convierte los permisos existentes al formato que utiliza
+ * actualmente el asistente.
+ *
+ * También conserva las advertencias cuando encuentra datos
+ * antiguos o incompatibles.
  */
 function cargarDocumento(
     usuario: Usuario,
@@ -193,9 +203,16 @@ function cargarDocumento(
     }
 
     const advertencias: string[] = [];
-    const original = objeto(usuario.permisos);
-    const rolAnterior = normalizarRol(usuario.rol);
-    const documento = crearDocumentoPermisos();
+
+    const original = esObjeto(usuario.permisos)
+        ? usuario.permisos
+        : null;
+
+    const rolAnterior =
+        normalizarRol(usuario.rol);
+
+    const documento =
+        crearDocumentoPermisos();
 
     if (!original) {
         advertencias.push(
@@ -203,7 +220,10 @@ function cargarDocumento(
         );
     }
 
-    if (original?.version !== 1) {
+    if (
+        original &&
+        original.version !== 1
+    ) {
         advertencias.push(
             "La configuració anterior s'adaptarà a la versió actual.",
         );
@@ -220,76 +240,145 @@ function cargarDocumento(
                 ? configuracion.seccionesGenerales
                 : configuracion.seccionesTorneo;
 
-        const entrada = objeto(valor);
-        const permisosValidados: PermisosAmbito = {};
+        const entrada =
+            esObjeto(valor)
+                ? valor
+                : null;
+
+        const permisosValidados:
+            PermisosAmbito = {};
 
         if (entrada) {
             for (const seccion of secciones) {
-                const acciones = objeto(entrada[seccion.id]);
+                const valorSeccion = entrada[seccion.id];
 
-                if (!acciones) continue;
+                const acciones: Record<string, unknown> | null =
+                    esObjeto(valorSeccion)
+                        ? valorSeccion
+                        : null;
 
-                permisosValidados[seccion.id] = {};
+                if (!acciones) {
+                    continue;
+                }
 
-                for (const accion of seccion.acciones) {
-                    const valorAccion = acciones[accion];
+                permisosValidados[
+                    seccion.id
+                ] = {};
 
-                    if (typeof valorAccion === "boolean") {
-                        permisosValidados[seccion.id][accion] = valorAccion;
+                for (
+                    const accion
+                    of seccion.acciones
+                ) {
+                    const valorAccion =
+                        acciones[accion];
+
+                    if (
+                        typeof valorAccion ===
+                        "boolean"
+                    ) {
+                        permisosValidados[
+                            seccion.id
+                        ][accion] =
+                            valorAccion;
                     }
                 }
             }
         }
 
-        const completos = completarPermisosAmbito(
-            ambito,
-            rol,
-            entrada ? permisosValidados : undefined,
-        );
+        const completos =
+            completarPermisosAmbito(
+                ambito,
+                rol,
+                entrada
+                    ? permisosValidados
+                    : undefined,
+            );
 
-        const salida: PermisosAmbito = {};
+        const salida:
+            PermisosAmbito = {};
 
-        if (valor !== undefined && !entrada) {
+        if (
+            valor !== undefined &&
+            !entrada
+        ) {
             advertencias.push(
                 `${etiqueta}: l'estructura anterior no és vàlida.`,
             );
 
-            // No convertir una configuración malformada en permisos concedidos.
-            for (const seccion of secciones) {
-                salida[seccion.id] = Object.fromEntries(
-                    seccion.acciones.map((accion) => [accion, false]),
-                );
+            for (
+                const seccion
+                of secciones
+            ) {
+                salida[seccion.id] =
+                    Object.fromEntries(
+                        seccion.acciones.map(
+                            (accion) => [
+                                accion,
+                                false,
+                            ],
+                        ),
+                    );
             }
 
             return salida;
         }
 
         if (entrada) {
-            for (const [id, acciones] of Object.entries(entrada)) {
-                const seccion = secciones.find((item) => item.id === id);
+            for (
+                const [
+                    id,
+                    acciones,
+                ] of Object.entries(
+                    entrada,
+                )
+            ) {
+                const seccion =
+                    secciones.find(
+                        (item) =>
+                            item.id === id,
+                    );
 
                 if (!seccion) {
                     advertencias.push(
                         `${etiqueta}: la secció antiga «${id}» no forma part del catàleg actual i no es conservarà.`,
                     );
+
                     continue;
                 }
 
-                const registro = objeto(acciones);
+                const registro =
+                    esObjeto(acciones)
+                        ? acciones
+                        : null;
 
                 if (!registro) {
                     advertencias.push(
                         `${etiqueta}: cal revisar la secció «${seccion.nombre}».`,
                     );
+
                     continue;
                 }
 
-                for (const [accion, valorAccion] of Object.entries(registro)) {
-                    if (!seccion.acciones.includes(accion)) {
+                for (
+                    const [
+                        accion,
+                        valorAccion,
+                    ] of Object.entries(
+                        registro,
+                    )
+                ) {
+                    if (
+                        !seccion.acciones.includes(
+                            accion,
+                        )
+                    ) {
                         advertencias.push(
                             `${etiqueta}: l'acció antiga «${id}.${accion}» no es conservarà.`,
                         );
-                    } else if (typeof valorAccion !== "boolean") {
+                    } else if (
+                        typeof valorAccion !==
+                        "boolean"
+                    ) {
                         advertencias.push(
                             `${etiqueta}: «${id}.${accion}» no tenia un valor vàlid.`,
                         );
@@ -298,26 +387,50 @@ function cargarDocumento(
             }
         }
 
-        for (const seccion of secciones) {
+        for (
+            const seccion
+            of secciones
+        ) {
             salida[seccion.id] = {};
 
-            const entradaSeccion = entrada?.[seccion.id];
-            const accionesEntrada = objeto(entradaSeccion);
+            const entradaSeccion =
+                entrada?.[seccion.id];
 
-            for (const accion of seccion.acciones) {
+            const accionesEntrada =
+                esObjeto(
+                    entradaSeccion,
+                )
+                    ? entradaSeccion
+                    : null;
+
+            for (
+                const accion
+                of seccion.acciones
+            ) {
                 const malformada =
-                    entradaSeccion !== undefined &&
+                    entradaSeccion !==
+                        undefined &&
                     (
                         !accionesEntrada ||
                         (
-                            accionesEntrada[accion] !== undefined &&
-                            typeof accionesEntrada[accion] !== "boolean"
+                            accionesEntrada[
+                                accion
+                            ] !==
+                                undefined &&
+                            typeof accionesEntrada[
+                                accion
+                            ] !==
+                                "boolean"
                         )
                     );
 
-                salida[seccion.id][accion] = malformada
+                salida[seccion.id][
+                    accion
+                ] = malformada
                     ? false
-                    : completos[seccion.id]?.[accion] === true;
+                    : completos[
+                          seccion.id
+                      ]?.[accion] === true;
             }
         }
 
@@ -326,22 +439,48 @@ function cargarDocumento(
 
     const estructurado =
         original &&
-        ["version", "globales", "torneos", "acceso_torneos"].some(
-            (clave) => Object.hasOwn(original, clave),
+        [
+            "version",
+            "globales",
+            "torneos",
+            "acceso_torneos",
+        ].some((clave) =>
+            Object.hasOwn(
+                original,
+                clave,
+            ),
         );
 
-    documento.globales = prepararAmbito(
-        "general",
-        rolAnterior,
-        estructurado ? original?.globales : original ?? undefined,
-        "Permisos generals",
-    );
+    documento.globales =
+        prepararAmbito(
+            "general",
+            rolAnterior,
+            estructurado
+                ? original?.globales
+                : original ??
+                      undefined,
+            "Permisos generals",
+        );
 
-    const comun = objeto(original?.acceso_torneos);
-    const todos = comun?.todos === true;
-    const rolComun = normalizarRol(comun?.rol);
+    const comun =
+        esObjeto(
+            original?.acceso_torneos,
+        )
+            ? original?.acceso_torneos
+            : null;
 
-    if (todos && !rolComun) {
+    const todos =
+        comun?.todos === true;
+
+    const rolComun =
+        normalizarRol(
+            comun?.rol,
+        );
+
+    if (
+        todos &&
+        !rolComun
+    ) {
         advertencias.push(
             "L'accés comú no tenia un rol vàlid. Selecciona'l abans de desar.",
         );
@@ -349,89 +488,167 @@ function cargarDocumento(
 
     documento.acceso_torneos = {
         todos,
-        rol: todos ? rolComun : null,
-        permisos: prepararAmbito(
-            "torneo",
-            todos ? rolComun : null,
-            comun?.permisos,
-            "Tots els tornejos",
-        ),
+        rol: todos
+            ? rolComun
+            : null,
+
+        permisos:
+            prepararAmbito(
+                "torneo",
+                todos
+                    ? rolComun
+                    : null,
+                comun?.permisos,
+                "Tots els tornejos",
+            ),
     };
 
-    const torneos = objeto(original?.torneos);
+    const torneosAnteriores =
+        esObjeto(
+            original?.torneos,
+        )
+            ? original?.torneos
+            : null;
 
-    if (original?.torneos !== undefined && !torneos) {
+    if (
+        original?.torneos !==
+            undefined &&
+        !torneosAnteriores
+    ) {
         advertencias.push(
             "Les assignacions anteriors dels tornejos no són vàlides. Cal tornar-les a configurar.",
         );
     }
 
-    const uuid =
+    const UUID =
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-    for (const [clave, valor] of Object.entries(torneos ?? {})) {
-        if (!uuid.test(clave)) {
+    for (
+        const [
+            clave,
+            valor,
+        ] of Object.entries(
+            torneosAnteriores ?? {},
+        )
+    ) {
+        if (
+            !UUID.test(clave)
+        ) {
             advertencias.push(
                 `L'assignació «${clave}» no té un identificador vàlid i no es conservarà.`,
             );
+
             continue;
         }
 
-        const id = clave.toLowerCase();
+        const id =
+            clave.toLowerCase();
 
-        if (Object.hasOwn(documento.torneos, id)) {
+        if (
+            Object.hasOwn(
+                documento.torneos,
+                id,
+            )
+        ) {
             throw new Error(
                 "Hi ha assignacions duplicades d'un mateix torneig. Cal corregir-les abans de continuar.",
             );
         }
 
-        const asignacion = objeto(valor);
-        const acceso = asignacion?.acceso === true;
-        const rolAsignado =
-            asignacion?.rol === undefined
-                ? rolAnterior
-                : normalizarRol(asignacion.rol);
+        const asignacion =
+            esObjeto(valor)
+                ? valor
+                : null;
 
-        if (!asignacion || typeof asignacion.acceso !== "boolean") {
+        const acceso =
+            asignacion?.acceso === true;
+
+        const rolAsignado =
+            asignacion?.rol ===
+            undefined
+                ? rolAnterior
+                : normalizarRol(
+                      asignacion.rol,
+                  );
+
+        if (
+            !asignacion ||
+            typeof asignacion.acceso !==
+                "boolean"
+        ) {
             advertencias.push(
                 `L'assignació del torneig ${id} no era vàlida i es mostrarà sense accés.`,
             );
         }
 
-        if (acceso && !rolAsignado) {
+        if (
+            acceso &&
+            !rolAsignado
+        ) {
             advertencias.push(
                 `El torneig ${id} necessita un rol vàlid.`,
             );
         }
 
-        documento.torneos[id] = {
+        documento.torneos[
+            id
+        ] = {
             acceso,
-            rol: acceso ? rolAsignado : null,
-            permisos: prepararAmbito(
-                "torneo",
-                acceso ? rolAsignado : null,
-                asignacion?.permisos,
-                `Torneig ${id}`,
-            ),
+
+            rol: acceso
+                ? rolAsignado
+                : null,
+
+            permisos:
+                prepararAmbito(
+                    "torneo",
+                    acceso
+                        ? rolAsignado
+                        : null,
+                    asignacion?.permisos,
+                    `Torneig ${id}`,
+                ),
         };
     }
 
-    if (typeof original?.ultima_actualizacion === "string") {
-        documento.ultima_actualizacion = original.ultima_actualizacion;
+    if (
+        typeof original?.ultima_actualizacion ===
+        "string"
+    ) {
+        documento.ultima_actualizacion =
+            original.ultima_actualizacion;
     }
 
     return {
         documento,
-        advertencias: [...new Set(advertencias)],
+        advertencias: [
+            ...new Set(
+                advertencias,
+            ),
+        ],
     };
 }
 
-function obtenerRolMinimo(documento: DocumentoPermisos): Rol | null {
+function obtenerRolGeneral(
+    documento: DocumentoPermisos,
+): Rol | null {
     try {
-        return calcularRolMinimo(documento);
+        return calcularRolMinimo(
+            documento,
+        );
     } catch {
         return null;
     }
+}
+
+function nombreTorneo(
+    torneo: Torneo | undefined,
+    id: string,
+) {
+    return (
+        torneo?.nombre?.trim() ||
+        `Torneig ${id}`
+    );
 }
 
 export default function Asistente({
@@ -440,239 +657,562 @@ export default function Asistente({
     onCancelar,
     onGuardado,
 }: Props) {
-    const [detalle, setDetalle] = useState<Detalle | null>(null);
-    const [configuracion, setConfiguracion] =
-        useState<Configuracion | null>(null);
-    const [documento, setDocumento] =
-        useState<DocumentoPermisos | null>(null);
+    const [
+        detalle,
+        setDetalle,
+    ] = useState<Detalle | null>(
+        null,
+    );
 
-    const [advertencias, setAdvertencias] = useState<string[]>([]);
-    const [revisionAceptada, setRevisionAceptada] = useState(false);
-    const [cargando, setCargando] = useState(true);
-    const [guardando, setGuardando] = useState(false);
-    const [errorCarga, setErrorCarga] = useState("");
-    const [error, setError] = useState("");
-    const [intento, setIntento] = useState(0);
+    const [
+        configuracion,
+        setConfiguracion,
+    ] =
+        useState<Configuracion | null>(
+            null,
+        );
 
-    const [pasoID, setPasoID] = useState("usuario");
-    const [modificado, setModificado] = useState(false);
-    const [confirmarSalida, setConfirmarSalida] = useState(false);
+    const [
+        documento,
+        setDocumento,
+    ] =
+        useState<DocumentoPermisos | null>(
+            null,
+        );
 
-    const bloqueoGuardado = useRef(false);
-    const tituloPasoRef = useRef<HTMLHeadingElement>(null);
+    const [
+        advertencias,
+        setAdvertencias,
+    ] = useState<string[]>([]);
+
+    const [
+        revisionAceptada,
+        setRevisionAceptada,
+    ] = useState(false);
+
+    const [
+        cargando,
+        setCargando,
+    ] = useState(true);
+
+    const [
+        guardando,
+        setGuardando,
+    ] = useState(false);
+
+    const [
+        errorCarga,
+        setErrorCarga,
+    ] = useState("");
+
+    const [
+        error,
+        setError,
+    ] = useState("");
+
+    const [
+        intento,
+        setIntento,
+    ] = useState(0);
+
+    const [
+        pasoID,
+        setPasoID,
+    ] =
+        useState<string>(
+            "usuario",
+        );
+
+    const [
+        modificado,
+        setModificado,
+    ] = useState(false);
+
+    const [
+        confirmarSalida,
+        setConfirmarSalida,
+    ] = useState(false);
+
+    const bloqueoGuardado =
+        useRef(false);
+
+    const tituloPasoRef =
+        useRef<HTMLHeadingElement>(
+            null,
+        );
 
     useEffect(() => {
-        const controlador = new AbortController();
+        const controlador =
+            new AbortController();
 
         setCargando(true);
         setErrorCarga("");
+        setError("");
+        setDetalle(null);
+        setConfiguracion(null);
+        setDocumento(null);
 
         async function cargar() {
             try {
-                const [nuevaConfiguracion, nuevoDetalle] = await Promise.all([
-                    obtener<Configuracion>(
-                        new URLSearchParams({ vista: "configuracion" }),
-                        controlador.signal,
-                    ),
-                    obtener<Detalle>(
-                        new URLSearchParams({
-                            vista: "detalle",
-                            id: usuarioID,
-                        }),
-                        controlador.signal,
-                    ),
-                ]);
-
-                if (controlador.signal.aborted) return;
-
-                const resultado = cargarDocumento(
-                    nuevoDetalle.usuario,
+                const [
                     nuevaConfiguracion,
-                    modo === "crear",
+                    nuevoDetalle,
+                ] =
+                    await Promise.all([
+                        obtener<Configuracion>(
+                            new URLSearchParams(
+                                {
+                                    vista: "configuracion",
+                                },
+                            ),
+                            controlador.signal,
+                        ),
+
+                        obtener<Detalle>(
+                            new URLSearchParams(
+                                {
+                                    vista: "detalle",
+                                    id: usuarioID,
+                                },
+                            ),
+                            controlador.signal,
+                        ),
+                    ]);
+
+                if (
+                    controlador
+                        .signal
+                        .aborted
+                ) {
+                    return;
+                }
+
+                const resultado =
+                    cargarDocumento(
+                        nuevoDetalle.usuario,
+                        nuevaConfiguracion,
+                        modo === "crear",
+                    );
+
+                setConfiguracion(
+                    nuevaConfiguracion,
                 );
 
-                setConfiguracion(nuevaConfiguracion);
-                setDetalle(nuevoDetalle);
-                setDocumento(resultado.documento);
-                setAdvertencias(resultado.advertencias);
-                setRevisionAceptada(false);
+                setDetalle(
+                    nuevoDetalle,
+                );
+
+                setDocumento(
+                    resultado.documento,
+                );
+
+                setAdvertencias(
+                    resultado.advertencias,
+                );
+
+                setRevisionAceptada(
+                    false,
+                );
+
                 setModificado(false);
                 setPasoID("usuario");
             } catch (err) {
-                if (controlador.signal.aborted) return;
+                if (
+                    controlador
+                        .signal
+                        .aborted
+                ) {
+                    return;
+                }
 
                 setErrorCarga(
                     err instanceof Error
                         ? err.message
-                        : "No s'ha pogut carregar l'usuari.",
+                        : "No s'ha pogut carregar la informació.",
                 );
             } finally {
-                if (!controlador.signal.aborted) {
-                    setCargando(false);
+                if (
+                    !controlador
+                        .signal
+                        .aborted
+                ) {
+                    setCargando(
+                        false,
+                    );
                 }
             }
         }
 
         void cargar();
 
-        return () => controlador.abort();
-    }, [usuarioID, modo, intento]);
+        return () =>
+            controlador.abort();
+    }, [
+        usuarioID,
+        modo,
+        intento,
+    ]);
 
+    const pasos =
+        useMemo<Paso[]>(() => {
+            if (
+                !configuracion ||
+                !documento
+            ) {
+                return [];
+            }
+
+            const resultado:
+                Paso[] = [
+                {
+                    id: "usuario",
+                    tipo: "usuario",
+                    titulo: "Usuari",
+                },
+                {
+                    id: "accesos",
+                    tipo: "accesos",
+                    titulo:
+                        "Tornejos i rols",
+                },
+            ];
+
+            for (
+                const seccion
+                of configuracion.seccionesGenerales
+            ) {
+                resultado.push({
+                    id: `general:${seccion.id}`,
+                    tipo: "general",
+                    titulo:
+                        seccion.nombre,
+                    seccion,
+                });
+            }
+
+            if (
+                documento
+                    .acceso_torneos
+                    .todos
+            ) {
+                for (
+                    const seccion
+                    of configuracion.seccionesTorneo
+                ) {
+                    resultado.push({
+                        id: `comun:${seccion.id}`,
+                        tipo: "comun",
+                        titulo:
+                            seccion.nombre,
+                        seccion,
+                    });
+                }
+            }
+
+            const torneosPorID =
+                new Map(
+                    configuracion.torneos.map(
+                        (torneo) => [
+                            torneo.id.toLowerCase(),
+                            torneo,
+                        ],
+                    ),
+                );
+
+            const asignaciones =
+                Object.entries(
+                    documento.torneos,
+                )
+                    .filter(
+                        (
+                            [, asignacion],
+                        ) =>
+                            asignacion.acceso,
+                    )
+                    .sort(
+                        (
+                            [idA],
+                            [idB],
+                        ) => {
+                            const nombreA =
+                                nombreTorneo(
+                                    torneosPorID.get(
+                                        idA,
+                                    ),
+                                    idA,
+                                );
+
+                            const nombreB =
+                                nombreTorneo(
+                                    torneosPorID.get(
+                                        idB,
+                                    ),
+                                    idB,
+                                );
+
+                            return nombreA.localeCompare(
+                                nombreB,
+                                "ca",
+                            );
+                        },
+                    );
+
+            for (
+                const [torneoID]
+                of asignaciones
+            ) {
+                const torneo =
+                    torneosPorID.get(
+                        torneoID,
+                    );
+
+                for (
+                    const seccion
+                    of configuracion.seccionesTorneo
+                ) {
+                    resultado.push({
+                        id: `torneo:${torneoID}:${seccion.id}`,
+                        tipo: "individual",
+                        titulo:
+                            `${nombreTorneo(
+                                torneo,
+                                torneoID,
+                            )} · ${seccion.nombre}`,
+                        seccion,
+                        torneoID,
+                    });
+                }
+            }
+
+            resultado.push({
+                id: "resumen",
+                tipo: "resumen",
+                titulo: "Resum",
+            });
+
+            return resultado;
+        }, [
+            configuracion,
+            documento,
+        ]);
+
+    const indiceActual =
+        Math.max(
+            0,
+            pasos.findIndex(
+                (paso) =>
+                    paso.id ===
+                    pasoID,
+            ),
+        );
+
+    const pasoActual =
+        pasos[indiceActual];
+
+    /*
+     * Si una modificación elimina el paso actual
+     * (por ejemplo, quitamos acceso a un torneo),
+     * volvemos al paso de accesos.
+     */
     useEffect(() => {
-        if (!modificado) return;
-
-        function avisar(evento: BeforeUnloadEvent) {
-            evento.preventDefault();
-            evento.returnValue = "";
+        if (
+            pasos.length === 0
+        ) {
+            return;
         }
 
-        window.addEventListener("beforeunload", avisar);
-        return () => window.removeEventListener("beforeunload", avisar);
-    }, [modificado]);
+        if (
+            !pasos.some(
+                (paso) =>
+                    paso.id === pasoID,
+            )
+        ) {
+            setPasoID(
+                "accesos",
+            );
+        }
+    }, [
+        pasos,
+        pasoID,
+    ]);
 
     useEffect(() => {
-        if (!cargando) tituloPasoRef.current?.focus();
-    }, [pasoID, cargando]);
+        setError("");
+
+        requestAnimationFrame(
+            () => {
+                tituloPasoRef.current?.focus();
+            },
+        );
+    }, [pasoID]);
 
     if (cargando) {
         return (
             <div
-                role="status"
-                className="flex items-center justify-center gap-3 py-20 text-sm text-secondary"
+                className="
+                    flex min-h-80 items-center
+                    justify-center rounded-2xl
+                    border border-border
+                    bg-background p-8 text-neutral
+                "
             >
-                <span
-                    aria-hidden="true"
-                    className="h-5 w-5 animate-spin rounded-full border-2 border-primary/20 border-t-primary"
-                />
-                Carregant permisos...
-            </div>
-        );
-    }
+                <div className="flex flex-col items-center gap-4 text-center">
+                    <span
+                        aria-hidden="true"
+                        className="
+                            h-9 w-9 animate-spin
+                            rounded-full border-2
+                            border-border
+                            border-t-primary
+                        "
+                    />
 
-    if (errorCarga || !configuracion || !detalle || !documento) {
-        return (
-            <div className="space-y-4 rounded-xl border border-border bg-white p-6 in-[.oscuro_&]:bg-card">
-                <p role="alert" className="text-sm text-error">
-                    {errorCarga || "No s'ha pogut carregar la informació."}
-                </p>
+                    <div>
+                        <p className="text-sm font-semibold">
+                            Carregant permisos
+                        </p>
 
-                <div className="flex gap-3">
-                    <button
-                        type="button"
-                        className={secundario}
-                        onClick={onCancelar}
-                    >
-                        Tornar
-                    </button>
-                    <button
-                        type="button"
-                        className={principal}
-                        onClick={() => setIntento((valor) => valor + 1)}
-                    >
-                        Tornar-ho a provar
-                    </button>
+                        <p className="mt-1 text-xs">
+                            Recuperant la configuració
+                            de l&apos;usuari.
+                        </p>
+                    </div>
                 </div>
             </div>
         );
     }
 
-    const config = configuracion;
-    const datos = detalle;
-    const doc = documento;
-    const usuario = datos.usuario;
-    const creando = modo === "crear";
+    if (
+        errorCarga ||
+        !detalle ||
+        !configuracion ||
+        !documento
+    ) {
+        return (
+            <div
+                className="
+                    rounded-2xl border
+                    border-border
+                    bg-background p-6
+                    text-neutral
+                "
+            >
+                <div className="mx-auto max-w-lg text-center">
+                    <h2 className="text-lg font-semibold">
+                        No s&apos;ha pogut carregar
+                        l&apos;assistent
+                    </h2>
+
+                    <p className="mt-2 text-sm leading-6">
+                        {errorCarga ||
+                            "La informació necessària no està disponible."}
+                    </p>
+
+                    <div className="mt-6 flex flex-wrap justify-center gap-3">
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setIntento(
+                                    (valor) =>
+                                        valor +
+                                        1,
+                                )
+                            }
+                            className="
+                                rounded-lg bg-primary
+                                px-4 py-2.5
+                                text-sm font-semibold
+                                text-white
+                                hover:bg-primary/90
+                            "
+                        >
+                            Tornar-ho a provar
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={
+                                onCancelar
+                            }
+                            className="
+                                rounded-lg border
+                                border-border
+                                bg-card px-4
+                                py-2.5 text-sm
+                                font-medium
+                                text-neutral
+                                hover:border-neutral/40
+                            "
+                        >
+                            Tancar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    const config =
+        configuracion;
+
+    const datos =
+        detalle;
+
+    const doc =
+        documento;
+
+    const usuario =
+        datos.usuario;
+
+    const creando =
+        modo === "crear";
 
     const puedeEditar =
         modo !== "ver" &&
         (
             creando
-                ? datos.capacidades.crear && config.capacidades.crear
-                : datos.capacidades.editar && config.capacidades.editar
+                ? datos.capacidades
+                      .crear &&
+                  config.capacidades
+                      .crear
+                : datos.capacidades
+                      .editar &&
+                  config.capacidades
+                      .editar
         );
 
-    const bloqueado = !puedeEditar || guardando;
-    const rolMinimo = obtenerRolMinimo(doc);
+    const soloLectura =
+        !puedeEditar;
 
-    function nombreTorneo(id: string) {
-        return config.torneos.find(
-            (torneo) => torneo.id.toLowerCase() === id.toLowerCase(),
-        )?.nombre || `Torneig ${id}`;
-    }
+    const bloqueado =
+        guardando;
 
-    const pasos: Paso[] = [
-        { id: "usuario", tipo: "usuario", titulo: "Usuari" },
-        { id: "accesos", tipo: "accesos", titulo: "Tornejos i rols" },
-        ...config.seccionesGenerales.map(
-            (seccion): Paso => ({
-                id: `general:${seccion.id}`,
-                tipo: "permisos",
-                titulo: `General · ${seccion.nombre}`,
-                seccion,
-                ambito: "general",
-            }),
-        ),
-    ];
+    const rolGeneral =
+        obtenerRolGeneral(doc);
 
-    if (doc.acceso_torneos.todos) {
-        pasos.push(
-            ...config.seccionesTorneo.map(
-                (seccion): Paso => ({
-                    id: `comun:${seccion.id}`,
-                    tipo: "permisos",
-                    titulo: `Tots els tornejos · ${seccion.nombre}`,
-                    seccion,
-                    ambito: "comun",
-                }),
+    const accesoPanelGeneral =
+        doc.globales.panell
+            ?.ver === true;
+
+    const torneosPorID =
+        new Map(
+            config.torneos.map(
+                (torneo) => [
+                    torneo.id.toLowerCase(),
+                    torneo,
+                ],
             ),
         );
-    }
 
-    for (const [id, asignacion] of Object.entries(doc.torneos)) {
-        if (!asignacion.acceso) continue;
-
-        pasos.push(
-            ...config.seccionesTorneo.map(
-                (seccion): Paso => ({
-                    id: `torneo:${id}:${seccion.id}`,
-                    tipo: "permisos",
-                    titulo: `${nombreTorneo(id)} · ${seccion.nombre}`,
-                    seccion,
-                    ambito: "individual",
-                    torneoID: id,
-                }),
-            ),
-        );
-    }
-
-    pasos.push({
-        id: "resumen",
-        tipo: "resumen",
-        titulo: "Resum",
-    });
-
-    const indice = Math.max(
-        0,
-        pasos.findIndex((paso) => paso.id === pasoID),
-    );
-    const pasoActual = pasos[indice];
-
-    const idsTorneos = [
-        ...new Set([
-            ...config.torneos.map((torneo) => torneo.id.toLowerCase()),
-            ...Object.keys(doc.torneos),
-        ]),
-    ];
-
-    function aplicar(nuevo: DocumentoPermisos) {
-        const anteriorRol = obtenerRolMinimo(doc);
-        const nuevoRol = obtenerRolMinimo(nuevo);
-
-        if (anteriorRol !== nuevoRol) {
-            nuevo.globales = completarPermisosAmbito(
-                "general",
-                nuevoRol,
-                anteriorRol === null ? undefined : nuevo.globales,
-            );
+    function aplicarDocumento(
+        nuevo:
+            DocumentoPermisos,
+    ) {
+        if (
+            !puedeEditar ||
+            guardando
+        ) {
+            return;
         }
 
         setDocumento(nuevo);
@@ -680,281 +1220,216 @@ export default function Asistente({
         setError("");
     }
 
-    function cambiarTodos(todos: boolean) {
-        if (bloqueado) return;
-        if (todos && !config.capacidades.concederTodos) return;
-
-        const rol = todos
-            ? doc.acceso_torneos.rol ?? config.roles[0]?.valor ?? null
-            : null;
-
-        aplicar({
-            ...doc,
-            acceso_torneos: {
-                todos,
-                rol,
-                permisos: completarPermisosAmbito("torneo", rol),
-            },
-        });
-    }
-
-    function cambiarRolComun(rol: Rol | null) {
-        if (bloqueado) return;
-
-        aplicar({
-            ...doc,
-            acceso_torneos: {
-                ...doc.acceso_torneos,
-                rol,
-                permisos: completarPermisosAmbito(
-                    "torneo",
-                    rol,
-                    doc.acceso_torneos.rol
-                        ? doc.acceso_torneos.permisos
-                        : undefined,
-                ),
-            },
-        });
-    }
-
-    function cambiarAcceso(
-        id: string,
-        valor: "heredar" | "permitir" | "denegar",
-    ) {
-        if (bloqueado) return;
-
-        const torneos = { ...doc.torneos };
-
-        if (valor === "heredar") {
-            delete torneos[id];
-        } else if (valor === "denegar") {
-            torneos[id] = {
-                acceso: false,
-                rol: null,
-                permisos: completarPermisosAmbito("torneo", null),
-            };
-        } else {
-            const anterior = torneos[id];
-            const rol =
-                anterior?.rol ??
-                (
-                    doc.acceso_torneos.todos
-                        ? doc.acceso_torneos.rol
-                        : null
-                ) ??
-                config.roles[0]?.valor ??
-                null;
-
-            torneos[id] = {
-                acceso: true,
-                rol,
-                permisos: completarPermisosAmbito(
-                    "torneo",
-                    rol,
-                    anterior?.acceso
-                        ? anterior.permisos
-                        : doc.acceso_torneos.todos
-                          ? doc.acceso_torneos.permisos
-                          : undefined,
-                ),
-            };
-        }
-
-        aplicar({ ...doc, torneos });
-    }
-
-    function cambiarRolTorneo(id: string, rol: Rol | null) {
-        if (bloqueado) return;
-
-        const asignacion = doc.torneos[id];
-
-        if (!asignacion?.acceso) return;
-
-        aplicar({
-            ...doc,
-            torneos: {
-                ...doc.torneos,
-                [id]: {
-                    ...asignacion,
-                    rol,
-                    permisos: completarPermisosAmbito(
-                        "torneo",
-                        rol,
-                        asignacion.rol ? asignacion.permisos : undefined,
-                    ),
-                },
-            },
-        });
-    }
-
-    function obtenerAmbito(paso: Extract<Paso, { tipo: "permisos" }>) {
-        if (paso.ambito === "general") return doc.globales;
-        if (paso.ambito === "comun") return doc.acceso_torneos.permisos;
-
-        return doc.torneos[paso.torneoID!].permisos;
-    }
-
-    function obtenerRolPaso(paso: Extract<Paso, { tipo: "permisos" }>) {
-        if (paso.ambito === "general") return rolMinimo;
-        if (paso.ambito === "comun") return doc.acceso_torneos.rol;
-
-        return doc.torneos[paso.torneoID!].rol;
-    }
-
-    function nivelRequerido(seccion: string, accion: string) {
-        const regla = config.nivelesPermisos[seccion];
-
-        return regla?.acciones?.[accion] ?? regla?.nivel ?? Infinity;
-    }
-
-    function cambiarPermiso(
-        paso: Extract<Paso, { tipo: "permisos" }>,
-        accion: string,
-        permitido: boolean,
-    ) {
-        if (bloqueado) return;
-
-        const rol = obtenerRolPaso(paso);
-        const nivel = rol ? niveles[rol] : -1;
-
-        if (permitido && nivel < nivelRequerido(paso.seccion.id, accion)) {
-            return;
-        }
-
-        const actual = obtenerAmbito(paso);
-        const nuevo = {
-            ...actual,
-            [paso.seccion.id]: {
-                ...actual[paso.seccion.id],
-                [accion]: permitido,
-            },
-        };
-
-        if (paso.ambito === "general") {
-            aplicar({ ...doc, globales: nuevo });
-        } else if (paso.ambito === "comun") {
-            aplicar({
-                ...doc,
-                acceso_torneos: {
-                    ...doc.acceso_torneos,
-                    permisos: nuevo,
-                },
-            });
-        } else {
-            const id = paso.torneoID!;
-
-            aplicar({
-                ...doc,
-                torneos: {
-                    ...doc.torneos,
-                    [id]: {
-                        ...doc.torneos[id],
-                        permisos: nuevo,
-                    },
-                },
-            });
-        }
-    }
-
-    function validarAccesos() {
-        if (doc.acceso_torneos.todos && !doc.acceso_torneos.rol) {
+    function validarAccesos():
+        string | null {
+        if (
+            doc.acceso_torneos
+                .todos &&
+            !doc.acceso_torneos
+                .rol
+        ) {
             return "Selecciona el rol comú dels tornejos.";
         }
 
-        for (const [id, asignacion] of Object.entries(doc.torneos)) {
-            if (asignacion.acceso && !asignacion.rol) {
-                return `Selecciona un rol per a ${nombreTorneo(id)}.`;
+        for (
+            const [
+                id,
+                asignacion,
+            ]
+            of Object.entries(
+                doc.torneos,
+            )
+        ) {
+            if (
+                asignacion.acceso &&
+                !asignacion.rol
+            ) {
+                return `Selecciona un rol per al torneig «${nombreTorneo(
+                    torneosPorID.get(
+                        id,
+                    ),
+                    id,
+                )}».`;
             }
         }
 
-        if (!obtenerRolMinimo(doc)) {
-            return "Assigna accés a tots els tornejos o, com a mínim, a un torneig.";
-        }
-
-        return "";
+        return null;
     }
 
-    function irAPaso(nuevoIndice: number) {
-        if (guardando) return;
-
+    function irPaso(
+        nuevoIndice: number,
+    ) {
         if (
-            puedeEditar &&
-            pasoActual.tipo === "accesos" &&
-            nuevoIndice > indice
+            nuevoIndice < 0 ||
+            nuevoIndice >=
+                pasos.length ||
+            guardando
         ) {
-            const problema = validarAccesos();
+            return;
+        }
+
+        /*
+         * Antes de abandonar la pantalla de accesos
+         * hacia delante, comprobamos que no falten roles.
+         */
+        if (
+            pasoActual?.tipo ===
+                "accesos" &&
+            nuevoIndice >
+                indiceActual
+        ) {
+            const problema =
+                validarAccesos();
 
             if (problema) {
-                setError(problema);
+                setError(
+                    problema,
+                );
+
                 return;
             }
         }
 
-        const destino = pasos[nuevoIndice];
-        if (!destino) return;
-
-        setPasoID(destino.id);
         setError("");
+        setPasoID(
+            pasos[
+                nuevoIndice
+            ].id,
+        );
+    }
+
+    function anterior() {
+        irPaso(
+            indiceActual - 1,
+        );
+    }
+
+    function siguiente() {
+        irPaso(
+            indiceActual + 1,
+        );
     }
 
     function solicitarSalida() {
-        if (guardando) return;
-
-        if (modificado) {
-            setConfirmarSalida(true);
-        } else {
-            onCancelar();
+        if (
+            guardando
+        ) {
+            return;
         }
+
+        if (
+            modificado &&
+            puedeEditar
+        ) {
+            setConfirmarSalida(
+                true,
+            );
+
+            return;
+        }
+
+        onCancelar();
     }
 
     async function guardar() {
-        if (!puedeEditar || bloqueoGuardado.current) return;
+        if (
+            !puedeEditar ||
+            bloqueoGuardado.current
+        ) {
+            return;
+        }
 
-        const problema = validarAccesos();
+        const problema =
+            validarAccesos();
 
         if (problema) {
             setError(problema);
             return;
         }
 
-        if (advertencias.length > 0 && !revisionAceptada) {
-            setError("Confirma que has revisat l'adaptació dels permisos anteriors.");
+        if (
+            advertencias.length >
+                0 &&
+            !revisionAceptada
+        ) {
+            setError(
+                "Confirma que has revisat l'adaptació dels permisos anteriors.",
+            );
+
             return;
         }
 
-        if (doc.globales.panell?.ver !== true) {
+        if (
+            doc.globales.panell
+                ?.ver !== true
+        ) {
             setError(
                 "Activa l'accés general al panell. Per retirar tots els permisos, utilitza l'opció «Retirar» del llistat.",
             );
+
             return;
         }
 
-        bloqueoGuardado.current = true;
+        bloqueoGuardado.current =
+            true;
+
         setGuardando(true);
         setError("");
 
         try {
-            const preparado = prepararDocumentoPermisos(doc);
+            const preparado =
+                prepararDocumentoPermisos(
+                    doc,
+                );
 
-            const respuesta = await fetch(API, {
-                method: "POST",
-                credentials: "same-origin",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    accion: creando ? "crear" : "editar",
-                    id: usuario.id,
-                    fecha_actualizacion: usuario.fecha_actualizacion,
-                    permisos: preparado.permisos,
-                }),
-            });
+            const respuesta =
+                await fetch(
+                    API,
+                    {
+                        method: "POST",
+                        credentials:
+                            "same-origin",
 
-            const resultado = await respuesta.json().catch(() => null);
+                        headers: {
+                            "Content-Type":
+                                "application/json",
+                        },
 
-            if (!respuesta.ok || resultado?.success !== true) {
+                        body: JSON.stringify(
+                            {
+                                accion:
+                                    creando
+                                        ? "crear"
+                                        : "editar",
+
+                                id: usuario.id,
+
+                                fecha_actualizacion:
+                                    usuario.fecha_actualizacion,
+
+                                permisos:
+                                    preparado.permisos,
+                            },
+                        ),
+                    },
+                );
+
+            const resultado =
+                await respuesta
+                    .json()
+                    .catch(
+                        () =>
+                            null,
+                    );
+
+            if (
+                !respuesta.ok ||
+                resultado?.success !==
+                    true
+            ) {
                 throw new Error(
-                    resultado?.mensaje || "No s'han pogut desar els permisos.",
+                    resultado?.mensaje ||
+                        "No s'han pogut desar els permisos.",
                 );
             }
 
@@ -962,7 +1437,7 @@ export default function Asistente({
 
             onGuardado(
                 creando
-                    ? "S'ha concedit l'accés al panell. No s'ha enviat cap correu: l'enviament encara està pendent d'implementar."
+                    ? "S'ha concedit l'accés al panell."
                     : "S'han actualitzat els permisos.",
             );
         } catch (err) {
@@ -972,682 +1447,955 @@ export default function Asistente({
                     : "No s'han pogut desar els permisos.",
             );
         } finally {
-            bloqueoGuardado.current = false;
+            bloqueoGuardado.current =
+                false;
+
             setGuardando(false);
         }
     }
 
-    function selectorRol(
-        valor: Rol | null,
-        onChange: (rol: Rol | null) => void,
-        etiqueta: string,
-    ) {
-        const disponible = config.roles.some((rol) => rol.valor === valor);
+    function renderPaso() {
+        if (!pasoActual) {
+            return null;
+        }
 
-        return (
-            <label className="block">
-                <span className="mb-2 block text-xs font-semibold">
-                    {etiqueta}
-                </span>
-                <select
-                    value={valor ?? ""}
-                    disabled={bloqueado}
-                    className={campo}
-                    onChange={(evento) =>
-                        onChange(normalizarRol(evento.target.value))
-                    }
-                >
-                    <option value="" disabled>
-                        Selecciona un rol
-                    </option>
+        switch (
+            pasoActual.tipo
+        ) {
+            case "usuario":
+                return (
+                    <PasoUsuario
+                        usuario={
+                            usuario
+                        }
+                        modo={modo}
+                        bloqueado={
+                            guardando
+                        }
+                    />
+                );
 
-                    {valor && !disponible && (
-                        <option value={valor} disabled>
-                            {NOMBRES_ROL[valor]} · Rol actual
-                        </option>
-                    )}
+            case "accesos":
+                return (
+                    <PasoTornejos
+                        valor={{
+                            acceso_torneos:
+                                doc.acceso_torneos,
+                            torneos:
+                                doc.torneos,
+                        }}
+                        torneos={
+                            config.torneos
+                        }
+                        roles={
+                            config.roles
+                        }
+                        puedeConcederTodos={
+                            config
+                                .capacidades
+                                .concederTodos
+                        }
+                        soloLectura={
+                            soloLectura
+                        }
+                        bloqueado={
+                            bloqueado
+                        }
+                        onCambiar={(
+                            valor,
+                        ) =>
+                            aplicarDocumento(
+                                {
+                                    ...doc,
+                                    acceso_torneos:
+                                        valor.acceso_torneos,
+                                    torneos:
+                                        valor.torneos,
+                                },
+                            )
+                        }
+                    />
+                );
 
-                    {config.roles.map((rol) => (
-                        <option key={rol.valor} value={rol.valor}>
-                            {rol.nombre}
-                        </option>
-                    ))}
-                </select>
-            </label>
-        );
-    }
+            case "general": {
+                const valor =
+                    doc.globales[
+                        pasoActual
+                            .seccion.id
+                    ] ?? {};
 
-    function resumenAmbito(
-        titulo: string,
-        permisos: PermisosAmbito,
-        secciones: SeccionPermisos[],
-    ) {
-        return (
-            <details className="rounded-xl border border-border">
-                <summary className="cursor-pointer px-4 py-3 text-sm font-semibold">
-                    {titulo}
-                </summary>
+                return (
+                    <PasoGeneral
+                        seccion={
+                            pasoActual.seccion
+                        }
+                        rolGeneral={
+                            rolGeneral
+                        }
+                        valor={
+                            valor
+                        }
+                        accesoPanel={
+                            accesoPanelGeneral
+                        }
+                        soloLectura={
+                            soloLectura
+                        }
+                        bloqueado={
+                            bloqueado
+                        }
+                        onCambiar={(
+                            acciones,
+                        ) =>
+                            aplicarDocumento(
+                                {
+                                    ...doc,
 
-                <div className="space-y-4 border-t border-border p-4">
-                    {secciones.map((seccion) => (
-                        <div key={seccion.id}>
-                            <h4 className="text-sm font-semibold">
-                                {seccion.nombre}
-                            </h4>
+                                    globales:
+                                        {
+                                            ...doc.globales,
 
-                            <ul className="mt-2 flex flex-wrap gap-2">
-                                {seccion.acciones.map((accion) => (
-                                    <li
-                                        key={accion}
-                                        className={`rounded-md px-2 py-1 text-xs ${
-                                            permisos[seccion.id]?.[accion] === true
-                                                ? "bg-primary/10"
-                                                : "bg-secondary/5 text-secondary/65"
-                                        }`}
-                                    >
-                                        {config.nombresAcciones[accion] || accion}
-                                        {": "}
-                                        {permisos[seccion.id]?.[accion] === true
-                                            ? "Sí"
-                                            : "No"}
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    ))}
-                </div>
-            </details>
-        );
+                                            [pasoActual
+                                                .seccion
+                                                .id]:
+                                                acciones,
+                                        },
+                                },
+                            )
+                        }
+                    />
+                );
+            }
+
+            case "comun": {
+                const valor =
+                    doc.acceso_torneos
+                        .permisos[
+                        pasoActual
+                            .seccion.id
+                    ] ?? {};
+
+                const accesoPanelTorneo =
+                    doc
+                        .acceso_torneos
+                        .permisos
+                        .panell
+                        ?.ver === true;
+
+                return (
+                    <PasoTorneo
+                        contexto={{
+                            tipo: "comun",
+                        }}
+                        seccion={
+                            pasoActual.seccion
+                        }
+                        rol={
+                            doc
+                                .acceso_torneos
+                                .rol
+                        }
+                        valor={
+                            valor
+                        }
+                        accesoPanelGeneral={
+                            accesoPanelGeneral
+                        }
+                        accesoPanelTorneo={
+                            accesoPanelTorneo
+                        }
+                        soloLectura={
+                            soloLectura
+                        }
+                        bloqueado={
+                            bloqueado
+                        }
+                        onCambiar={(
+                            acciones,
+                        ) =>
+                            aplicarDocumento(
+                                {
+                                    ...doc,
+
+                                    acceso_torneos:
+                                        {
+                                            ...doc.acceso_torneos,
+
+                                            permisos:
+                                                {
+                                                    ...doc
+                                                        .acceso_torneos
+                                                        .permisos,
+
+                                                    [pasoActual
+                                                        .seccion
+                                                        .id]:
+                                                        acciones,
+                                                },
+                                        },
+                                },
+                            )
+                        }
+                    />
+                );
+            }
+
+            case "individual": {
+                const asignacion =
+                    doc.torneos[
+                        pasoActual
+                            .torneoID
+                    ];
+
+                if (
+                    !asignacion ||
+                    !asignacion.acceso
+                ) {
+                    return null;
+                }
+
+                const torneo =
+                    torneosPorID.get(
+                        pasoActual.torneoID,
+                    );
+
+                const valor =
+                    asignacion
+                        .permisos[
+                        pasoActual
+                            .seccion.id
+                    ] ?? {};
+
+                const accesoPanelTorneo =
+                    asignacion
+                        .permisos
+                        .panell
+                        ?.ver === true;
+
+                return (
+                    <PasoTorneo
+                        contexto={{
+                            tipo: "individual",
+                            torneoID:
+                                pasoActual.torneoID,
+                            nombre:
+                                torneo?.nombre ??
+                                null,
+                            deporte:
+                                torneo?.deporte ??
+                                null,
+                        }}
+                        seccion={
+                            pasoActual.seccion
+                        }
+                        rol={
+                            asignacion.rol
+                        }
+                        valor={
+                            valor
+                        }
+                        accesoPanelGeneral={
+                            accesoPanelGeneral
+                        }
+                        accesoPanelTorneo={
+                            accesoPanelTorneo
+                        }
+                        soloLectura={
+                            soloLectura
+                        }
+                        bloqueado={
+                            bloqueado
+                        }
+                        onCambiar={(
+                            acciones,
+                        ) =>
+                            aplicarDocumento(
+                                {
+                                    ...doc,
+
+                                    torneos:
+                                        {
+                                            ...doc.torneos,
+
+                                            [pasoActual
+                                                .torneoID]:
+                                                {
+                                                    ...asignacion,
+
+                                                    permisos:
+                                                        {
+                                                            ...asignacion.permisos,
+
+                                                            [pasoActual
+                                                                .seccion
+                                                                .id]:
+                                                                acciones,
+                                                        },
+                                                },
+                                        },
+                                },
+                            )
+                        }
+                    />
+                );
+            }
+
+            case "resumen":
+                return (
+                    <PasoResumen
+                        usuario={
+                            usuario
+                        }
+                        documento={
+                            doc
+                        }
+                        torneos={
+                            config.torneos
+                        }
+                        advertencias={
+                            advertencias
+                        }
+                        revisionAceptada={
+                            revisionAceptada
+                        }
+                        soloLectura={
+                            soloLectura
+                        }
+                        bloqueado={
+                            bloqueado
+                        }
+                        onCambiarRevision={
+                            setRevisionAceptada
+                        }
+                    />
+                );
+        }
     }
 
     return (
-        <div className="space-y-6 text-secondary">
-            <header>
-                <button
-                    type="button"
-                    disabled={guardando}
-                    onClick={solicitarSalida}
-                    className="text-sm font-medium hover:underline disabled:opacity-50"
-                >
-                    ← Tornar a permisos
-                </button>
-
-                <h1 className="mt-4 text-2xl font-bold tracking-tight sm:text-3xl">
-                    {creando
-                        ? "Afegir usuari al panell"
-                        : puedeEditar
-                          ? "Gestionar permisos"
-                          : "Consultar permisos"}
-                </h1>
-
-                <p className="mt-2 text-sm text-secondary/70">
-                    {nombreUsuario(usuario)}
-                    {usuario.email ? ` · ${usuario.email}` : ""}
-                </p>
-            </header>
-
-            {!puedeEditar && (
-                <p className="rounded-xl border border-border bg-white p-4 text-sm in-[.oscuro_&]:bg-card">
-                    Estàs consultant aquesta configuració en mode de lectura.
-                </p>
-            )}
-
-            {confirmarSalida && (
-                <div
-                    role="alert"
-                    className="space-y-3 rounded-xl border border-border bg-white p-5 in-[.oscuro_&]:bg-card"
-                >
-                    <p className="text-sm">
-                        Hi ha canvis sense desar. Vols sortir i descartar-los?
-                    </p>
-                    <div className="flex flex-wrap gap-3">
-                        <button
-                            type="button"
-                            className={secundario}
-                            onClick={() => setConfirmarSalida(false)}
-                        >
-                            Continuar editant
-                        </button>
-                        <button
-                            type="button"
-                            className={`${boton} bg-error text-white`}
-                            onClick={onCancelar}
-                        >
-                            Descartar i sortir
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            <nav aria-label="Passos de configuració" className="space-y-3">
-                <div className="flex items-center justify-between gap-4 text-xs">
-                    <span className="font-semibold">
-                        Pas {indice + 1} de {pasos.length}
-                    </span>
-                    <span className="text-right text-secondary/70">
-                        {pasoActual.titulo}
-                    </span>
-                </div>
-
-                <progress
-                    value={indice + 1}
-                    max={pasos.length}
-                    aria-label="Progrés de la configuració"
-                    className="block h-2 w-full overflow-hidden rounded-full accent-primary"
-                />
-
-                <label className="block">
-                    <span className="sr-only">Anar a un pas</span>
-                    <select
-                        className={campo}
-                        value={pasoActual.id}
-                        disabled={guardando}
-                        onChange={(evento) =>
-                            irAPaso(
-                                pasos.findIndex(
-                                    (paso) => paso.id === evento.target.value,
-                                ),
-                            )
-                        }
-                    >
-                        {pasos.map((paso, posicion) => (
-                            <option key={paso.id} value={paso.id}>
-                                {posicion + 1}. {paso.titulo}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-            </nav>
-
-            <section
-                aria-labelledby="permisos-paso-titulo"
-                aria-busy={guardando}
-                className="rounded-2xl border border-border bg-white p-5 sm:p-8 in-[.oscuro_&]:bg-card"
+        <>
+            <div
+                className="
+                    overflow-hidden rounded-2xl
+                    border border-border
+                    bg-background
+                    text-neutral
+                "
             >
-                <div className="mb-6 border-b border-border pb-4">
-                    <h2
-                        id="permisos-paso-titulo"
-                        ref={tituloPasoRef}
-                        tabIndex={-1}
-                        className="text-lg font-semibold outline-none"
+                {/* Cabecera */}
+                <header
+                    className="
+                        border-b border-border
+                        px-5 py-5
+                        sm:px-7
+                    "
+                >
+                    <div
+                        className="
+                            flex flex-col gap-4
+                            lg:flex-row
+                            lg:items-center
+                            lg:justify-between
+                        "
                     >
-                        {pasoActual.titulo}
-                    </h2>
-                </div>
-
-                {pasoActual.tipo === "usuario" && (
-                    <div className="space-y-6">
-                        <dl className="grid gap-5 sm:grid-cols-2">
-                            {[
-                                ["Nom", usuario.nombre],
-                                ["Primer cognom", usuario.apellido1],
-                                ["Segon cognom", usuario.apellido2],
-                                ["Correu electrònic", usuario.email],
-                                [
-                                    "Origen dels permisos",
-                                    creando
-                                        ? "Manual"
-                                        : nombreOrigen(usuario.origen_permisos),
-                                ],
-                                [
-                                    "Estat del compte",
-                                    usuario.activa === true ? "Actiu" : "Inactiu",
-                                ],
-                            ].map(([etiqueta, valor]) => (
-                                <div key={etiqueta}>
-                                    <dt className="mb-2 text-xs font-semibold">
-                                        {etiqueta}
-                                    </dt>
-                                    <dd className="min-h-10 rounded-lg bg-[#f0f5ff] px-3 py-2.5 text-sm in-[.oscuro_&]:bg-background">
-                                        {valor || "Sense informació"}
-                                    </dd>
-                                </div>
-                            ))}
-                        </dl>
-
-                        <p className="text-sm leading-relaxed text-secondary/70">
-                            Configura els accessos d'aquest compte existent.
-                            El rol general es calcularà automàticament a partir
-                            del rol més baix assignat als tornejos.
-                        </p>
-
-                        {!creando && (
-                            <p className="text-xs text-secondary/65">
-                                Darrera actualització dels permisos:{" "}
-                                {fechaVisible(
-                                    objeto(usuario.permisos)?.ultima_actualizacion,
-                                )}
+                        <div>
+                            <p
+                                className="
+                                    text-xs font-medium
+                                    tracking-wide
+                                "
+                            >
+                                GESTIÓ DE PERMISOS
                             </p>
-                        )}
 
-                        {advertencias.length > 0 && (
-                            <div className="rounded-xl border border-border bg-background/50 p-4">
-                                <h3 className="text-sm font-semibold">
-                                    Revisió de la configuració anterior
-                                </h3>
-                                <ul className="mt-3 list-disc space-y-2 pl-5 text-sm">
-                                    {advertencias.map((advertencia) => (
-                                        <li key={advertencia}>{advertencia}</li>
-                                    ))}
-                                </ul>
-                            </div>
-                        )}
-                    </div>
-                )}
+                            <h2
+                                ref={
+                                    tituloPasoRef
+                                }
+                                tabIndex={
+                                    -1
+                                }
+                                className="
+                                    mt-1 text-xl
+                                    font-semibold
+                                    tracking-tight
+                                    outline-none
+                                "
+                            >
+                                {creando
+                                    ? "Concedir accés al panell"
+                                    : modo ===
+                                        "ver"
+                                      ? "Consultar permisos"
+                                      : "Editar permisos"}
+                            </h2>
 
-                {pasoActual.tipo === "accesos" && (
-                    <div className="space-y-6">
-                        <div className="space-y-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
-                            <label className="flex items-start gap-3">
-                                <input
-                                    type="checkbox"
-                                    checked={doc.acceso_torneos.todos}
-                                    disabled={
-                                        bloqueado ||
-                                        (
-                                            !doc.acceso_torneos.todos &&
-                                            !config.capacidades.concederTodos
-                                        )
-                                    }
-                                    onChange={(evento) =>
-                                        cambiarTodos(evento.target.checked)
-                                    }
-                                    className="mt-1 h-4 w-4 accent-primary"
-                                />
-                                <span>
-                                    <span className="block text-sm font-semibold">
-                                        Accés a tots els tornejos
+                            <p
+                                className="
+                                    mt-1 text-sm
+                                    leading-6
+                                "
+                            >
+                                {usuario.email ||
+                                    "Usuari seleccionat"}
+                            </p>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                            {modificado &&
+                                puedeEditar && (
+                                    <span
+                                        className="
+                                            rounded-full
+                                            border
+                                            border-border
+                                            bg-card
+                                            px-3 py-1.5
+                                            text-xs
+                                        "
+                                    >
+                                        Canvis sense desar
                                     </span>
-                                    <span className="mt-1 block text-xs leading-relaxed text-secondary/70">
-                                        Inclou els tornejos actuals i els que
-                                        es creïn en el futur. Les excepcions
-                                        individuals tenen prioritat.
-                                    </span>
+                                )}
+
+                            {soloLectura && (
+                                <span
+                                    className="
+                                        rounded-full
+                                        border
+                                        border-border
+                                        bg-card
+                                        px-3 py-1.5
+                                        text-xs
+                                    "
+                                >
+                                    Només lectura
                                 </span>
-                            </label>
-
-                            {!config.capacidades.concederTodos && puedeEditar && (
-                                <p className="text-xs text-secondary/70">
-                                    El teu accés actual no permet concedir
-                                    accés comú a tots els tornejos.
-                                </p>
                             )}
-
-                            {doc.acceso_torneos.todos &&
-                                selectorRol(
-                                    doc.acceso_torneos.rol,
-                                    cambiarRolComun,
-                                    "Rol comú",
-                                )}
                         </div>
+                    </div>
+                </header>
 
-                        <div className="rounded-xl bg-[#f0f5ff] p-4 in-[.oscuro_&]:bg-background">
-                            <p className="text-xs font-semibold">
-                                Rol general resultant
-                            </p>
-                            <p className="mt-1 text-sm">
-                                {rolMinimo
-                                    ? NOMBRES_ROL[rolMinimo]
-                                    : "Pendent d'assignar accessos i rols"}
-                            </p>
-                        </div>
+                {/* Navegación del asistente */}
+                <nav
+                    aria-label="Passos de l'assistent"
+                    className="
+                        border-b
+                        border-border
+                        bg-card/35
+                        px-4 py-4
+                        sm:px-6
+                    "
+                >
+                    <div
+                        className="
+                            scroll-personalizada
+                            flex gap-2
+                            overflow-x-auto
+                            pb-1
+                        "
+                    >
+                        {pasos.map(
+                            (
+                                paso,
+                                indice,
+                            ) => {
+                                const activo =
+                                    indice ===
+                                    indiceActual;
 
-                        <div className="space-y-4">
-                            <h3 className="text-sm font-semibold">
-                                {doc.acceso_torneos.todos
-                                    ? "Excepcions per torneig"
-                                    : "Accessos per torneig"}
-                            </h3>
-
-                            {idsTorneos.length === 0 && (
-                                <p className="text-sm text-secondary/70">
-                                    No hi ha tornejos disponibles.
-                                </p>
-                            )}
-
-                            {idsTorneos.map((id) => {
-                                const asignacion = doc.torneos[id];
-                                const disponible = config.torneos.some(
-                                    (torneo) => torneo.id.toLowerCase() === id,
-                                );
-
-                                const valor = asignacion
-                                    ? asignacion.acceso
-                                        ? "permitir"
-                                        : "denegar"
-                                    : "heredar";
+                                const anterior =
+                                    indice <
+                                    indiceActual;
 
                                 return (
-                                    <div
-                                        key={id}
-                                        className="space-y-4 rounded-xl border border-border p-4"
-                                    >
-                                        <div>
-                                            <h4 className="text-sm font-semibold">
-                                                {nombreTorneo(id)}
-                                            </h4>
-                                            {!disponible && (
-                                                <p className="mt-1 text-xs text-error">
-                                                    Aquesta assignació no apareix
-                                                    entre els tornejos disponibles.
-                                                    La API comprovarà si existeix
-                                                    i si la pots gestionar.
-                                                </p>
-                                            )}
-                                        </div>
+                                    <button
+                                        key={
+                                            paso.id
+                                        }
+                                        type="button"
+                                        aria-current={
+                                            activo
+                                                ? "step"
+                                                : undefined
+                                        }
+                                        disabled={
+                                            guardando
+                                        }
+                                        onClick={() =>
+                                            irPaso(
+                                                indice,
+                                            )
+                                        }
+                                        className={`
+                                            group flex min-w-max
+                                            items-center gap-2.5
+                                            rounded-xl border
+                                            px-3 py-2.5
+                                            text-left
+                                            transition-colors
+                                            focus-visible:outline-none
+                                            focus-visible:ring-2
+                                            focus-visible:ring-neutral/30
+                                            disabled:cursor-wait
+                                            disabled:opacity-60
 
-                                        <label className="block">
-                                            <span className="mb-2 block text-xs font-semibold">
-                                                Accés
-                                            </span>
-                                            <select
-                                                value={valor}
-                                                disabled={bloqueado}
-                                                className={campo}
-                                                onChange={(evento) =>
-                                                    cambiarAcceso(
-                                                        id,
-                                                        evento.target.value as
-                                                            | "heredar"
-                                                            | "permitir"
-                                                            | "denegar",
-                                                    )
-                                                }
-                                            >
-                                                <option value="heredar">
-                                                    {doc.acceso_torneos.todos
-                                                        ? "Utilitzar la configuració comuna"
-                                                        : "Sense assignació"}
-                                                </option>
-                                                <option value="permitir">
-                                                    Accés amb configuració pròpia
-                                                </option>
-                                                <option value="denegar">
-                                                    Denegar l'accés explícitament
-                                                </option>
-                                            </select>
-                                        </label>
-
-                                        {asignacion?.acceso &&
-                                            selectorRol(
-                                                asignacion.rol,
-                                                (rol) => cambiarRolTorneo(id, rol),
-                                                "Rol en aquest torneig",
-                                            )}
-
-                                        {!asignacion &&
-                                            doc.acceso_torneos.todos && (
-                                                <p className="text-xs text-secondary/70">
-                                                    Hereta el rol i els permisos comuns.
-                                                </p>
-                                            )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        <p className="text-xs leading-relaxed text-secondary/65">
-                            L'accés dels voluntaris a les edicions segons
-                            formularis acceptats s'incorporarà quan aquesta
-                            funcionalitat estigui disponible.
-                        </p>
-                    </div>
-                )}
-
-                {pasoActual.tipo === "permisos" && (() => {
-                    const rol = obtenerRolPaso(pasoActual);
-                    const ambito = obtenerAmbito(pasoActual);
-                    const nivel = rol ? niveles[rol] : -1;
-                    const panelDesactivado =
-                        pasoActual.seccion.id !== "panell" &&
-                        ambito.panell?.ver !== true;
-
-                    return (
-                        <div className="space-y-5">
-                            <p className="text-sm text-secondary/70">
-                                Rol aplicable:{" "}
-                                <strong className="text-secondary">
-                                    {rol ? NOMBRES_ROL[rol] : "Sense rol assignat"}
-                                </strong>
-                            </p>
-
-                            {panelDesactivado && (
-                                <p className="rounded-lg bg-primary/5 p-3 text-sm">
-                                    L'accés al panell està desactivat en aquest
-                                    àmbit. Aquests permisos no seran efectius
-                                    fins que l'activis.
-                                </p>
-                            )}
-
-                            <div className="divide-y divide-border rounded-xl border border-border">
-                                {pasoActual.seccion.acciones.map((accion) => {
-                                    const requerido = nivelRequerido(
-                                        pasoActual.seccion.id,
-                                        accion,
-                                    );
-                                    const suficiente = nivel >= requerido;
-                                    const activo =
-                                        ambito[pasoActual.seccion.id]?.[accion] === true;
-                                    const minimo = ROLES_ORDENADOS.find(
-                                        (item) => niveles[item] >= requerido,
-                                    );
-
-                                    return (
-                                        <label
-                                            key={accion}
-                                            className="flex items-center justify-between gap-4 p-4"
-                                        >
-                                            <span>
-                                                <span className="block text-sm font-semibold">
-                                                    {config.nombresAcciones[accion] || accion}
-                                                </span>
-                                                {!suficiente && (
-                                                    <span className="mt-1 block text-xs text-secondary/65">
-                                                        {minimo
-                                                            ? `Requereix com a mínim el rol ${NOMBRES_ROL[minimo]}.`
-                                                            : "Acció no disponible amb aquest rol."}
-                                                    </span>
-                                                )}
-                                            </span>
-
-                                            <input
-                                                type="checkbox"
-                                                checked={activo}
-                                                disabled={bloqueado || !suficiente}
-                                                onChange={(evento) =>
-                                                    cambiarPermiso(
-                                                        pasoActual,
-                                                        accion,
-                                                        evento.target.checked,
-                                                    )
-                                                }
-                                                className="h-5 w-5 shrink-0 accent-primary disabled:opacity-40"
-                                            />
-                                        </label>
-                                    );
-                                })}
-                            </div>
-
-                            <p className="text-xs leading-relaxed text-secondary/65">
-                                Cada acció es desarà amb el seu valor activat
-                                o desactivat. Desactivar-la impedeix utilitzar-la
-                                encara que el rol tingui un nivell superior.
-                            </p>
-                        </div>
-                    );
-                })()}
-
-                {pasoActual.tipo === "resumen" && (
-                    <div className="space-y-5">
-                        <dl className="grid gap-4 rounded-xl bg-[#f0f5ff] p-4 text-sm sm:grid-cols-2 in-[.oscuro_&]:bg-background">
-                            <div>
-                                <dt className="text-xs text-secondary/65">Usuari</dt>
-                                <dd className="mt-1 font-semibold">
-                                    {nombreUsuario(usuario)}
-                                </dd>
-                            </div>
-                            <div>
-                                <dt className="text-xs text-secondary/65">Rol general</dt>
-                                <dd className="mt-1 font-semibold">
-                                    {rolMinimo ? NOMBRES_ROL[rolMinimo] : "Sense rol"}
-                                </dd>
-                            </div>
-                            <div>
-                                <dt className="text-xs text-secondary/65">Origen</dt>
-                                <dd className="mt-1">
-                                    {creando
-                                        ? "Manual"
-                                        : nombreOrigen(usuario.origen_permisos)}
-                                </dd>
-                            </div>
-                            <div>
-                                <dt className="text-xs text-secondary/65">
-                                    Tornejos actuals i futurs
-                                </dt>
-                                <dd className="mt-1">
-                                    {doc.acceso_torneos.todos
-                                        ? "Accés comú, amb les excepcions indicades"
-                                        : "Només tornejos assignats"}
-                                </dd>
-                            </div>
-                        </dl>
-
-                        {resumenAmbito(
-                            "Permisos generals",
-                            doc.globales,
-                            config.seccionesGenerales,
-                        )}
-
-                        {doc.acceso_torneos.todos &&
-                            resumenAmbito(
-                                `Tots els tornejos · ${
-                                    doc.acceso_torneos.rol
-                                        ? NOMBRES_ROL[doc.acceso_torneos.rol]
-                                        : "Sense rol"
-                                }`,
-                                doc.acceso_torneos.permisos,
-                                config.seccionesTorneo,
-                            )}
-
-                        {Object.entries(doc.torneos).map(([id, asignacion]) => (
-                            <div key={id}>
-                                {asignacion.acceso ? (
-                                    resumenAmbito(
-                                        `${nombreTorneo(id)} · ${
-                                            asignacion.rol
-                                                ? NOMBRES_ROL[asignacion.rol]
-                                                : "Sense rol"
-                                        }`,
-                                        asignacion.permisos,
-                                        config.seccionesTorneo,
-                                    )
-                                ) : (
-                                    <p className="rounded-xl border border-border p-4 text-sm">
-                                        <strong>{nombreTorneo(id)}</strong>
-                                        {" · "}Accés denegat
-                                    </p>
-                                )}
-                            </div>
-                        ))}
-
-                        {advertencias.length > 0 && (
-                            <div className="space-y-3 rounded-xl border border-border p-4">
-                                <h3 className="text-sm font-semibold">
-                                    Adaptació dels permisos anteriors
-                                </h3>
-                                <ul className="list-disc space-y-2 pl-5 text-xs">
-                                    {advertencias.map((advertencia) => (
-                                        <li key={advertencia}>{advertencia}</li>
-                                    ))}
-                                </ul>
-
-                                {puedeEditar && (
-                                    <label className="flex items-start gap-3 text-sm">
-                                        <input
-                                            type="checkbox"
-                                            checked={revisionAceptada}
-                                            disabled={guardando}
-                                            onChange={(evento) =>
-                                                setRevisionAceptada(evento.target.checked)
+                                            ${
+                                                activo
+                                                    ? "border-neutral/40 bg-background"
+                                                    : "border-transparent hover:border-border hover:bg-background/70"
                                             }
-                                            className="mt-1 h-4 w-4 accent-primary"
-                                        />
-                                        He revisat els canvis i accepto adaptar
-                                        aquesta configuració al catàleg actual.
-                                    </label>
-                                )}
-                            </div>
-                        )}
+                                        `}
+                                    >
+                                        <span
+                                            aria-hidden="true"
+                                            className={`
+                                                flex h-7 w-7
+                                                items-center
+                                                justify-center
+                                                rounded-lg border
+                                                text-xs font-semibold
 
-                        {creando && (
-                            <p className="text-xs text-secondary/65">
-                                El correu de benvinguda encara està pendent
-                                d'implementar. Aquest desament no enviarà cap correu.
-                            </p>
+                                                ${
+                                                    activo
+                                                        ? "border-neutral/40 bg-card"
+                                                        : anterior
+                                                          ? "border-border bg-background"
+                                                          : "border-border bg-card"
+                                                }
+                                            `}
+                                        >
+                                            {anterior ? (
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    strokeWidth="1.8"
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    className="h-3.5 w-3.5"
+                                                >
+                                                    <path d="m5 12 4 4L19 6" />
+                                                </svg>
+                                            ) : (
+                                                indice +
+                                                1
+                                            )}
+                                        </span>
+
+                                        <span>
+                                            <span
+                                                className="
+                                                    block
+                                                    text-[10px]
+                                                    leading-none
+                                                "
+                                            >
+                                                PAS{" "}
+                                                {indice +
+                                                    1}
+                                            </span>
+
+                                            <span
+                                                className="
+                                                    mt-1 block
+                                                    max-w-44
+                                                    truncate
+                                                    text-xs
+                                                    font-semibold
+                                                "
+                                            >
+                                                {
+                                                    paso.titulo
+                                                }
+                                            </span>
+                                        </span>
+                                    </button>
+                                );
+                            },
                         )}
                     </div>
-                )}
+                </nav>
 
-                {error && (
-                    <p
-                        role="alert"
-                        className="mt-5 rounded-lg bg-error/10 p-3 text-sm text-error"
+                {/* Contenido */}
+                <main
+                    className="
+                        mx-auto w-full
+                        max-w-5xl
+                        px-5 py-7
+                        sm:px-7
+                        sm:py-8
+                    "
+                >
+                    {error && (
+                        <div
+                            role="alert"
+                            className="
+                                mb-6 flex
+                                items-start gap-3
+                                rounded-xl border
+                                border-error/30
+                                bg-error-container/40
+                                p-4
+                                text-error-foreground
+                            "
+                        >
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.6"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="
+                                    mt-0.5
+                                    h-5 w-5
+                                    shrink-0
+                                "
+                                aria-hidden="true"
+                            >
+                                <circle
+                                    cx="12"
+                                    cy="12"
+                                    r="9"
+                                />
+                                <path d="M12 8v5" />
+                                <path d="M12 16h.01" />
+                            </svg>
+
+                            <div className="min-w-0">
+                                <p className="text-sm font-semibold">
+                                    Revisa aquest pas
+                                </p>
+
+                                <p className="mt-1 text-sm leading-6">
+                                    {error}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    {renderPaso()}
+                </main>
+
+                {/* Navegación inferior */}
+                <footer
+                    className="
+                        border-t border-border
+                        bg-card/30
+                        px-5 py-4
+                        sm:px-7
+                    "
+                >
+                    <div
+                        className="
+                            mx-auto flex
+                            w-full max-w-5xl
+                            flex-col-reverse
+                            gap-3
+                            sm:flex-row
+                            sm:items-center
+                            sm:justify-between
+                        "
                     >
-                        {error}
-                    </p>
-                )}
+                        <button
+                            type="button"
+                            disabled={
+                                guardando
+                            }
+                            onClick={
+                                solicitarSalida
+                            }
+                            className="
+                                inline-flex
+                                items-center
+                                justify-center
+                                rounded-lg
+                                border
+                                border-border
+                                bg-background
+                                px-4 py-2.5
+                                text-sm
+                                font-medium
+                                text-neutral
+                                hover:border-neutral/40
+                                disabled:cursor-wait
+                                disabled:opacity-50
+                            "
+                        >
+                            {modo ===
+                            "ver"
+                                ? "Tancar"
+                                : "Cancel·lar"}
+                        </button>
 
-                <footer className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
-                    <button
-                        type="button"
-                        className={secundario}
-                        disabled={guardando}
-                        onClick={solicitarSalida}
-                    >
-                        {puedeEditar ? "Cancel·lar" : "Tornar al llistat"}
-                    </button>
+                        <div
+                            className="
+                                flex
+                                flex-col-reverse
+                                gap-2
+                                sm:flex-row
+                                sm:items-center
+                            "
+                        >
+                            {indiceActual >
+                                0 && (
+                                <button
+                                    type="button"
+                                    disabled={
+                                        guardando
+                                    }
+                                    onClick={
+                                        anterior
+                                    }
+                                    className="
+                                        inline-flex
+                                        items-center
+                                        justify-center
+                                        gap-2
+                                        rounded-lg
+                                        border
+                                        border-border
+                                        bg-background
+                                        px-4 py-2.5
+                                        text-sm
+                                        font-medium
+                                        text-neutral
+                                        hover:border-neutral/40
+                                        disabled:cursor-wait
+                                        disabled:opacity-50
+                                    "
+                                >
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="1.7"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        className="h-4 w-4"
+                                        aria-hidden="true"
+                                    >
+                                        <path d="m15 18-6-6 6-6" />
+                                    </svg>
 
-                    <div className="flex flex-wrap gap-3">
-                        {indice > 0 && (
-                            <button
-                                type="button"
-                                className={secundario}
-                                disabled={guardando}
-                                onClick={() => irAPaso(indice - 1)}
-                            >
-                                Anterior
-                            </button>
-                        )}
+                                    Anterior
+                                </button>
+                            )}
 
-                        {indice < pasos.length - 1 ? (
-                            <button
-                                type="button"
-                                className={principal}
-                                disabled={guardando}
-                                onClick={() => irAPaso(indice + 1)}
-                            >
-                                Següent pas →
-                            </button>
-                        ) : puedeEditar ? (
-                            <button
-                                type="button"
-                                className={principal}
-                                disabled={
-                                    guardando ||
-                                    (advertencias.length > 0 && !revisionAceptada)
-                                }
-                                onClick={() => void guardar()}
-                            >
-                                {guardando
-                                    ? "Desant permisos..."
-                                    : creando
-                                      ? "Concedir accés al panell"
-                                      : "Desar permisos"}
-                            </button>
-                        ) : null}
+                            {indiceActual <
+                            pasos.length -
+                                1 ? (
+                                <button
+                                    type="button"
+                                    disabled={
+                                        guardando
+                                    }
+                                    onClick={
+                                        siguiente
+                                    }
+                                    className="
+                                        inline-flex
+                                        items-center
+                                        justify-center
+                                        gap-2
+                                        rounded-lg
+                                        bg-primary
+                                        px-5 py-2.5
+                                        text-sm
+                                        font-semibold
+                                        text-white
+                                        hover:bg-primary/90
+                                        disabled:cursor-wait
+                                        disabled:opacity-50
+                                    "
+                                >
+                                    Següent
+
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="1.7"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        className="h-4 w-4"
+                                        aria-hidden="true"
+                                    >
+                                        <path d="m9 18 6-6-6-6" />
+                                    </svg>
+                                </button>
+                            ) : puedeEditar ? (
+                                <button
+                                    type="button"
+                                    disabled={
+                                        guardando ||
+                                        (
+                                            advertencias.length >
+                                                0 &&
+                                            !revisionAceptada
+                                        )
+                                    }
+                                    onClick={() =>
+                                        void guardar()
+                                    }
+                                    className="
+                                        inline-flex
+                                        items-center
+                                        justify-center
+                                        gap-2
+                                        rounded-lg
+                                        bg-primary
+                                        px-5 py-2.5
+                                        text-sm
+                                        font-semibold
+                                        text-white
+                                        hover:bg-primary/90
+                                        disabled:cursor-not-allowed
+                                        disabled:opacity-50
+                                    "
+                                >
+                                    {guardando ? (
+                                        <>
+                                            <span
+                                                aria-hidden="true"
+                                                className="
+                                                    h-4 w-4
+                                                    animate-spin
+                                                    rounded-full
+                                                    border-2
+                                                    border-white/40
+                                                    border-t-white
+                                                "
+                                            />
+
+                                            Desant...
+                                        </>
+                                    ) : creando ? (
+                                        "Concedir accés"
+                                    ) : (
+                                        "Desar canvis"
+                                    )}
+                                </button>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={
+                                        onCancelar
+                                    }
+                                    className="
+                                        inline-flex
+                                        items-center
+                                        justify-center
+                                        rounded-lg
+                                        bg-primary
+                                        px-5 py-2.5
+                                        text-sm
+                                        font-semibold
+                                        text-white
+                                        hover:bg-primary/90
+                                    "
+                                >
+                                    Tancar
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </footer>
-            </section>
-        </div>
+            </div>
+
+            {/* Confirmación de salida */}
+            {confirmarSalida && (
+                <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="confirmar-sortida-titol"
+                    className="
+                        fixed inset-0 z-100
+                        flex items-center
+                        justify-center
+                        bg-black/35
+                        p-4
+                        backdrop-blur-sm
+                    "
+                >
+                    <div
+                        className="
+                            w-full max-w-md
+                            rounded-2xl
+                            border border-border
+                            bg-background
+                            p-6
+                            text-neutral
+                            shadow-2xl
+                        "
+                    >
+                        <h2
+                            id="confirmar-sortida-titol"
+                            className="text-lg font-semibold"
+                        >
+                            Descartar els canvis?
+                        </h2>
+
+                        <p className="mt-2 text-sm leading-6">
+                            Hi ha canvis que encara no s&apos;han
+                            desat. Si surts ara, es perdran.
+                        </p>
+
+                        <div
+                            className="
+                                mt-6 flex
+                                flex-col-reverse
+                                gap-2
+                                sm:flex-row
+                                sm:justify-end
+                            "
+                        >
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setConfirmarSalida(
+                                        false,
+                                    )
+                                }
+                                className="
+                                    rounded-lg
+                                    border border-border
+                                    bg-card
+                                    px-4 py-2.5
+                                    text-sm
+                                    font-medium
+                                    text-neutral
+                                    hover:border-neutral/40
+                                "
+                            >
+                                Continuar editant
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={
+                                    onCancelar
+                                }
+                                className="
+                                    rounded-lg
+                                    bg-error
+                                    px-4 py-2.5
+                                    text-sm
+                                    font-semibold
+                                    text-white
+                                "
+                            >
+                                Descartar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
     );
 }
