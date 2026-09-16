@@ -443,6 +443,25 @@ const REGLAS_GENERALES:
             },
         },
 
+        noticies: {
+            ver: {
+                nivel: 2,
+                porDefecto: true,
+            },
+            crear: {
+                nivel: 2,
+                porDefecto: true,
+            },
+            editar: {
+                nivel: 2,
+                porDefecto: true,
+            },
+            eliminar: {
+                nivel: 3,
+                porDefecto: true,
+            },
+        },
+
         usuaris: {
             ver: {
                 nivel: 4,

@@ -409,16 +409,16 @@ export default function PasoGeneral(
 
                         <p className="mt-1 text-sm leading-6">
                             Assignar un rol administratiu ja concedeix
-                            l&apos;entrada al panell. Per tant, no existeix
+                            l'entrada al panell. Per tant, no existeix
                             cap permís independent per activar o
                             desactivar aquest accés.
                         </p>
 
                         <p className="mt-2 text-xs leading-5">
-                            Per retirar completament l&apos;accés
-                            administratiu s&apos;ha d&apos;utilitzar
-                            l&apos;acció «Retirar» de la gestió
-                            d&apos;usuaris.
+                            Per retirar completament l'accés
+                            administratiu s'ha d'utilitzar
+                            l'acció «Retirar» de la gestió
+                            d'usuaris.
                         </p>
                     </div>
                 </div>
@@ -459,7 +459,7 @@ export default function PasoGeneral(
                     Configura els permisos generals de la plataforma.
                     El rol determina quins permisos poden existir i
                     aquesta taula només permet concedir-los o
-                    retirar-los dins d&apos;aquest límit.
+                    retirar-los dins d'aquest límit.
                 </p>
             </header>
 
@@ -544,14 +544,14 @@ export default function PasoGeneral(
                         </h3>
 
                         <p className="mt-1 text-sm leading-6">
-                            Els permisos d&apos;aquest usuari es
+                            Els permisos d'aquest usuari es
                             configuraran únicament dins dels tornejos
                             als quals tingui accés.
                         </p>
 
                         <p className="mt-2 text-xs leading-5">
                             Aquest pas desapareixerà automàticament del
-                            flux quan actualitzem l&apos;assistent.
+                            flux quan actualitzem l'assistent.
                         </p>
                     </div>
                 )}
@@ -791,10 +791,10 @@ export default function PasoGeneral(
                             </h3>
 
                             <p className="mt-1 text-xs leading-5">
-                                El permís s&apos;activa inicialment
+                                El permís s'activa inicialment
                                 perquè forma part de les funcions
                                 habituals del rol. Pots desmarcar-lo
-                                per restringir l&apos;accés.
+                                per restringir l'accés.
                             </p>
                         </div>
 
@@ -811,7 +811,7 @@ export default function PasoGeneral(
                             <p className="mt-1 text-xs leading-5">
                                 És un permís sensible. Encara que el
                                 rol tingui nivell suficient, comença
-                                desactivat i s&apos;ha de concedir
+                                desactivat i s'ha de concedir
                                 expressament.
                             </p>
                         </div>

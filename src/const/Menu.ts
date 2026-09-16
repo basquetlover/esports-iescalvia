@@ -67,6 +67,13 @@ export const MENU_ADMIN = [
         icono: '<path d="M520-600v-240h320v240zM120-440v-400h320v400zm400 320v-400h320v400zm-400 0v-240h320v240zm80-400h160v-240H200zm400 320h160v-240H600zm0-480h160v-80H600zM200-200h160v-80H200zm160-80"/>',
     },
     {
+        nombre: 'Notícies',
+        enlace: '/panell/noticies',
+        id:"noticies",
+        estado: 'Activa',
+        icono: '<path d="M280-120v-80h160v-124q-49-11-87.5-41.5T296-442q-75-9-125.5-65.5T120-640v-40q0-33 23.5-56.5T200-760h80v-80h400v80h80q33 0 56.5 23.5T840-680v40q0 76-50.5 132.5T664-442q-18 46-56.5 76.5T520-324v124h160v80zm0-408v-152h-80v40q0 38 22 68.5t58 43.5m285 93q35-35 35-85v-240H360v240q0 50 35 85t85 35 85-35m115-93q36-13 58-43.5t22-68.5v-40h-80zm-200-52"/>',
+    },
+    {
         nombre: 'Tornejos',
         enlace: '/panell/tornejos',
         id:"tornejos",
