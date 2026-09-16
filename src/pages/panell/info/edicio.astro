@@ -1,0 +1,176 @@
+---
+import Error404 from "@components/panel/Error404.astro";
+import Asistente from "@components/panel/edicions/Asistente";
+import LayoutPanel from "@layouts/LayoutPanel.astro";
+
+export const prerender = false;
+
+Astro.response.headers.set(
+    "Cache-Control",
+    "private, no-store"
+);
+
+// ============================================================
+// PARÁMETROS
+// ============================================================
+
+const url =
+    Astro.url;
+
+const accio =
+    url.searchParams
+        .get("accio")
+        ?.trim()
+        .toLowerCase() ?? null;
+
+const torneoID =
+    url.searchParams
+        .get("torneoID")
+        ?.trim()
+        .toLowerCase() ?? null;
+
+const edicionID =
+    url.searchParams
+        .get("edicionID")
+        ?.trim()
+        .toLowerCase() ?? null;
+
+// ============================================================
+// VALIDACIÓN BÁSICA DE RUTA
+// ============================================================
+
+const creando =
+    accio === "crear";
+
+const viendo =
+    accio === "ver";
+
+const editando =
+    accio === "editar";
+
+const accionValida =
+    Boolean(
+        torneoID &&
+        (
+            creando ||
+            (
+                (viendo || editando) &&
+                edicionID
+            )
+        )
+    );
+
+if (!accionValida) {
+    Astro.response.status =
+        404;
+}
+
+// ============================================================
+// ACCIÓN PARA LAYOUTPANEL
+// ============================================================
+
+const accionPermiso:
+    "crear" | "ver" | "editar" =
+    creando
+        ? "crear"
+        : editando
+          ? "editar"
+          : "ver";
+
+// ============================================================
+// ENLACE DE RETORNO
+// ============================================================
+
+const volver =
+    torneoID
+        ? `/panell/edicions?${new URLSearchParams({
+              torneoID,
+          }).toString()}`
+        : "/panell";
+---
+
+<LayoutPanel
+    title={
+        creando
+            ? "Crear edició"
+            : editando
+              ? "Editar edició"
+              : "Edició"
+    }
+    seccion="edicions"
+    accion={accionPermiso}
+>
+    {
+        accionValida ? (
+            <div
+                class="
+                    mx-auto
+                    w-full
+                    max-w-7xl
+                    px-4
+                    py-6
+                    sm:px-6
+                    lg:px-8
+                "
+            >
+                <Asistente
+                    torneoID={torneoID!}
+                    edicionID={
+                        creando
+                            ? null
+                            : edicionID
+                    }
+                    modo={
+                        accio as
+                            | "crear"
+                            | "ver"
+                            | "editar"
+                    }
+                    volver={volver}
+                    client:load
+                />
+
+                <noscript>
+                    <div
+                        role="alert"
+                        class="
+                            rounded-xl
+                            border
+                            border-border
+                            bg-card
+                            p-6
+                            text-neutral
+                        "
+                    >
+                        <h1
+                            class="
+                                text-lg
+                                font-semibold
+                                text-neutral-titulos
+                            "
+                        >
+                            Gestió de l'edició
+                        </h1>
+
+                        <p
+                            class="
+                                mt-2
+                                text-sm
+                                leading-6
+                            "
+                        >
+                            Necessites activar JavaScript
+                            per crear, consultar o editar
+                            aquesta edició.
+                        </p>
+                    </div>
+                </noscript>
+            </div>
+        ) : (
+            <Error404
+                atras={volver}
+                inicio="/panell"
+            />
+        )
+    }
+</LayoutPanel>

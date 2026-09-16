@@ -1,0 +1,56 @@
+---
+import Lista from "@components/panel/edicions/Lista";
+import LayoutPanel from "@layouts/LayoutPanel.astro";
+
+export const prerender = false;
+
+Astro.response.headers.set(
+    "Cache-Control",
+    "private, no-store"
+);
+
+const torneoID =
+    Astro.url.searchParams
+        .get("torneoID")
+        ?.trim() ?? "";
+
+if (!torneoID) {
+    return Astro.redirect(
+        "/panell",
+        303
+    );
+}
+---
+
+<LayoutPanel
+    title="Edicions"
+    seccion="edicions"
+    accion="ver"
+>
+    <div
+        class="
+            w-full
+            p-4
+        "
+    >
+        <h1
+            class="
+                text-3xl
+                font-bold
+                text-neutral-titulos
+                max-md:text-2xl
+            "
+        >
+            Edicions
+        </h1>
+
+        <p>
+            Gestiona les edicions del torneig.
+        </p>
+    </div>
+
+    <Lista
+        torneoID={torneoID}
+        client:load
+    />
+</LayoutPanel>

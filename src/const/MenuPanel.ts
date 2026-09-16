@@ -71,7 +71,7 @@ export const MENU_PANEL_TORNEO: GrupoMenuPanel[] = [
                 nombre: "Edicions",
                 enlace: "/panell/edicions",
                 seccion: "edicions",
-                estado: "Pròximament",
+                estado: "Activa",
                 contexto: "torneo",
             },
             {
