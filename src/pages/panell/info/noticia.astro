@@ -1,0 +1,369 @@
+---
+import LayoutPanel from "@layouts/LayoutPanel.astro";
+
+import CrearNoticia from "@components/panel/noticies/CrearNoticia";
+import VerNoticia from "@components/panel/noticies/VerNoticia";
+
+import { obtenerUsuarioPorToken } from "@pages/api/sesiones/sesiones";
+import { tienePermiso } from "@const/Permisos";
+import { supabaseAdmin } from "@utils/supabase";
+
+export const prerender = false;
+
+Astro.response.headers.set(
+    "Cache-Control",
+    "private, no-store",
+);
+
+type Accion = "crear" | "editar" | "ver";
+
+type ErrorPagina = {
+    estado: 400 | 403 | 404 | 503;
+    titulo: string;
+    descripcion: string;
+};
+
+const UUID =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// ============================================================
+// SESIÓN
+// ============================================================
+
+const token = Astro.cookies.get("token_sesion")?.value;
+
+const usuario = token
+    ? await obtenerUsuarioPorToken(token)
+    : null;
+
+if (!usuario) {
+    Astro.cookies.delete("token_sesion", {
+        path: "/",
+    });
+
+    const retorno = Astro.url.pathname + Astro.url.search;
+
+    return Astro.redirect(
+        `/iniciar-sessio?redirect=${encodeURIComponent(retorno)}`,
+        303,
+    );
+}
+
+if (!tienePermiso(usuario, "panell", "ver")) {
+    return Astro.rewrite("/acces-denegat");
+}
+
+// ============================================================
+// PARÁMETROS
+// ============================================================
+
+const parametros = Astro.url.searchParams;
+
+const accionSolicitada = parametros.get("accio") ?? "ver";
+
+const accion: Accion | null =
+    accionSolicitada === "crear" ||
+    accionSolicitada === "editar" ||
+    accionSolicitada === "ver"
+        ? accionSolicitada
+        : null;
+
+const noticiaID =
+    parametros.get("id")?.trim().toLowerCase() || null;
+
+let torneoID =
+    parametros.get("torneoID")?.trim().toLowerCase() || null;
+
+let errorPagina: ErrorPagina | null = null;
+
+if (
+    ["accio", "id", "torneoID", "edicionID"].some(
+        (nombre) => parametros.getAll(nombre).length > 1,
+    )
+) {
+    errorPagina = {
+        estado: 400,
+        titulo: "Petició no vàlida",
+        descripcion:
+            "La petició conté paràmetres repetits. Torna al llistat i selecciona l'acció que vols fer.",
+    };
+} else if (!accion) {
+    errorPagina = {
+        estado: 400,
+        titulo: "Acció no vàlida",
+        descripcion:
+            "Les accions disponibles són consultar, crear i editar notícies.",
+    };
+}
+
+// ============================================================
+// NOTICIAS EXISTENTES
+// ============================================================
+
+if (!errorPagina && accion && accion !== "crear") {
+    if (!noticiaID || !UUID.test(noticiaID)) {
+        errorPagina = {
+            estado: 404,
+            titulo: "Notícia no trobada",
+            descripcion:
+                "L'identificador de la notícia no és vàlid.",
+        };
+    } else {
+        try {
+            const { data: noticia, error } = await supabaseAdmin
+                .from("Noticis")
+                .select("id,torneo_id")
+                .eq("id", noticiaID)
+                .maybeSingle();
+
+            if (error) throw error;
+
+            if (!noticia) {
+                errorPagina = {
+                    estado: 404,
+                    titulo: "Notícia no trobada",
+                    descripcion:
+                        "La notícia no existeix o ja s'ha eliminat.",
+                };
+            } else {
+                const torneoGuardado = noticia.torneo_id;
+
+                const ambito = torneoGuardado ?? undefined;
+
+                const puedeConsultar =
+                    tienePermiso(
+                        usuario,
+                        "panell",
+                        "ver",
+                        ambito,
+                    ) &&
+                    tienePermiso(
+                        usuario,
+                        "noticies",
+                        "ver",
+                        ambito,
+                    );
+
+                const puedeRealizarAccion =
+                    puedeConsultar &&
+                    (
+                        accion === "ver" ||
+                        tienePermiso(
+                            usuario,
+                            "noticies",
+                            "editar",
+                            ambito,
+                        )
+                    );
+
+                if (!puedeRealizarAccion) {
+                    errorPagina = {
+                        estado: 403,
+                        titulo:
+                            accion === "editar"
+                                ? "No pots editar aquesta notícia"
+                                : "No tens accés a aquesta notícia",
+                        descripcion:
+                            "El teu compte no disposa dels permisos necessaris en l'àmbit al qual pertany la notícia.",
+                    };
+                } else {
+                    /*
+                     * El contexto del layout debe coincidir con
+                     * el torneo real de la noticia.
+                     *
+                     * Solo se corrige la URL después de comprobar
+                     * los permisos sobre ese ámbito.
+                     */
+                    const contextoCorrecto =
+                        torneoGuardado === null
+                            ? !parametros.has("torneoID")
+                            : parametros.get("torneoID") === torneoGuardado;
+
+                    if (
+                        !contextoCorrecto ||
+                        parametros.has("edicionID")
+                    ) {
+                        const destino = new URLSearchParams({
+                            accio: accion,
+                            id: noticia.id,
+                        });
+
+                        if (torneoGuardado !== null) {
+                            destino.set(
+                                "torneoID",
+                                torneoGuardado,
+                            );
+                        }
+
+                        return Astro.redirect(
+                            `/panell/info/noticia?${destino.toString()}`,
+                            303,
+                        );
+                    }
+
+                    torneoID = torneoGuardado;
+                }
+            }
+        } catch (error) {
+            console.error(
+                "Error al consultar el acceso a una noticia:",
+                error,
+            );
+
+            errorPagina = {
+                estado: 503,
+                titulo: "No s'ha pogut carregar la notícia",
+                descripcion:
+                    "No ha estat possible consultar la informació. Torna-ho a provar d'aquí a uns instants.",
+            };
+        }
+    }
+}
+
+// ============================================================
+// CREACIÓN
+// ============================================================
+
+if (!errorPagina && accion === "crear") {
+    /*
+     * Las noticias se vinculan al torneo, no a una edición.
+     * La selección de edición no interviene en este editor.
+     */
+    if (parametros.has("edicionID")) {
+        const destino = new URL(Astro.url);
+        destino.searchParams.delete("edicionID");
+
+        return Astro.redirect(
+            destino.pathname + destino.search,
+            303,
+        );
+    }
+
+    /*
+     * LayoutPanel comprueba la existencia del torneo y
+     * el acceso a la sección.
+     *
+     * La API validará además el torneo elegido finalmente
+     * dentro del editor.
+     */
+}
+
+// ============================================================
+// PRESENTACIÓN
+// ============================================================
+
+if (errorPagina) {
+    Astro.response.status = errorPagina.estado;
+}
+
+const titulo =
+    errorPagina?.titulo ??
+    (
+        accion === "crear"
+            ? "Nova notícia"
+            : accion === "editar"
+                ? "Editar notícia"
+                : "Consultar notícia"
+    );
+
+/*
+ * Los errores propios de esta página se muestran dentro
+ * del panel, sin exigir acceso a otra sección para verlos.
+ */
+const seccionLayout = errorPagina
+    ? "panell"
+    : "noticies";
+
+const accionLayout = errorPagina
+    ? "ver"
+    : accion === "crear"
+        ? "crear"
+        : accion === "editar"
+            ? "editar"
+            : "ver";
+---
+
+<LayoutPanel
+    title={titulo}
+    seccion={seccionLayout}
+    accion={accionLayout}
+>
+    <div class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        {
+            errorPagina ? (
+                <section
+                    aria-labelledby="noticia-error-titulo"
+                    class="rounded-2xl border border-border bg-background p-6 text-neutral sm:p-8"
+                >
+                    <p class="mb-3 text-xs font-medium tracking-wide">
+                        NOTÍCIES
+                    </p>
+
+                    <h1
+                        id="noticia-error-titulo"
+                        class="text-xl font-semibold"
+                    >
+                        {errorPagina.titulo}
+                    </h1>
+
+                    <p class="mt-3 max-w-2xl text-sm leading-6">
+                        {errorPagina.descripcion}
+                    </p>
+
+                    <div class="mt-6 flex flex-wrap gap-3">
+                        <a
+                            href="/panell/noticies"
+                            class="inline-flex items-center justify-center rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-neutral hover:border-neutral/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral/30"
+                        >
+                            Tornar a notícies
+                        </a>
+
+                        <a
+                            href="/panell"
+                            class="inline-flex items-center justify-center rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-medium text-neutral hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral/30"
+                        >
+                            Tornar al panell
+                        </a>
+                    </div>
+                </section>
+            ) : accion === "crear" ? (
+                <CrearNoticia
+                    client:load
+                    usuarioID={usuario.id}
+                    modo="crear"
+                    torneoID={torneoID}
+                />
+            ) : accion === "editar" && noticiaID ? (
+                <CrearNoticia
+                    client:load
+                    usuarioID={usuario.id}
+                    modo="editar"
+                    noticiaID={noticiaID}
+                    torneoID={torneoID}
+                />
+            ) : accion === "ver" && noticiaID ? (
+                <VerNoticia
+                    client:load
+                    noticiaID={noticiaID}
+                />
+            ) : null
+        }
+
+        {
+            !errorPagina && (
+                <noscript>
+                    <section class="rounded-2xl border border-border bg-background p-6 text-neutral">
+                        <h2 class="text-lg font-semibold">
+                            Activa JavaScript
+                        </h2>
+
+                        <p class="mt-2 text-sm leading-6">
+                            Necessites activar JavaScript per consultar
+                            o editar la notícia des del panell.
+                        </p>
+                    </section>
+                </noscript>
+            )
+        }
+    </div>
+</LayoutPanel>

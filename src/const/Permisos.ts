@@ -165,6 +165,16 @@ export const SECCIONES_GENERALES:
             configurable: false,
         },
         {
+            id: "noticies",
+            nombre: "Notícies",
+            acciones: [
+                "ver",
+                "crear",
+                "editar",
+                "eliminar",
+            ],
+        },
+        {
             id: "tornejos",
             nombre: "Tornejos",
             acciones: [

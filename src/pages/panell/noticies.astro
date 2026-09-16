@@ -1,0 +1,49 @@
+---
+import LayoutPanel from "@layouts/LayoutPanel.astro";
+import BuscadorNoticias from "@components/panel/noticies/buscadorNoticias";
+
+export const prerender = false;
+
+Astro.response.headers.set(
+    "Cache-Control",
+    "private, no-store",
+);
+
+const torneoID =
+    Astro.url.searchParams
+        .get("torneoID")
+        ?.trim()
+        .toLowerCase() || null;
+---
+
+<LayoutPanel
+    title="Gestió de notícies"
+    seccion="noticies"
+    accion="ver"
+>
+    <div class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <BuscadorNoticias
+            client:load
+            torneoID={torneoID}
+        />
+
+        <noscript>
+            <section
+                aria-labelledby="noticies-sense-javascript"
+                class="rounded-2xl border border-border bg-background p-6 text-neutral"
+            >
+                <h1
+                    id="noticies-sense-javascript"
+                    class="text-xl font-semibold"
+                >
+                    Gestió de notícies
+                </h1>
+
+                <p class="mt-3 text-sm leading-6">
+                    Necessites activar JavaScript per consultar,
+                    crear i editar les notícies des del panell.
+                </p>
+            </section>
+        </noscript>
+    </div>
+</LayoutPanel>
