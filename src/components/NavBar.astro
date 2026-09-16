@@ -27,7 +27,7 @@ if(token){
     <nav class="text-neutral flex flex-row gap-8">
         {
             MENU.map((ruta) =>(
-                <a href={ruta.enlace} class={`relative flex flex-col items-center text-center ${pathname === ruta.enlace && 'text-secondary'}`}>
+                <a href={ruta.enlace} class={`relative flex flex-col items-center text-center ${ruta.estado === "Activa" ? "hover:text-primary" : "cursor-not-allowed"} ${pathname === ruta.enlace && 'text-secondary'}`}>
                     {ruta.nombre}
                         {
                             ruta.estado === "Pròximament" ? (
