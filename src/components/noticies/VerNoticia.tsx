@@ -167,7 +167,7 @@ export default function VerNoticia({
                         TARJETA DE CABECERA
                     ========================================= */}
 
-                    <div className="max-w-4xl rounded-2xl w-full min-h-76 border border-gris-claro shadow-gris-claro shadow-md bg-gris z-10 flex flex-col p-4">
+                    <div className="max-w-4xl rounded-2xl w-full min-h-76 border border-gris-claro shadow-gris-claro shadow-md bg-background z-10 flex flex-col p-4">
 
                         {/* =====================================
                             METADATOS
@@ -186,7 +186,7 @@ export default function VerNoticia({
                             {/* Separador */}
 
                             {data.torneo_nombre && (
-                                <span className="w-1 h-1 mx-3 bg-gray-400 rounded-full shrink-0">&nbsp;</span>
+                                <span className="w-1 h-1 mx-3 bg-primary rounded-full shrink-0">&nbsp;</span>
                             )}
 
                             {/* Torneo */}
@@ -196,7 +196,7 @@ export default function VerNoticia({
                                     title={
                                         data.torneo_nombre
                                     }
-                                    className="min-w-0 truncate "
+                                    className="min-w-0 truncate text-secondary"
                                 >
                                     {
                                         data.torneo_nombre
@@ -206,20 +206,20 @@ export default function VerNoticia({
 
                             {/* Separador */}
 
-                            <span className="w-1 h-1 mx-3 bg-gray-400 rounded-full shrink-0" />
+                            <span className="w-1 h-1 mx-3 bg-primary rounded-full shrink-0" />
 
                             {/* Tiempo */}
 
                             <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                className="h-4 w-4 fill-gray-400 shrink-0"
+                                className="h-4 w-4 fill-secondary shrink-0"
                                 viewBox="0 -960 960 960"
                                 aria-hidden="true"
                             >
                                 <path d="m612-292 56-56-148-148v-184h-80v216zM480-80q-83 0-156-31.5T197-197t-85.5-127T80-480t31.5-156T197-763t127-85.5T480-880t156 31.5T763-763t85.5 127T880-480t-31.5 156T763-197t-127 85.5T480-80m0-80q133 0 226.5-93.5T800-480t-93.5-226.5T480-800t-226.5 93.5T160-480t93.5 226.5T480-160" />
                             </svg>
 
-                            <p className="ml-1 shrink-0">
+                            <p className="ml-1 shrink-0 text-secondary">
                                 {
                                     data.tiempo_lectura
                                 }{" "}
@@ -231,7 +231,7 @@ export default function VerNoticia({
                             TITULAR
                         ===================================== */}
 
-                        <h1 className="text-3xl font-semibold mt-2">
+                        <h1 className="text-3xl font-bold text-neutral-titulos mt-2">
                             {
                                 data.titular
                             }
@@ -241,7 +241,7 @@ export default function VerNoticia({
                             SUBTÍTULO
                         ===================================== */}
 
-                        <h2 className="mt-5 text-2xl italic text-gray-200">
+                        <h2 className="mt-5 text-2xl italic text-neutral font-medium">
                             {
                                 data.subtitulo
                             }
@@ -318,7 +318,7 @@ export default function VerNoticia({
                                                 className="w-full h-auto mt-10 rounded-2xl relative group"
                                             >
                                                 {bloque.title && (
-                                                    <h3 className="text-2xl font-normal text-white mb-3">
+                                                    <h3 className="text-2xl font-normal text-neutral-titulos mb-3">
                                                         {
                                                             bloque.title
                                                         }
@@ -326,7 +326,7 @@ export default function VerNoticia({
                                                 )}
 
                                                 <div
-                                                    className="font-light text-gray-50"
+                                                    className="font-light text-neutral"
                                                     dangerouslySetInnerHTML={{
                                                         __html:
                                                             bloque.body,
