@@ -476,12 +476,12 @@ export default function LlistaNoticies({
                         group
                         relative
                         mt-5
-                        h-[32rem]
+                        h-128
                         w-full
                         overflow-hidden
                         rounded-2xl
                         bg-card
-                        md:h-[34rem]
+                        md:h-136
                     "
                 >
                     {/* Imagen */}
@@ -777,7 +777,7 @@ export default function LlistaNoticies({
                                 className="
                                     group
                                     grid
-                                    min-h-[24rem]
+                                    min-h-96
                                     w-full
                                     grid-rows-[12.5rem_1fr]
                                     overflow-hidden

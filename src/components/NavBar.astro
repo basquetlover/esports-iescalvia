@@ -183,6 +183,8 @@ if(token){
 </div>
 
 <script>
+document.addEventListener("DOMContentLoaded", (event) => {
+  
   function setMenuState(menuId, open) {
     const panel = document.querySelector(`[data-menu-panel="${menuId}"]`);
     if (!panel) return;
@@ -225,5 +227,7 @@ if(token){
       });
     }
   });
+
+});
 </script>
 
