@@ -1,0 +1,422 @@
+---
+import Layout from "@layouts/Layout.astro";
+
+import LlistaNoticies, {
+    type NoticiaPublicaListado,
+} from "@components/noticies/LlistaNoticies";
+
+import { supabaseAdmin } from "@utils/supabase";
+
+export const prerender = false;
+
+// ============================================================
+// TIPOS
+// ============================================================
+
+type NoticiaDB = {
+    id: string;
+
+    titular: string | null;
+    subtitulo: string | null;
+
+    cover_image: string | null;
+    slug: string | null;
+
+    author: string | null;
+    author_curso: string | null;
+
+    publication_date: string | null;
+
+    categoria: string | null;
+
+    torneo_id: string | null;
+};
+
+type TorneoDB = {
+    id: string;
+    nombre: string | null;
+};
+
+// ============================================================
+// CONFIGURACIÓN
+// ============================================================
+
+const TAMANO_PAGINA = 500;
+
+const ahora =
+    new Date().toISOString();
+
+// ============================================================
+// CARGAR NOTICIAS PUBLICADAS
+// ============================================================
+
+const noticiasDB: NoticiaDB[] = [];
+
+let errorCarga = false;
+
+try {
+    for (
+        let inicio = 0;
+        ;
+        inicio += TAMANO_PAGINA
+    ) {
+        const {
+            data,
+            error,
+        } =
+            await supabaseAdmin
+                .from("Noticis")
+                .select(
+                    "id,titular,subtitulo,cover_image,slug,author,author_curso,publication_date,categoria,torneo_id"
+                )
+                .eq(
+                    "status",
+                    "Public"
+                )
+                .not(
+                    "publication_date",
+                    "is",
+                    null
+                )
+                .lte(
+                    "publication_date",
+                    ahora
+                )
+                .order(
+                    "publication_date",
+                    {
+                        ascending: false,
+                        nullsFirst: false,
+                    }
+                )
+                .order(
+                    "id",
+                    {
+                        ascending: false,
+                    }
+                )
+                .range(
+                    inicio,
+                    inicio +
+                        TAMANO_PAGINA -
+                        1
+                );
+
+        if (error) {
+            throw error;
+        }
+
+        const lote =
+            (data ??
+                []) as NoticiaDB[];
+
+        noticiasDB.push(
+            ...lote
+        );
+
+        if (
+            lote.length <
+            TAMANO_PAGINA
+        ) {
+            break;
+        }
+    }
+} catch (error) {
+    console.error(
+        "Error carregant les notícies públiques:",
+        error
+    );
+
+    errorCarga =
+        true;
+}
+
+// ============================================================
+// OBTENER TORNEOS ASOCIADOS
+// ============================================================
+
+const torneoIDs = [
+    ...new Set(
+        noticiasDB
+            .map(
+                noticia =>
+                    noticia.torneo_id
+            )
+            .filter(
+                (
+                    id
+                ): id is string =>
+                    typeof id ===
+                        "string" &&
+                    id.length > 0
+            )
+    ),
+];
+
+const torneosPorID =
+    new Map<
+        string,
+        string
+    >();
+
+if (
+    torneoIDs.length >
+    0
+) {
+    try {
+        /*
+         * Se consultan por grupos para evitar un filtro .in()
+         * demasiado grande en el futuro.
+         */
+        for (
+            let inicio = 0;
+            inicio <
+            torneoIDs.length;
+            inicio += 100
+        ) {
+            const grupo =
+                torneoIDs.slice(
+                    inicio,
+                    inicio + 100
+                );
+
+            const {
+                data,
+                error,
+            } =
+                await supabaseAdmin
+                    .from(
+                        "torneos"
+                    )
+                    .select(
+                        "id,nombre"
+                    )
+                    .in(
+                        "id",
+                        grupo
+                    );
+
+            if (error) {
+                throw error;
+            }
+
+            for (
+                const torneo
+                of (
+                    data ??
+                    []
+                ) as TorneoDB[]
+            ) {
+                if (
+                    torneo.nombre
+                ) {
+                    torneosPorID.set(
+                        torneo.id,
+                        torneo.nombre
+                    );
+                }
+            }
+        }
+    } catch (error) {
+        /*
+         * La noticia puede seguir mostrándose aunque haya
+         * fallado la carga del nombre del torneo.
+         */
+        console.error(
+            "Error carregant els tornejos de les notícies:",
+            error
+        );
+    }
+}
+
+// ============================================================
+// PREPARAR DATOS PARA EL COMPONENTE
+// ============================================================
+
+const noticias:
+    NoticiaPublicaListado[] =
+    noticiasDB
+        /*
+         * Una noticia pública necesita slug para poder abrir
+         * su página de detalle.
+         */
+        .filter(
+            noticia =>
+                Boolean(
+                    noticia.slug?.trim()
+                )
+        )
+        .map(
+            noticia => ({
+                id:
+                    noticia.id,
+
+                titular:
+                    noticia.titular ??
+                    "",
+
+                subtitulo:
+                    noticia.subtitulo ??
+                    "",
+
+                cover_image:
+                    noticia.cover_image ??
+                    "",
+
+                slug:
+                    noticia.slug ??
+                    "",
+
+                author:
+                    noticia.author ??
+                    "",
+
+                author_curso:
+                    noticia.author_curso ??
+                    "",
+
+                publication_date:
+                    noticia.publication_date ??
+                    "",
+
+                categoria:
+                    noticia.categoria ??
+                    "Actualitat",
+
+                torneo_id:
+                    noticia.torneo_id,
+
+                torneo_nombre:
+                    noticia.torneo_id
+                        ? torneosPorID.get(
+                              noticia.torneo_id
+                          ) ??
+                          null
+                        : null,
+            })
+        );
+
+// ============================================================
+// RESPUESTA HTTP
+// ============================================================
+
+if (errorCarga) {
+    Astro.response.status =
+        500;
+}
+
+Astro.response.headers.set(
+    "Cache-Control",
+    "public, max-age=0, s-maxage=60, stale-while-revalidate=300"
+);
+---
+
+<Layout title="Notícies">
+    {
+        errorCarga ? (
+            <main
+                class="
+                    mx-auto
+                    flex
+                    min-h-[60vh]
+                    w-full
+                    max-w-6xl
+                    items-center
+                    justify-center
+                    px-4
+                    py-16
+                "
+            >
+                <div
+                    class="
+                        w-full
+                        max-w-lg
+                        rounded-2xl
+                        border
+                        border-border
+                        bg-card
+                        p-8
+                        text-center
+                    "
+                >
+                    <div
+                        class="
+                            mx-auto
+                            flex
+                            h-14
+                            w-14
+                            items-center
+                            justify-center
+                            rounded-full
+                            bg-error-container
+                        "
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="
+                                h-7
+                                w-7
+                                fill-error-foreground
+                            "
+                            viewBox="0 -960 960 960"
+                            aria-hidden="true"
+                        >
+                            <path
+                                d="M480-280q17 0 28.5-11.5T520-320t-11.5-28.5T480-360t-28.5 11.5T440-320t11.5 28.5T480-280m-40-160h80v-240h-80zm40 360q-83 0-156-31.5T197-197t-85.5-127T80-480t31.5-156T197-763t127-85.5T480-880t156 31.5T763-763t85.5 127T880-480t-31.5 156T763-197t-127 85.5T480-80m0-80q134 0 227-93t93-227-93-227-227-93-227 93-93 227 93 227 227 93"
+                            />
+                        </svg>
+                    </div>
+
+                    <h1
+                        class="
+                            mt-5
+                            text-2xl
+                            font-semibold
+                            text-neutral-titulos
+                        "
+                    >
+                        No s'han pogut carregar les notícies
+                    </h1>
+
+                    <p
+                        class="
+                            mt-3
+                            text-sm
+                            leading-6
+                            text-neutral
+                        "
+                    >
+                        S'ha produït un error mentre es carregava
+                        l'actualitat. Torna-ho a provar més tard.
+                    </p>
+
+                    <a
+                        href="/"
+                        class="
+                            mt-6
+                            inline-flex
+                            items-center
+                            justify-center
+                            rounded-lg
+                            bg-primary
+                            px-4
+                            py-2.5
+                            text-sm
+                            font-semibold
+                            text-white
+                            transition
+                            hover:opacity-90
+                        "
+                    >
+                        Tornar a l'inici
+                    </a>
+                </div>
+            </main>
+        ) : (
+            <LlistaNoticies
+                client:load
+                noticias={noticias}
+            />
+        )
+    }
+</Layout>

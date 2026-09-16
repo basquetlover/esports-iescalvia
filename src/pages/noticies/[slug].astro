@@ -1,0 +1,421 @@
+---
+import Layout from "@layouts/Layout.astro";
+import VerNoticia from "@components/noticies/VerNoticia";
+
+import { supabaseAdmin } from "@utils/supabase";
+
+export const prerender = false;
+
+// ============================================================
+// PARÁMETROS
+// ============================================================
+
+const slug =
+    Astro.params.slug
+        ?.trim()
+        .toLowerCase() ?? "";
+
+const slugValido =
+    /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug);
+
+// ============================================================
+// TIPOS
+// ============================================================
+
+type NoticiaDB = {
+    id: string;
+    titular: string | null;
+    subtitulo: string | null;
+    cover_image: string | null;
+    slug: string | null;
+
+    author: string | null;
+    author_curso: string | null;
+
+    status: string | null;
+
+    created_at: string | null;
+    publication_date: string | null;
+
+    content: unknown;
+
+    tiempo_lectura: string | null;
+    categoria: string | null;
+
+    torneo_id: string | null;
+};
+
+type TorneoDB = {
+    nombre: string | null;
+};
+
+// ============================================================
+// CARGA DE LA NOTICIA
+// ============================================================
+
+let noticia: NoticiaDB | null = null;
+let torneoNombre: string | null = null;
+let errorCarga = false;
+
+if (slugValido) {
+    try {
+        const ahora =
+            new Date().toISOString();
+
+        const {
+            data,
+            error,
+        } =
+            await supabaseAdmin
+                .from("Noticis")
+                .select(
+                    `
+                    id,
+                    titular,
+                    subtitulo,
+                    cover_image,
+                    slug,
+                    author,
+                    author_curso,
+                    status,
+                    created_at,
+                    publication_date,
+                    content,
+                    tiempo_lectura,
+                    categoria,
+                    torneo_id
+                    `
+                )
+                .eq(
+                    "slug",
+                    slug
+                )
+                .eq(
+                    "status",
+                    "Public"
+                )
+                .not(
+                    "publication_date",
+                    "is",
+                    null
+                )
+                .lte(
+                    "publication_date",
+                    ahora
+                )
+                .maybeSingle();
+
+        if (error) {
+            throw error;
+        }
+
+        noticia =
+            data as NoticiaDB | null;
+
+        // ====================================================
+        // NOMBRE DEL TORNEO
+        // ====================================================
+
+        if (
+            noticia?.torneo_id
+        ) {
+            const {
+                data: torneo,
+                error: errorTorneo,
+            } =
+                await supabaseAdmin
+                    .from("torneos")
+                    .select(
+                        "nombre"
+                    )
+                    .eq(
+                        "id",
+                        noticia.torneo_id
+                    )
+                    .maybeSingle();
+
+            if (errorTorneo) {
+                throw errorTorneo;
+            }
+
+            torneoNombre =
+                (
+                    torneo as
+                        | TorneoDB
+                        | null
+                )?.nombre ??
+                null;
+        }
+    } catch (error) {
+        console.error(
+            "Error carregant la notícia pública:",
+            error
+        );
+
+        errorCarga =
+            true;
+    }
+}
+
+// ============================================================
+// 404
+// ============================================================
+
+const noEncontrada =
+    !slugValido ||
+    (!noticia && !errorCarga);
+
+if (noEncontrada) {
+    Astro.response.status =
+        404;
+}
+
+if (errorCarga) {
+    Astro.response.status =
+        500;
+}
+
+// ============================================================
+// DATOS PARA REACT
+// ============================================================
+
+const noticiaData =
+    noticia
+        ? {
+              id:
+                  noticia.id,
+
+              titular:
+                  noticia.titular ??
+                  "",
+
+              subtitulo:
+                  noticia.subtitulo ??
+                  "",
+
+              cover_image:
+                  noticia.cover_image ??
+                  "",
+
+              slug:
+                  noticia.slug ??
+                  "",
+
+              author:
+                  noticia.author ??
+                  "",
+
+              author_curso:
+                  noticia.author_curso ??
+                  "",
+
+              status:
+                  noticia.status ??
+                  "",
+
+              created_at:
+                  noticia.created_at ??
+                  "",
+
+              publication_date:
+                  noticia.publication_date ??
+                  "",
+
+              content:
+                  Array.isArray(
+                      noticia.content
+                  )
+                      ? noticia.content
+                      : [],
+
+              tiempo_lectura:
+                  noticia.tiempo_lectura ??
+                  "0",
+
+              categoria:
+                  noticia.categoria ??
+                  "Actualitat",
+
+              torneo_id:
+                  noticia.torneo_id,
+
+              torneo_nombre:
+                  torneoNombre,
+          }
+        : null;
+
+// ============================================================
+// TÍTULO
+// ============================================================
+
+const tituloPagina =
+    noticia?.titular ??
+    (
+        errorCarga
+            ? "Error"
+            : "Notícia no trobada"
+    );
+---
+
+<Layout title={tituloPagina}>
+    {
+        noticiaData ? (
+            <VerNoticia
+                noticiaData={noticiaData}
+            />
+        ) : errorCarga ? (
+            <main
+                class="
+                    mx-auto
+                    flex
+                    min-h-[60vh]
+                    w-full
+                    max-w-6xl
+                    items-center
+                    justify-center
+                    px-4
+                    py-16
+                "
+            >
+                <div
+                    class="
+                        w-full
+                        max-w-lg
+                        rounded-2xl
+                        border
+                        border-border
+                        bg-card
+                        p-8
+                        text-center
+                    "
+                >
+                    <h1
+                        class="
+                            text-2xl
+                            font-semibold
+                            text-neutral-titulos
+                        "
+                    >
+                        No s'ha pogut carregar la notícia
+                    </h1>
+
+                    <p
+                        class="
+                            mt-3
+                            text-sm
+                            leading-6
+                            text-neutral
+                        "
+                    >
+                        S'ha produït un error mentre es carregava
+                        la informació. Torna-ho a provar més tard.
+                    </p>
+
+                    <a
+                        href="/"
+                        class="
+                            mt-6
+                            inline-flex
+                            items-center
+                            justify-center
+                            rounded-lg
+                            bg-secondary
+                            px-4
+                            py-2.5
+                            text-sm
+                            font-semibold
+                            text-white
+                            transition
+                            hover:bg-primary
+                        "
+                    >
+                        Tornar a l'inici
+                    </a>
+                </div>
+            </main>
+        ) : (
+            <main
+                class="
+                    mx-auto
+                    flex
+                    min-h-[60vh]
+                    w-full
+                    max-w-6xl
+                    items-center
+                    justify-center
+                    px-4
+                    py-16
+                "
+            >
+                <div
+                    class="
+                        w-full
+                        max-w-lg
+                        rounded-2xl
+                        border
+                        border-border
+                        bg-card
+                        p-8
+                        text-center
+                    "
+                >
+                    <span
+                        class="
+                            text-sm
+                            font-semibold
+                            uppercase
+                            tracking-wider
+                            text-secondary
+                        "
+                    >
+                        Error 404
+                    </span>
+
+                    <h1
+                        class="
+                            mt-3
+                            text-2xl
+                            font-semibold
+                            text-neutral-titulos
+                        "
+                    >
+                        Notícia no trobada
+                    </h1>
+
+                    <p
+                        class="
+                            mt-3
+                            text-sm
+                            leading-6
+                            text-neutral
+                        "
+                    >
+                        Aquesta notícia no existeix, no està publicada
+                        o ja no està disponible.
+                    </p>
+
+                    <a
+                        href="/"
+                        class="
+                            mt-6
+                            inline-flex
+                            items-center
+                            justify-center
+                            rounded-lg
+                            bg-secondary
+                            px-4
+                            py-2.5
+                            text-sm
+                            font-semibold
+                            text-white
+                            transition
+                            hover:bg-primary
+                        "
+                    >
+                        Tornar a l'inici
+                    </a>
+                </div>
+            </main>
+        )
+    }
+</Layout>

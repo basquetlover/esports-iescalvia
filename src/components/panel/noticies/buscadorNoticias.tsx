@@ -780,7 +780,7 @@ export default function BuscadorNoticias({
                                                 )}
                                             </div>
 
-                                            <div className="flex flex-wrap mt-5 gap-2 md:w-28 md:shrink-0 md:flex-col">
+                                            <div className="flex flex-wrap mt-5 gap-2  md:shrink-0 ">
                                             <a
                                                 href={enlaceNoticia("ver", noticia)}
                                                 className={boton}

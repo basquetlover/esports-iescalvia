@@ -17,7 +17,7 @@ export const MENU = [
     {
         nombre: 'Notícies',
         enlace: `/noticies`,
-        estado: 'Pròximament'
+        estado: 'Activa'
     },
     {
         nombre: 'Històric',

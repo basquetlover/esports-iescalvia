@@ -1,0 +1,364 @@
+---
+import { supabaseAdmin } from "@utils/supabase";
+
+type Noticia = {
+    id: string;
+    titular: string | null;
+    subtitulo: string | null;
+    cover_image: string | null;
+    slug: string | null;
+    publication_date: string | null;
+    categoria: string | null;
+    torneo_id: string | null;
+};
+
+type Torneo = {
+    id: string;
+    nombre: string | null;
+};
+
+/*
+ * Últimas 3 noticias publicadas.
+ *
+ * Se utiliza publication_date y no created_at porque queremos
+ * mostrar las últimas noticias que realmente se han publicado.
+ */
+const { data, error } = await supabaseAdmin
+    .from("Noticis")
+    .select(
+        "id,titular,subtitulo,cover_image,slug,publication_date,categoria,torneo_id"
+    )
+    .eq("status", "Public")
+    .not("publication_date", "is", null)
+    .lte("publication_date", new Date().toISOString())
+    .order("publication_date", {
+        ascending: false,
+        nullsFirst: false,
+    })
+    .limit(3);
+
+if (error) {
+    console.error(
+        "Error carregant les últimes notícies:",
+        error
+    );
+}
+
+const noticias = (data ?? []) as Noticia[];
+
+/*
+ * Recuperamos los nombres de los torneos únicamente de
+ * las noticias que vamos a mostrar.
+ */
+const torneoIDs = [
+    ...new Set(
+        noticias
+            .map((noticia) => noticia.torneo_id)
+            .filter(
+                (id): id is string =>
+                    typeof id === "string" &&
+                    id.length > 0
+            )
+    ),
+];
+
+const torneosPorID = new Map<string, string>();
+
+if (torneoIDs.length > 0) {
+    const {
+        data: torneos,
+        error: errorTorneos,
+    } = await supabaseAdmin
+        .from("torneos")
+        .select("id,nombre")
+        .in("id", torneoIDs);
+
+    if (errorTorneos) {
+        console.error(
+            "Error carregant els tornejos de les notícies:",
+            errorTorneos
+        );
+    } else {
+        for (const torneo of (torneos ?? []) as Torneo[]) {
+            if (torneo.nombre) {
+                torneosPorID.set(
+                    torneo.id,
+                    torneo.nombre
+                );
+            }
+        }
+    }
+}
+
+function enlaceNoticia(noticia: Noticia) {
+    if (!noticia.slug) {
+        return "#";
+    }
+
+    return `/noticies/${encodeURIComponent(
+        noticia.slug
+    )}`;
+}
+---
+
+{
+    noticias.length > 0 && (
+        <section
+            class="w-full py-12 md:py-16"
+            aria-labelledby="ultimes-noticies-titol"
+        >
+            <div class="mx-auto w-full max-w-6xl px-4">
+                <!-- TÍTULO -->
+
+                <h2
+                    id="ultimes-noticies-titol"
+                    class="text-center text-2xl font-bold text-neutral-titulos md:text-3xl"
+                >
+                    Últimes Notícies
+                </h2>
+
+                <!-- NOTICIAS -->
+
+                <div
+                    class="mt-8 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3"
+                >
+                    {
+                        noticias.map((noticia) => {
+                            const torneoNombre =
+                                noticia.torneo_id
+                                    ? torneosPorID.get(
+                                          noticia.torneo_id
+                                      ) ?? null
+                                    : null;
+
+                            return (
+                                <article
+                                    class="
+                                        group
+                                        flex
+                                        min-w-0
+                                        flex-col
+                                        overflow-hidden
+                                        rounded-lg
+                                        border
+                                        border-border/40
+                                        bg-card
+                                        transition
+                                        duration-300
+                                        hover:-translate-y-1
+                                        hover:shadow-lg
+                                    "
+                                >
+                                    <!-- IMAGEN -->
+
+                                    <a
+                                        href={enlaceNoticia(
+                                            noticia
+                                        )}
+                                        class="
+                                            block
+                                            aspect-[16/8]
+                                            w-full
+                                            overflow-hidden
+                                            bg-muted/30
+                                        "
+                                        aria-label={`Llegir ${noticia.titular ?? "notícia"}`}
+                                    >
+                                        {noticia.cover_image ? (
+                                            <img
+                                                src={
+                                                    noticia.cover_image
+                                                }
+                                                alt=""
+                                                loading="lazy"
+                                                class="
+                                                    h-full
+                                                    w-full
+                                                    object-cover
+                                                    transition-transform
+                                                    duration-500
+                                                    group-hover:scale-105
+                                                "
+                                            />
+                                        ) : (
+                                            <div
+                                                class="
+                                                    flex
+                                                    h-full
+                                                    w-full
+                                                    items-center
+                                                    justify-center
+                                                    bg-muted/30
+                                                "
+                                            >
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    viewBox="0 -960 960 960"
+                                                    aria-hidden="true"
+                                                    class="
+                                                        h-10
+                                                        w-10
+                                                        fill-neutral/30
+                                                    "
+                                                >
+                                                    <path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120zm0-80h560v-560H200zm40-80h480L570-480 450-320l-90-120zm-40 80v-560z" />
+                                                </svg>
+                                            </div>
+                                        )}
+                                    </a>
+
+                                    <!-- CONTENIDO -->
+
+                                    <div
+                                        class="
+                                            flex
+                                            flex-1
+                                            flex-col
+                                            p-5
+                                        "
+                                    >
+                                        <!-- CATEGORÍA + TORNEO -->
+
+                                        <div
+                                            class="
+                                                flex
+                                                min-w-0
+                                                items-center
+                                                justify-between
+                                                gap-4
+                                            "
+                                        >
+                                            <span
+                                                class="
+                                                    shrink-0
+                                                    text-[10px]
+                                                    font-bold
+                                                    uppercase
+                                                    tracking-wide
+                                                    text-secondary
+                                                "
+                                            >
+                                                {noticia.categoria ||
+                                                    "Actualitat"}
+                                            </span>
+
+                                            {torneoNombre && (
+                                                <span
+                                                    title={
+                                                        torneoNombre
+                                                    }
+                                                    class="
+                                                        min-w-0
+                                                        max-w-[55%]
+                                                        truncate
+                                                        text-right
+                                                        text-[10px]
+                                                        font-semibold
+                                                        uppercase
+                                                        tracking-wide
+                                                        text-neutral
+                                                    "
+                                                >
+                                                    {
+                                                        torneoNombre
+                                                    }
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        <!-- TITULAR -->
+
+                                        <h3
+                                            class="
+                                                mt-2
+                                                text-base
+                                                font-bold
+                                                leading-snug
+                                                text-neutral-titulos
+                                            "
+                                        >
+                                            <a
+                                                href={enlaceNoticia(
+                                                    noticia
+                                                )}
+                                                class="
+                                                    transition-colors
+                                                    hover:text-secondary
+                                                "
+                                            >
+                                                {
+                                                    noticia.titular
+                                                }
+                                            </a>
+                                        </h3>
+
+                                        <!-- SUBTÍTULO -->
+
+                                        {noticia.subtitulo && (
+                                            <p
+                                                class="
+                                                    mt-4
+                                                    line-clamp-3
+                                                    text-sm
+                                                    leading-6
+                                                    text-neutral
+                                                "
+                                            >
+                                                {
+                                                    noticia.subtitulo
+                                                }
+                                            </p>
+                                        )}
+
+                                        <!-- LEER MÁS -->
+
+                                        <div class="mt-auto pt-6">
+                                            <a
+                                                href={enlaceNoticia(
+                                                    noticia
+                                                )}
+                                                class="
+                                                    inline-flex
+                                                    items-center
+                                                    gap-1.5
+                                                    text-sm
+                                                    font-semibold
+                                                    text-secondary
+                                                    transition-colors
+                                                    hover:text-primary
+                                                "
+                                            >
+                                                Llegir més
+
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="2"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    aria-hidden="true"
+                                                    class="
+                                                        h-3.5
+                                                        w-3.5
+                                                        transition-transform
+                                                        duration-300
+                                                        group-hover:translate-x-1
+                                                    "
+                                                >
+                                                    <path d="M5 12h14" />
+                                                    <path d="m13 6 6 6-6 6" />
+                                                </svg>
+                                            </a>
+                                        </div>
+                                    </div>
+                                </article>
+                            );
+                        })
+                    }
+                </div>
+            </div>
+        </section>
+    )
+}
