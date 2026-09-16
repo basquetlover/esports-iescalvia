@@ -703,7 +703,7 @@ export default function BuscadorNoticias({
                                 return (
                                     <article
                                         key={noticia.id}
-                                        className="grid grid-cols-[max-content_1fr] gap-4 p-4 sm:p-5 "
+                                        className="grid grid-cols-[auto_1fr] gap-4 p-4 sm:p-5 "
                                     >
                                         <a
                                             href={enlaceNoticia("ver", noticia)}
