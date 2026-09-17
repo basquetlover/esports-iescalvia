@@ -1,0 +1,1027 @@
+---
+type Props = {
+    configuracion:
+        unknown;
+
+    banner:
+        string;
+};
+
+type EstadoInscripcion =
+    | "oberta"
+    | "proximament"
+    | "tancada"
+    | "sense_dates";
+
+type TipoVoluntariado = {
+    id:
+        string;
+
+    nombre:
+        string;
+
+    descripcion:
+        string;
+
+    activo:
+        boolean;
+
+    maximo:
+        number | null;
+
+    comportamiento:
+        | "permitir"
+        | "lista_espera"
+        | "bloquear";
+};
+
+const {
+    configuracion,
+    banner,
+} =
+    Astro.props as Props;
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function esRegistro(
+    valor:
+        unknown,
+): valor is Record<
+    string,
+    unknown
+> {
+    return (
+        valor !==
+            null &&
+        typeof valor ===
+            "object" &&
+        !Array.isArray(
+            valor
+        )
+    );
+}
+
+function numeroNullable(
+    valor:
+        unknown,
+): number | null {
+    return (
+        typeof valor ===
+            "number" &&
+        Number.isFinite(
+            valor
+        )
+    )
+        ? valor
+        : null;
+}
+
+function numero(
+    valor:
+        unknown,
+
+    defecto =
+        0,
+): number {
+    return (
+        typeof valor ===
+            "number" &&
+        Number.isFinite(
+            valor
+        )
+    )
+        ? valor
+        : defecto;
+}
+
+function textoNullable(
+    valor:
+        unknown,
+): string | null {
+    return typeof valor ===
+        "string"
+        ? valor
+        : null;
+}
+
+function fechaValida(
+    valor:
+        string | null,
+) {
+    if (
+        !valor
+    ) {
+        return null;
+    }
+
+    const fecha =
+        new Date(
+            valor
+        );
+
+    return Number.isNaN(
+        fecha.getTime()
+    )
+        ? null
+        : fecha;
+}
+
+function fechaVisible(
+    valor:
+        string | null,
+) {
+    const fecha =
+        fechaValida(
+            valor
+        );
+
+    if (
+        !fecha
+    ) {
+        return "No definida";
+    }
+
+    return new Intl.DateTimeFormat(
+        "ca-ES",
+        {
+            dateStyle:
+                "long",
+
+            timeStyle:
+                "short",
+
+            timeZone:
+                "Europe/Madrid",
+        }
+    ).format(
+        fecha
+    );
+}
+
+// ============================================================
+// CONFIGURACIÓN
+// ============================================================
+
+const voluntarios =
+    esRegistro(
+        configuracion
+    )
+        ? configuracion
+        : {};
+
+const inscripcion =
+    esRegistro(
+        voluntarios.inscripcion
+    )
+        ? voluntarios.inscripcion
+        : {};
+
+const cupo =
+    esRegistro(
+        voluntarios.cupo
+    )
+        ? voluntarios.cupo
+        : {};
+
+const apertura =
+    textoNullable(
+        inscripcion.apertura
+    );
+
+const cierre =
+    textoNullable(
+        inscripcion.cierre
+    );
+
+const fechaApertura =
+    fechaValida(
+        apertura
+    );
+
+const fechaCierre =
+    fechaValida(
+        cierre
+    );
+
+const ahora =
+    Date.now();
+
+let estado:
+    EstadoInscripcion =
+    "sense_dates";
+
+if (
+    fechaApertura &&
+    fechaCierre
+) {
+    if (
+        ahora <
+        fechaApertura.getTime()
+    ) {
+        estado =
+            "proximament";
+    } else if (
+        ahora >
+        fechaCierre.getTime()
+    ) {
+        estado =
+            "tancada";
+    } else {
+        estado =
+            "oberta";
+    }
+}
+
+const maximoVoluntarios =
+    numeroNullable(
+        cupo.maximo
+    );
+
+// ============================================================
+// ROLES
+// ============================================================
+
+const tipos:
+    TipoVoluntariado[] =
+    Array.isArray(
+        voluntarios.tipos
+    )
+        ? voluntarios
+              .tipos
+              .filter(
+                  esRegistro
+              )
+              .map(
+                  (
+                      entrada,
+                      indice,
+                  ): TipoVoluntariado => {
+                      const cupoTipo =
+                          esRegistro(
+                              entrada.cupo
+                          )
+                              ? entrada.cupo
+                              : {};
+
+                      return {
+                          id:
+                              typeof entrada.id ===
+                                  "string"
+                                  ? entrada.id
+                                  : `rol-${indice + 1}`,
+
+                          nombre:
+                              typeof entrada.nombre ===
+                                  "string"
+                                  ? entrada.nombre
+                                  : "",
+
+                          descripcion:
+                              typeof entrada.descripcion ===
+                                  "string"
+                                  ? entrada.descripcion
+                                  : "",
+
+                          activo:
+                              entrada.activo !==
+                              false,
+
+                          maximo:
+                              numeroNullable(
+                                  cupoTipo.maximo
+                              ),
+
+                          comportamiento:
+                              cupoTipo.al_superar ===
+                                  "lista_espera" ||
+                              cupoTipo.al_superar ===
+                                  "bloquear"
+                                  ? cupoTipo.al_superar
+                                  : "permitir",
+                      };
+                  }
+              )
+              .filter(
+                  tipo =>
+                      tipo.activo &&
+                      Boolean(
+                          tipo.nombre.trim()
+                      )
+              )
+        : [];
+---
+
+<section class="bg-background py-10 sm:py-12 lg:py-16">
+    <div class="mx-auto w-full max-w-6xl space-y-12 px-4 sm:px-6 lg:px-8">
+
+        <!-- =================================================
+            HERO
+        ================================================== -->
+
+        <section class="overflow-hidden rounded-2xl bg-primary">
+            <div class="grid min-h-72 lg:grid-cols-[minmax(0,1fr)_42%]">
+                <div class="flex flex-col justify-center px-6 py-10 sm:px-8 lg:px-10">
+                    {
+                        estado ===
+                            "oberta" && (
+                            <span class="w-max rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white">
+                                Inscripcions obertes
+                            </span>
+                        )
+                    }
+
+                    {
+                        estado ===
+                            "proximament" && (
+                            <span class="w-max rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white">
+                                Pròximament
+                            </span>
+                        )
+                    }
+
+                    {
+                        estado ===
+                            "tancada" && (
+                            <span class="w-max rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white">
+                                Inscripcions tancades
+                            </span>
+                        )
+                    }
+
+                    <h2 class="mt-4 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                        Fes-te voluntari
+                    </h2>
+
+                    <p class="mt-3 max-w-xl text-sm leading-6 text-white/80 sm:text-base sm:leading-7">
+                        Uneix-te a l'equip que fa possible el torneig
+                        des de dins. Col·labora, viu l'experiència i
+                        forma part de l'organització.
+                    </p>
+
+                    {
+                        estado ===
+                            "oberta" && (
+                            <a
+                                href="#formulari-voluntariat"
+                                class="mt-6 inline-flex w-max items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-primary transition hover:bg-white/90"
+                            >
+                                Vull ser voluntari
+
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    class="h-4 w-4"
+                                    aria-hidden="true"
+                                >
+                                    <path d="M5 12h14"></path>
+                                    <path d="m13 6 6 6-6 6"></path>
+                                </svg>
+                            </a>
+                        )
+                    }
+                </div>
+
+                {
+                    banner ? (
+                        <div class="relative hidden min-h-72 lg:block">
+                            <img
+                                src={banner}
+                                alt=""
+                                aria-hidden="true"
+                                class="absolute inset-0 h-full w-full object-cover"
+                            />
+
+                            <div class="absolute inset-0 bg-gradient-to-r from-primary via-primary/25 to-transparent"></div>
+                        </div>
+                    ) : (
+                        <div class="hidden items-center justify-center bg-primary/80 lg:flex">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                class="h-24 w-24 text-white/15"
+                                aria-hidden="true"
+                            >
+                                <circle cx="9" cy="7" r="3"></circle>
+                                <path d="M3 20v-1a6 6 0 0 1 12 0v1"></path>
+                                <path d="M17 8h4"></path>
+                                <path d="M19 6v4"></path>
+                            </svg>
+                        </div>
+                    )
+                }
+            </div>
+        </section>
+
+        <!-- =================================================
+            ROLES
+        ================================================== -->
+
+        <section>
+            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+                Oportunitats
+            </p>
+
+            <div class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                    <h2 class="text-2xl font-bold tracking-tight text-neutral-titulos sm:text-3xl">
+                        Rols disponibles
+                    </h2>
+
+                    <p class="mt-2 max-w-2xl text-sm leading-6 text-neutral">
+                        Tria la tasca que millor encaixa amb tu i
+                        ajuda'ns durant el torneig.
+                    </p>
+                </div>
+
+                {
+                    maximoVoluntarios !==
+                        null && (
+                        <span class="w-max rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-neutral">
+                            Màxim {maximoVoluntarios} voluntaris
+                        </span>
+                    )
+                }
+            </div>
+
+            {
+                tipos.length >
+                    0 ? (
+                    <div class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        {
+                            tipos.map(
+                                (
+                                    tipo,
+                                    indice
+                                ) => (
+                                    <article class="rounded-2xl border border-border bg-background p-5 transition hover:border-primary/30 hover:bg-card/30">
+                                        <div class="flex items-start justify-between gap-4">
+                                            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                                                {
+                                                    indice %
+                                                        4 ===
+                                                    0 ? (
+                                                        <svg
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                            viewBox="0 0 24 24"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            stroke-width="1.7"
+                                                            stroke-linecap="round"
+                                                            stroke-linejoin="round"
+                                                            class="h-5 w-5"
+                                                            aria-hidden="true"
+                                                        >
+                                                            <path d="M4 20V8"></path>
+                                                            <path d="M20 20V8"></path>
+                                                            <path d="M4 12h16"></path>
+                                                            <path d="M8 8V4h8v4"></path>
+                                                        </svg>
+                                                    ) : indice %
+                                                          4 ===
+                                                      1 ? (
+                                                        <svg
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                            viewBox="0 0 24 24"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            stroke-width="1.7"
+                                                            stroke-linecap="round"
+                                                            stroke-linejoin="round"
+                                                            class="h-5 w-5"
+                                                            aria-hidden="true"
+                                                        >
+                                                            <rect
+                                                                x="4"
+                                                                y="5"
+                                                                width="16"
+                                                                height="14"
+                                                                rx="2"
+                                                            ></rect>
+                                                            <circle
+                                                                cx="12"
+                                                                cy="12"
+                                                                r="3"
+                                                            ></circle>
+                                                            <path d="m16 5-1-2h-6L8 5"></path>
+                                                        </svg>
+                                                    ) : indice %
+                                                          4 ===
+                                                      2 ? (
+                                                        <svg
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                            viewBox="0 0 24 24"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            stroke-width="1.7"
+                                                            stroke-linecap="round"
+                                                            stroke-linejoin="round"
+                                                            class="h-5 w-5"
+                                                            aria-hidden="true"
+                                                        >
+                                                            <rect
+                                                                x="3"
+                                                                y="4"
+                                                                width="18"
+                                                                height="16"
+                                                                rx="2"
+                                                            ></rect>
+                                                            <path d="M7 8h10"></path>
+                                                            <path d="M7 12h6"></path>
+                                                            <path d="M7 16h4"></path>
+                                                        </svg>
+                                                    ) : (
+                                                        <svg
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                            viewBox="0 0 24 24"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            stroke-width="1.7"
+                                                            stroke-linecap="round"
+                                                            stroke-linejoin="round"
+                                                            class="h-5 w-5"
+                                                            aria-hidden="true"
+                                                        >
+                                                            <path d="M4 13h4l2-7 4 12 2-5h4"></path>
+                                                        </svg>
+                                                    )
+                                                }
+                                            </span>
+
+                                            {
+                                                tipo.maximo !==
+                                                    null && (
+                                                    <span class="rounded-full bg-card px-2.5 py-1 text-[11px] font-semibold text-neutral">
+                                                        Màx. {tipo.maximo}
+                                                    </span>
+                                                )
+                                            }
+                                        </div>
+
+                                        <h3 class="mt-4 text-base font-semibold text-neutral-titulos">
+                                            {tipo.nombre}
+                                        </h3>
+
+                                        {
+                                            tipo.descripcion && (
+                                                <p class="mt-2 text-sm leading-6 text-neutral">
+                                                    {tipo.descripcion}
+                                                </p>
+                                            )
+                                        }
+
+                                        {
+                                            tipo.comportamiento ===
+                                                "lista_espera" && (
+                                                <p class="mt-4 text-xs font-medium text-primary">
+                                                    Amb llista d'espera si s'omplen les places
+                                                </p>
+                                            )
+                                        }
+
+                                        {
+                                            tipo.comportamiento ===
+                                                "bloquear" && (
+                                                <p class="mt-4 text-xs font-medium text-neutral">
+                                                    Inscripció tancada quan s'omplin les places
+                                                </p>
+                                            )
+                                        }
+                                    </article>
+                                )
+                            )
+                        }
+                    </div>
+                ) : (
+                    <div class="mt-6 rounded-2xl border border-dashed border-border bg-card/30 px-6 py-10 text-center">
+                        <h3 class="font-semibold text-neutral-titulos">
+                            Encara no hi ha rols disponibles
+                        </h3>
+
+                        <p class="mx-auto mt-2 max-w-lg text-sm leading-6 text-neutral">
+                            L'organització encara no ha publicat
+                            els tipus de voluntariat d'aquesta edició.
+                        </p>
+                    </div>
+                )
+            }
+        </section>
+
+        <!-- =================================================
+            INFORMACIÓN
+        ================================================== -->
+
+        <section class="grid grid-cols-1 gap-5 lg:grid-cols-2">
+
+            <div class="rounded-2xl bg-primary/8 p-6 sm:p-7">
+                <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.7"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="h-5 w-5"
+                        aria-hidden="true"
+                    >
+                        <path d="M12 21s-8-4.5-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 6.5-8 11-8 11Z"></path>
+                    </svg>
+                </span>
+
+                <h2 class="mt-4 text-xl font-bold tracking-tight text-neutral-titulos">
+                    Per què fer voluntariat?
+                </h2>
+
+                <div class="mt-5 space-y-4">
+                    <div class="flex gap-3">
+                        <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                class="h-3.5 w-3.5"
+                            >
+                                <path d="m5 12 4 4L19 6"></path>
+                            </svg>
+                        </span>
+
+                        <div>
+                            <p class="text-sm font-semibold text-neutral-titulos">
+                                Forma part del torneig
+                            </p>
+
+                            <p class="mt-1 text-xs leading-5 text-neutral">
+                                Viu l'esdeveniment des de dins i ajuda
+                                a fer-lo possible.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-3">
+                        <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                class="h-3.5 w-3.5"
+                            >
+                                <path d="m5 12 4 4L19 6"></path>
+                            </svg>
+                        </span>
+
+                        <div>
+                            <p class="text-sm font-semibold text-neutral-titulos">
+                                Treball en equip
+                            </p>
+
+                            <p class="mt-1 text-xs leading-5 text-neutral">
+                                Col·labora amb altres alumnes i membres
+                                de l'organització.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-3">
+                        <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                class="h-3.5 w-3.5"
+                            >
+                                <path d="m5 12 4 4L19 6"></path>
+                            </svg>
+                        </span>
+
+                        <div>
+                            <p class="text-sm font-semibold text-neutral-titulos">
+                                Guanya experiència
+                            </p>
+
+                            <p class="mt-1 text-xs leading-5 text-neutral">
+                                Participa en l'organització real d'un
+                                esdeveniment esportiu.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="rounded-2xl border border-border bg-background p-6 sm:p-7">
+                <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-card text-primary">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.7"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="h-5 w-5"
+                        aria-hidden="true"
+                    >
+                        <circle cx="12" cy="12" r="9"></circle>
+                        <path d="m8 12 2.5 2.5L16 9"></path>
+                    </svg>
+                </span>
+
+                <h2 class="mt-4 text-xl font-bold tracking-tight text-neutral-titulos">
+                    Informació important
+                </h2>
+
+                <div class="mt-5 space-y-4">
+                    {
+                        fechaApertura && (
+                            <div class="flex gap-3">
+                                <span class="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary"></span>
+
+                                <div>
+                                    <p class="text-sm font-semibold text-neutral-titulos">
+                                        Obertura d'inscripcions
+                                    </p>
+
+                                    <p class="mt-1 text-xs leading-5 text-neutral">
+                                        {fechaVisible(apertura)}
+                                    </p>
+                                </div>
+                            </div>
+                        )
+                    }
+
+                    {
+                        fechaCierre && (
+                            <div class="flex gap-3">
+                                <span class="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary"></span>
+
+                                <div>
+                                    <p class="text-sm font-semibold text-neutral-titulos">
+                                        Tancament d'inscripcions
+                                    </p>
+
+                                    <p class="mt-1 text-xs leading-5 text-neutral">
+                                        {fechaVisible(cierre)}
+                                    </p>
+                                </div>
+                            </div>
+                        )
+                    }
+
+                    {
+                        maximoVoluntarios !==
+                            null && (
+                            <div class="flex gap-3">
+                                <span class="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary"></span>
+
+                                <div>
+                                    <p class="text-sm font-semibold text-neutral-titulos">
+                                        Places disponibles
+                                    </p>
+
+                                    <p class="mt-1 text-xs leading-5 text-neutral">
+                                        Aquesta edició admet un màxim de{" "}
+                                        {maximoVoluntarios} voluntaris.
+                                    </p>
+                                </div>
+                            </div>
+                        )
+                    }
+
+                    <div class="flex gap-3">
+                        <span class="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary"></span>
+
+                        <div>
+                            <p class="text-sm font-semibold text-neutral-titulos">
+                                Assignació de rol
+                            </p>
+
+                            <p class="mt-1 text-xs leading-5 text-neutral">
+                                L'organització gestionarà les sol·licituds
+                                segons els rols i les places disponibles.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- =================================================
+            FORMULARIO
+        ================================================== -->
+
+        <section
+            id="formulari-voluntariat"
+            class="scroll-mt-24 overflow-hidden rounded-2xl border border-border bg-background"
+        >
+            <div class="bg-primary px-6 py-5 sm:px-8">
+                <h2 class="text-xl font-bold text-white">
+                    Formulari d'inscripció
+                </h2>
+
+                <p class="mt-1 text-sm text-white/75">
+                    Completa les dades per sol·licitar una plaça
+                    com a voluntari.
+                </p>
+            </div>
+
+            <div class="p-6 sm:p-8">
+                {
+                    estado ===
+                        "oberta" ? (
+                        <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+
+                            <div>
+                                <label
+                                    for="voluntari-nom"
+                                    class="text-sm font-medium text-neutral-titulos"
+                                >
+                                    Nom complet
+                                </label>
+
+                                <input
+                                    id="voluntari-nom"
+                                    type="text"
+                                    placeholder="Nom i llinatges"
+                                    class="mt-2 w-full rounded-lg border border-border bg-card px-3.5 py-3 text-sm text-neutral outline-none transition placeholder:text-neutral/50 focus:border-primary focus:ring-2 focus:ring-primary/10"
+                                />
+                            </div>
+
+                            <div>
+                                <label
+                                    for="voluntari-email"
+                                    class="text-sm font-medium text-neutral-titulos"
+                                >
+                                    Correu electrònic
+                                </label>
+
+                                <input
+                                    id="voluntari-email"
+                                    type="email"
+                                    placeholder="nom@exemple.com"
+                                    class="mt-2 w-full rounded-lg border border-border bg-card px-3.5 py-3 text-sm text-neutral outline-none transition placeholder:text-neutral/50 focus:border-primary focus:ring-2 focus:ring-primary/10"
+                                />
+                            </div>
+
+                            <div>
+                                <label
+                                    for="voluntari-curs"
+                                    class="text-sm font-medium text-neutral-titulos"
+                                >
+                                    Curs / grup
+                                </label>
+
+                                <input
+                                    id="voluntari-curs"
+                                    type="text"
+                                    placeholder="Ex. 1r Batxillerat A"
+                                    class="mt-2 w-full rounded-lg border border-border bg-card px-3.5 py-3 text-sm text-neutral outline-none transition placeholder:text-neutral/50 focus:border-primary focus:ring-2 focus:ring-primary/10"
+                                />
+                            </div>
+
+                            <div>
+                                <label
+                                    for="voluntari-rol"
+                                    class="text-sm font-medium text-neutral-titulos"
+                                >
+                                    Rol preferit
+                                </label>
+
+                                <select
+                                    id="voluntari-rol"
+                                    class="mt-2 w-full rounded-lg border border-border bg-card px-3.5 py-3 text-sm text-neutral outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
+                                >
+                                    <option value="">
+                                        Selecciona un rol
+                                    </option>
+
+                                    {
+                                        tipos.map(
+                                            tipo => (
+                                                <option value={tipo.id}>
+                                                    {tipo.nombre}
+                                                </option>
+                                            )
+                                        )
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="md:col-span-2">
+                                <label
+                                    for="voluntari-motivacio"
+                                    class="text-sm font-medium text-neutral-titulos"
+                                >
+                                    Per què vols ser voluntari?
+                                </label>
+
+                                <textarea
+                                    id="voluntari-motivacio"
+                                    rows="4"
+                                    placeholder="Explica'ns breument per què t'agradaria participar..."
+                                    class="mt-2 w-full resize-y rounded-lg border border-border bg-card px-3.5 py-3 text-sm text-neutral outline-none transition placeholder:text-neutral/50 focus:border-primary focus:ring-2 focus:ring-primary/10"
+                                ></textarea>
+                            </div>
+
+                            <div class="md:col-span-2">
+                                <label class="flex items-start gap-3">
+                                    <input
+                                        type="checkbox"
+                                        class="mt-1 h-4 w-4 rounded border-border accent-primary"
+                                    />
+
+                                    <span class="text-sm leading-6 text-neutral">
+                                        Accepto que l'organització es posi
+                                        en contacte amb mi per gestionar
+                                        aquesta sol·licitud de voluntariat.
+                                    </span>
+                                </label>
+                            </div>
+
+                            <div class="md:col-span-2">
+                                <button
+                                    type="button"
+                                    class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:bg-primary/90"
+                                >
+                                    Enviar sol·licitud
+
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="1.8"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        class="h-4 w-4"
+                                        aria-hidden="true"
+                                    >
+                                        <path d="M5 12h14"></path>
+                                        <path d="m13 6 6 6-6 6"></path>
+                                    </svg>
+                                </button>
+
+                                <p class="mt-3 text-xs leading-5 text-neutral/70">
+                                    El formulari encara s'ha de connectar
+                                    amb l'API d'inscripcions de voluntariat.
+                                </p>
+                            </div>
+                        </div>
+                    ) : estado ===
+                        "proximament" ? (
+                        <div class="py-8 text-center">
+                            <h3 class="text-lg font-semibold text-neutral-titulos">
+                                Les inscripcions encara no estan obertes
+                            </h3>
+
+                            <p class="mx-auto mt-2 max-w-lg text-sm leading-6 text-neutral">
+                                Podràs enviar la teva sol·licitud a partir de{" "}
+                                {fechaVisible(apertura)}.
+                            </p>
+                        </div>
+                    ) : estado ===
+                        "tancada" ? (
+                        <div class="py-8 text-center">
+                            <h3 class="text-lg font-semibold text-neutral-titulos">
+                                El període d'inscripció ha finalitzat
+                            </h3>
+
+                            <p class="mx-auto mt-2 max-w-lg text-sm leading-6 text-neutral">
+                                Ja no s'accepten noves sol·licituds de
+                                voluntariat per aquesta edició.
+                            </p>
+                        </div>
+                    ) : (
+                        <div class="py-8 text-center">
+                            <h3 class="text-lg font-semibold text-neutral-titulos">
+                                Formulari no disponible
+                            </h3>
+
+                            <p class="mx-auto mt-2 max-w-lg text-sm leading-6 text-neutral">
+                                Encara no s'ha configurat el període
+                                d'inscripció de voluntariat.
+                            </p>
+                        </div>
+                    )
+                }
+            </div>
+        </section>
+    </div>
+</section>
