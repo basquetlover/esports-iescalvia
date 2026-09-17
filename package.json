@@ -9,8 +9,7 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro",
-    "test": "node --experimental-strip-types --test src/const/Permisos.test.ts tests/torneos.test.mjs"
+    "astro": "astro"
   },
   "dependencies": {
     "@astrojs/react": "^6.0.0",

@@ -1,10 +1,13 @@
 import {
     useId,
+    type ReactNode,
 } from "react";
 
 import type {
     ConfigEquipos,
 } from "../Asistente";
+
+import CursosEdicion from "./CursosEdicion";
 
 // ============================================================
 // TIPOS
@@ -13,6 +16,12 @@ import type {
 type Props = {
     valor:
         ConfigEquipos;
+
+    cursosPlataforma:
+        ConfigEquipos["cursos"];
+
+    cursoAcademicoPlataforma:
+        string | null;
 
     soloLectura:
         boolean;
@@ -93,17 +102,17 @@ function fechaParaInput(
 
     const fecha =
         new Date(
-            valor
+            valor,
         );
 
     if (
         Number.isNaN(
-            fecha.getTime()
+            fecha.getTime(),
         )
     ) {
         return valor.slice(
             0,
-            16
+            16,
         );
     }
 
@@ -114,12 +123,12 @@ function fechaParaInput(
 
     return new Date(
         fecha.getTime() -
-            desplazamiento
+            desplazamiento,
     )
         .toISOString()
         .slice(
             0,
-            16
+            16,
         );
 }
 
@@ -135,12 +144,12 @@ function fechaDesdeInput(
 
     const fecha =
         new Date(
-            valor
+            valor,
         );
 
     if (
         Number.isNaN(
-            fecha.getTime()
+            fecha.getTime(),
         )
     ) {
         return null;
@@ -166,12 +175,12 @@ function numeroNullable(
 
     const numero =
         Number(
-            valor
+            valor,
         );
 
     if (
         !Number.isFinite(
-            numero
+            numero,
         )
     ) {
         return null;
@@ -180,8 +189,8 @@ function numeroNullable(
     return Math.max(
         0,
         Math.trunc(
-            numero
-        )
+            numero,
+        ),
     );
 }
 
@@ -191,12 +200,12 @@ function numeroEntero(
 ): number {
     const numero =
         Number(
-            valor
+            valor,
         );
 
     if (
         !Number.isFinite(
-            numero
+            numero,
         )
     ) {
         return 0;
@@ -205,24 +214,10 @@ function numeroEntero(
     return Math.max(
         0,
         Math.trunc(
-            numero
-        )
+            numero,
+        ),
     );
 }
-
-// ============================================================
-// ESTILOS
-// ============================================================
-
-const campo =
-    "w-full rounded-lg border border-border bg-card " +
-    "px-3.5 py-3 text-sm text-neutral outline-none " +
-    "transition placeholder:text-neutral/50 " +
-    "focus:border-primary focus:ring-2 focus:ring-primary/10 " +
-    "disabled:cursor-not-allowed disabled:opacity-60";
-
-const etiqueta =
-    "text-sm font-medium text-neutral-titulos";
 
 // ============================================================
 // COMPONENTE
@@ -230,6 +225,8 @@ const etiqueta =
 
 export default function PasoEquips({
     valor,
+    cursosPlataforma,
+    cursoAcademicoPlataforma,
     soloLectura,
     bloqueado,
     onCambiar,
@@ -256,7 +253,7 @@ export default function PasoEquips({
         }
 
         onCambiar(
-            nuevo
+            nuevo,
         );
     }
 
@@ -266,8 +263,8 @@ export default function PasoEquips({
 
     function cambiarInscripcion(
         campo:
-            "apertura" |
-            "cierre",
+            | "apertura"
+            | "cierre",
 
         nuevo:
             string | null,
@@ -319,13 +316,28 @@ export default function PasoEquips({
     }
 
     // ========================================================
+    // CURSOS
+    // ========================================================
+
+    function cambiarCursos(
+        cursos:
+            ConfigEquipos["cursos"],
+    ) {
+        aplicar({
+            ...valor,
+
+            cursos,
+        });
+    }
+
+    // ========================================================
     // JUGADORES
     // ========================================================
 
     function cambiarJugadores(
         campo:
-            "minimo" |
-            "maximo",
+            | "minimo"
+            | "maximo",
 
         nuevo:
             number | null,
@@ -363,8 +375,8 @@ export default function PasoEquips({
 
     function cambiarMinimoGenero(
         campo:
-            "masculino" |
-            "femenino",
+            | "masculino"
+            | "femenino",
 
         nuevo:
             number,
@@ -420,8 +432,8 @@ export default function PasoEquips({
 
     function cambiarProfesoresNumero(
         campo:
-            "minimo" |
-            "maximo",
+            | "minimo"
+            | "maximo",
 
         nuevo:
             number,
@@ -505,8 +517,8 @@ export default function PasoEquips({
 
     function cambiarStaffNumero(
         campo:
-            "minimo" |
-            "maximo",
+            | "minimo"
+            | "maximo",
 
         nuevo:
             number,
@@ -528,145 +540,36 @@ export default function PasoEquips({
     // ========================================================
 
     return (
-        <section
-            aria-labelledby={
-                tituloID
-            }
-            className="
-                space-y-7
-                text-neutral
-            "
-        >
-            {/* =================================================
-                CABECERA
-            ================================================= */}
-
-            <header
-                className="
-                    border-b
-                    border-border
-                    pb-5
-                "
-            >
-                <div
-                    className="
-                        mb-3
-                        flex
-                        items-center
-                        gap-2
-                    "
-                >
-                    <span
-                        aria-hidden="true"
-                        className="
-                            flex
-                            h-8
-                            w-8
-                            items-center
-                            justify-center
-                            rounded-lg
-                            border
-                            border-border
-                            bg-card
-                        "
-                    >
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.6"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="
-                                h-4
-                                w-4
-                            "
-                        >
-                            <circle
-                                cx="9"
-                                cy="8"
-                                r="3"
-                            />
-
+        <section aria-labelledby={tituloID} className="space-y-7 text-neutral">
+            <header className="border-b border-border pb-5">
+                <div className="mb-3 flex items-center gap-2">
+                    <span aria-hidden="true" className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                            <circle cx="9" cy="8" r="3" />
                             <path d="M3.5 20v-1a5.5 5.5 0 0 1 11 0v1" />
-
-                            <circle
-                                cx="17"
-                                cy="9"
-                                r="2.5"
-                            />
-
+                            <circle cx="17" cy="9" r="2.5" />
                             <path d="M16 14.5a5 5 0 0 1 4.5 5V20" />
                         </svg>
                     </span>
 
-                    <span
-                        className="
-                            text-xs
-                            font-medium
-                            tracking-wide
-                        "
-                    >
+                    <span className="text-xs font-medium tracking-wide">
                         EQUIPS
                     </span>
                 </div>
 
-                <h2
-                    id={
-                        tituloID
-                    }
-                    className="
-                        text-xl
-                        font-semibold
-                        tracking-tight
-                        text-neutral-titulos
-                    "
-                >
+                <h2 id={tituloID} className="text-xl font-semibold tracking-tight text-neutral-titulos">
                     Configuració dels equips
                 </h2>
 
-                <p
-                    className="
-                        mt-2
-                        max-w-3xl
-                        text-sm
-                        leading-6
-                    "
-                >
-                    Defineix quan es poden inscriure els equips,
-                    quants participants poden tenir i les
-                    condicions de composició.
+                <p className="mt-2 max-w-3xl text-sm leading-6">
+                    Defineix quan es poden inscriure els equips, quins cursos poden participar, quants participants poden tenir i les condicions de composició.
                 </p>
             </header>
 
-            {/* =================================================
-                INSCRIPCIÓN
-            ================================================= */}
-
-            <Bloque
-                titulo="Període d'inscripció"
-                descripcion="Indica durant quin període estarà disponible la inscripció d'equips."
-            >
-                <div
-                    className="
-                        grid
-                        grid-cols-1
-                        gap-4
-                        md:grid-cols-2
-                    "
-                >
-                    <div
-                        className="
-                            space-y-2
-                        "
-                    >
-                        <label
-                            htmlFor="equips-obertura"
-                            className={
-                                etiqueta
-                            }
-                        >
+            <Bloque titulo="Període d'inscripció" descripcion="Indica durant quin període estarà disponible la inscripció d'equips.">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                        <label htmlFor="equips-obertura" className="text-sm font-medium text-neutral-titulos">
                             Obertura
                         </label>
 
@@ -680,7 +583,7 @@ export default function PasoEquips({
                                 fechaParaInput(
                                     valor
                                         .inscripcion
-                                        .apertura
+                                        .apertura,
                                 )
                             }
                             onChange={
@@ -691,27 +594,16 @@ export default function PasoEquips({
                                         fechaDesdeInput(
                                             evento
                                                 .target
-                                                .value
-                                        )
+                                                .value,
+                                        ),
                                     )
                             }
-                            className={
-                                campo
-                            }
+                            className="w-full rounded-lg border border-border bg-card px-3.5 py-3 text-sm text-neutral outline-none transition placeholder:text-neutral/50 focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
                         />
                     </div>
 
-                    <div
-                        className="
-                            space-y-2
-                        "
-                    >
-                        <label
-                            htmlFor="equips-tancament"
-                            className={
-                                etiqueta
-                            }
-                        >
+                    <div className="space-y-2">
+                        <label htmlFor="equips-tancament" className="text-sm font-medium text-neutral-titulos">
                             Tancament
                         </label>
 
@@ -722,7 +614,7 @@ export default function PasoEquips({
                                 fechaParaInput(
                                     valor
                                         .inscripcion
-                                        .apertura
+                                        .apertura,
                                 )
                             }
                             disabled={
@@ -732,7 +624,7 @@ export default function PasoEquips({
                                 fechaParaInput(
                                     valor
                                         .inscripcion
-                                        .cierre
+                                        .cierre,
                                 )
                             }
                             onChange={
@@ -743,38 +635,19 @@ export default function PasoEquips({
                                         fechaDesdeInput(
                                             evento
                                                 .target
-                                                .value
-                                        )
+                                                .value,
+                                        ),
                                     )
                             }
-                            className={
-                                campo
-                            }
+                            className="w-full rounded-lg border border-border bg-card px-3.5 py-3 text-sm text-neutral outline-none transition placeholder:text-neutral/50 focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
                         />
                     </div>
                 </div>
             </Bloque>
 
-            {/* =================================================
-                CUPO
-            ================================================= */}
-
-            <Bloque
-                titulo="Nombre d'equips"
-                descripcion="Configura el nombre màxim d'equips i què passa quan s'assoleix."
-            >
-                <div
-                    className="
-                        max-w-xs
-                        space-y-2
-                    "
-                >
-                    <label
-                        htmlFor="equips-maxim"
-                        className={
-                            etiqueta
-                        }
-                    >
+            <Bloque titulo="Nombre d'equips" descripcion="Configura el nombre màxim d'equips i què passa quan s'assoleix.">
+                <div className="max-w-xs space-y-2">
+                    <label htmlFor="equips-maxim" className="text-sm font-medium text-neutral-titulos">
                         Màxim d'equips
                     </label>
 
@@ -802,25 +675,16 @@ export default function PasoEquips({
                                     numeroNullable(
                                         evento
                                             .target
-                                            .value
-                                    )
+                                            .value,
+                                    ),
                                 )
                         }
                         placeholder="Sense límit"
-                        className={
-                            campo
-                        }
+                        className="w-full rounded-lg border border-border bg-card px-3.5 py-3 text-sm text-neutral outline-none transition placeholder:text-neutral/50 focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
                     />
                 </div>
 
-                <div
-                    className="
-                        mt-5
-                        grid
-                        gap-3
-                        lg:grid-cols-3
-                    "
-                >
+                <div className="mt-5 grid gap-3 lg:grid-cols-3">
                     {
                         COMPORTAMIENTOS_CUPO.map(
                             opcion => {
@@ -831,95 +695,50 @@ export default function PasoEquips({
                                     opcion.valor;
 
                                 return (
-                                    <button
-                                        key={
-                                            opcion.valor
-                                        }
-                                        type="button"
-                                        disabled={
-                                            deshabilitado
-                                        }
-                                        onClick={() =>
-                                            cambiarComportamiento(
-                                                opcion.valor
-                                            )
-                                        }
-                                        className={`
-                                            rounded-xl
-                                            border
-                                            p-4
-                                            text-left
-                                            transition
-                                            disabled:cursor-not-allowed
-                                            disabled:opacity-50
-
-                                            ${
-                                                activo
-                                                    ? "border-primary bg-primary/10"
-                                                    : "border-border bg-card hover:border-neutral/40"
-                                            }
-                                        `}
-                                    >
-                                        <p
-                                            className="
-                                                text-sm
-                                                font-semibold
-                                                text-neutral-titulos
-                                            "
-                                        >
+                                    <button key={opcion.valor} type="button" disabled={deshabilitado} onClick={() => cambiarComportamiento(opcion.valor)} className={`rounded-xl border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${activo ? "border-primary bg-primary/10" : "border-border bg-card hover:border-neutral/40"}`}>
+                                        <p className="text-sm font-semibold text-neutral-titulos">
                                             {
                                                 opcion.nombre
                                             }
                                         </p>
 
-                                        <p
-                                            className="
-                                                mt-1
-                                                text-xs
-                                                leading-5
-                                                text-neutral
-                                            "
-                                        >
+                                        <p className="mt-1 text-xs leading-5 text-neutral">
                                             {
                                                 opcion.descripcion
                                             }
                                         </p>
                                     </button>
                                 );
-                            }
+                            },
                         )
                     }
                 </div>
             </Bloque>
 
-            {/* =================================================
-                JUGADORES
-            ================================================= */}
+            <Bloque titulo="Cursos participants" descripcion="Defineix quins cursos i grups podran seleccionar els participants durant la inscripció.">
+                <CursosEdicion
+                    cursos={
+                        valor.cursos
+                    }
+                    cursosPlataforma={
+                        cursosPlataforma
+                    }
+                    cursoAcademicoPlataforma={
+                        cursoAcademicoPlataforma
+                    }
+                    deshabilitado={
+                        deshabilitado
+                    }
+                    onChange={
+                        cambiarCursos
+                    }
+                />
+            </Bloque>
 
-            <Bloque
-                titulo="Jugadors"
-                descripcion="Defineix el nombre mínim i màxim de jugadors per equip."
-            >
-                <div
-                    className="
-                        grid
-                        max-w-2xl
-                        grid-cols-1
-                        gap-4
-                        sm:grid-cols-2
-                    "
-                >
-                    <div
-                        className="
-                            space-y-2
-                        "
-                    >
-                        <label
-                            htmlFor="jugadors-minim"
-                            className={
-                                etiqueta
-                            }
-                        >
+            <Bloque titulo="Jugadors" descripcion="Defineix el nombre mínim i màxim de jugadors per equip.">
+                <div className="grid max-w-2xl grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                        <label htmlFor="jugadors-minim" className="text-sm font-medium text-neutral-titulos">
                             Mínim
                         </label>
 
@@ -949,27 +768,16 @@ export default function PasoEquips({
                                         numeroNullable(
                                             evento
                                                 .target
-                                                .value
-                                        )
+                                                .value,
+                                        ),
                                     )
                             }
-                            className={
-                                campo
-                            }
+                            className="w-full rounded-lg border border-border bg-card px-3.5 py-3 text-sm text-neutral outline-none transition placeholder:text-neutral/50 focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
                         />
                     </div>
 
-                    <div
-                        className="
-                            space-y-2
-                        "
-                    >
-                        <label
-                            htmlFor="jugadors-maxim"
-                            className={
-                                etiqueta
-                            }
-                        >
+                    <div className="space-y-2">
+                        <label htmlFor="jugadors-maxim" className="text-sm font-medium text-neutral-titulos">
                             Màxim
                         </label>
 
@@ -999,26 +807,17 @@ export default function PasoEquips({
                                         numeroNullable(
                                             evento
                                                 .target
-                                                .value
-                                        )
+                                                .value,
+                                        ),
                                     )
                             }
-                            className={
-                                campo
-                            }
+                            className="w-full rounded-lg border border-border bg-card px-3.5 py-3 text-sm text-neutral outline-none transition placeholder:text-neutral/50 focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
                         />
                     </div>
                 </div>
             </Bloque>
 
-            {/* =================================================
-                GÉNERO
-            ================================================= */}
-
-            <Bloque
-                titulo="Composició per gènere"
-                descripcion="Pots exigir una composició mínima de nois i noies."
-            >
+            <Bloque titulo="Composició per gènere" descripcion="Pots exigir una composició mínima de nois i noies.">
                 <Interruptor
                     activo={
                         valor
@@ -1039,30 +838,9 @@ export default function PasoEquips({
                     valor
                         .genero
                         .activo && (
-                        <div
-                            className="
-                                mt-5
-                                grid
-                                max-w-2xl
-                                grid-cols-1
-                                gap-4
-                                border-t
-                                border-border
-                                pt-5
-                                sm:grid-cols-2
-                            "
-                        >
-                            <div
-                                className="
-                                    space-y-2
-                                "
-                            >
-                                <label
-                                    htmlFor="minim-nois"
-                                    className={
-                                        etiqueta
-                                    }
-                                >
+                        <div className="mt-5 grid max-w-2xl grid-cols-1 gap-4 border-t border-border pt-5 sm:grid-cols-2">
+                            <div className="space-y-2">
+                                <label htmlFor="minim-nois" className="text-sm font-medium text-neutral-titulos">
                                     Mínim de nois
                                 </label>
 
@@ -1092,27 +870,16 @@ export default function PasoEquips({
                                                 numeroEntero(
                                                     evento
                                                         .target
-                                                        .value
-                                                )
+                                                        .value,
+                                                ),
                                             )
                                     }
-                                    className={
-                                        campo
-                                    }
+                                    className="w-full rounded-lg border border-border bg-card px-3.5 py-3 text-sm text-neutral outline-none transition placeholder:text-neutral/50 focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
                                 />
                             </div>
 
-                            <div
-                                className="
-                                    space-y-2
-                                "
-                            >
-                                <label
-                                    htmlFor="minim-noies"
-                                    className={
-                                        etiqueta
-                                    }
-                                >
+                            <div className="space-y-2">
+                                <label htmlFor="minim-noies" className="text-sm font-medium text-neutral-titulos">
                                     Mínim de noies
                                 </label>
 
@@ -1142,13 +909,11 @@ export default function PasoEquips({
                                                 numeroEntero(
                                                     evento
                                                         .target
-                                                        .value
-                                                )
+                                                        .value,
+                                                ),
                                             )
                                     }
-                                    className={
-                                        campo
-                                    }
+                                    className="w-full rounded-lg border border-border bg-card px-3.5 py-3 text-sm text-neutral outline-none transition placeholder:text-neutral/50 focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
                                 />
                             </div>
                         </div>
@@ -1156,14 +921,7 @@ export default function PasoEquips({
                 }
             </Bloque>
 
-            {/* =================================================
-                PROFESORES
-            ================================================= */}
-
-            <Bloque
-                titulo="Professorat"
-                descripcion="Configura si els equips poden incloure professorat."
-            >
+            <Bloque titulo="Professorat" descripcion="Configura si els equips poden incloure professorat.">
                 <Interruptor
                     activo={
                         valor
@@ -1184,35 +942,10 @@ export default function PasoEquips({
                     valor
                         .profesores
                         .permitidos && (
-                        <div
-                            className="
-                                mt-5
-                                space-y-5
-                                border-t
-                                border-border
-                                pt-5
-                            "
-                        >
-                            <div
-                                className="
-                                    grid
-                                    max-w-2xl
-                                    grid-cols-1
-                                    gap-4
-                                    sm:grid-cols-2
-                                "
-                            >
-                                <div
-                                    className="
-                                        space-y-2
-                                    "
-                                >
-                                    <label
-                                        htmlFor="professors-minim"
-                                        className={
-                                            etiqueta
-                                        }
-                                    >
+                        <div className="mt-5 space-y-5 border-t border-border pt-5">
+                            <div className="grid max-w-2xl grid-cols-1 gap-4 sm:grid-cols-2">
+                                <div className="space-y-2">
+                                    <label htmlFor="professors-minim" className="text-sm font-medium text-neutral-titulos">
                                         Mínim
                                     </label>
 
@@ -1241,27 +974,16 @@ export default function PasoEquips({
                                                     numeroEntero(
                                                         evento
                                                             .target
-                                                            .value
-                                                    )
+                                                            .value,
+                                                    ),
                                                 )
                                         }
-                                        className={
-                                            campo
-                                        }
+                                        className="w-full rounded-lg border border-border bg-card px-3.5 py-3 text-sm text-neutral outline-none transition placeholder:text-neutral/50 focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
                                     />
                                 </div>
 
-                                <div
-                                    className="
-                                        space-y-2
-                                    "
-                                >
-                                    <label
-                                        htmlFor="professors-maxim"
-                                        className={
-                                            etiqueta
-                                        }
-                                    >
+                                <div className="space-y-2">
+                                    <label htmlFor="professors-maxim" className="text-sm font-medium text-neutral-titulos">
                                         Màxim
                                     </label>
 
@@ -1290,13 +1012,11 @@ export default function PasoEquips({
                                                     numeroEntero(
                                                         evento
                                                             .target
-                                                            .value
-                                                    )
+                                                            .value,
+                                                    ),
                                                 )
                                         }
-                                        className={
-                                            campo
-                                        }
+                                        className="w-full rounded-lg border border-border bg-card px-3.5 py-3 text-sm text-neutral outline-none transition placeholder:text-neutral/50 focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
                                     />
                                 </div>
                             </div>
@@ -1321,14 +1041,7 @@ export default function PasoEquips({
                 }
             </Bloque>
 
-            {/* =================================================
-                ENTRENADOR
-            ================================================= */}
-
-            <Bloque
-                titulo="Entrenador"
-                descripcion="Defineix si cada equip pot registrar un entrenador."
-            >
+            <Bloque titulo="Entrenador" descripcion="Defineix si cada equip pot registrar un entrenador.">
                 <Interruptor
                     activo={
                         valor
@@ -1346,14 +1059,7 @@ export default function PasoEquips({
                 />
             </Bloque>
 
-            {/* =================================================
-                STAFF
-            ================================================= */}
-
-            <Bloque
-                titulo="Staff"
-                descripcion="Configura si els equips poden incloure altres membres de suport."
-            >
+            <Bloque titulo="Staff" descripcion="Configura si els equips poden incloure altres membres de suport.">
                 <Interruptor
                     activo={
                         valor
@@ -1374,30 +1080,9 @@ export default function PasoEquips({
                     valor
                         .staff
                         .permitido && (
-                        <div
-                            className="
-                                mt-5
-                                grid
-                                max-w-2xl
-                                grid-cols-1
-                                gap-4
-                                border-t
-                                border-border
-                                pt-5
-                                sm:grid-cols-2
-                            "
-                        >
-                            <div
-                                className="
-                                    space-y-2
-                                "
-                            >
-                                <label
-                                    htmlFor="staff-minim"
-                                    className={
-                                        etiqueta
-                                    }
-                                >
+                        <div className="mt-5 grid max-w-2xl grid-cols-1 gap-4 border-t border-border pt-5 sm:grid-cols-2">
+                            <div className="space-y-2">
+                                <label htmlFor="staff-minim" className="text-sm font-medium text-neutral-titulos">
                                     Mínim
                                 </label>
 
@@ -1426,27 +1111,16 @@ export default function PasoEquips({
                                                 numeroEntero(
                                                     evento
                                                         .target
-                                                        .value
-                                                )
+                                                        .value,
+                                                ),
                                             )
                                     }
-                                    className={
-                                        campo
-                                    }
+                                    className="w-full rounded-lg border border-border bg-card px-3.5 py-3 text-sm text-neutral outline-none transition placeholder:text-neutral/50 focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
                                 />
                             </div>
 
-                            <div
-                                className="
-                                    space-y-2
-                                "
-                            >
-                                <label
-                                    htmlFor="staff-maxim"
-                                    className={
-                                        etiqueta
-                                    }
-                                >
+                            <div className="space-y-2">
+                                <label htmlFor="staff-maxim" className="text-sm font-medium text-neutral-titulos">
                                     Màxim
                                 </label>
 
@@ -1475,13 +1149,11 @@ export default function PasoEquips({
                                                 numeroEntero(
                                                     evento
                                                         .target
-                                                        .value
-                                                )
+                                                        .value,
+                                                ),
                                             )
                                     }
-                                    className={
-                                        campo
-                                    }
+                                    className="w-full rounded-lg border border-border bg-card px-3.5 py-3 text-sm text-neutral outline-none transition placeholder:text-neutral/50 focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
                                 />
                             </div>
                         </div>
@@ -1508,46 +1180,27 @@ function Bloque({
         string;
 
     children:
-        React.ReactNode;
+        ReactNode;
 }) {
     return (
-        <div
-            className="
-                rounded-2xl
-                border
-                border-border
-                bg-background
-                p-5
-            "
-        >
-            <div
-                className="
-                    mb-5
-                "
-            >
-                <h3
-                    className="
-                        font-semibold
-                        text-neutral-titulos
-                    "
-                >
-                    {titulo}
+        <div className="rounded-2xl border border-border bg-background p-5">
+            <div className="mb-5">
+                <h3 className="font-semibold text-neutral-titulos">
+                    {
+                        titulo
+                    }
                 </h3>
 
-                <p
-                    className="
-                        mt-1
-                        max-w-3xl
-                        text-sm
-                        leading-6
-                        text-neutral
-                    "
-                >
-                    {descripcion}
+                <p className="mt-1 max-w-3xl text-sm leading-6 text-neutral">
+                    {
+                        descripcion
+                    }
                 </p>
             </div>
 
-            {children}
+            {
+                children
+            }
         </div>
     );
 }
@@ -1581,43 +1234,18 @@ function Interruptor({
     ) => void;
 }) {
     return (
-        <div
-            className="
-                flex
-                items-start
-                justify-between
-                gap-5
-                rounded-xl
-                border
-                border-border
-                bg-card
-                p-4
-            "
-        >
-            <div
-                className="
-                    min-w-0
-                "
-            >
-                <p
-                    className="
-                        text-sm
-                        font-semibold
-                        text-neutral-titulos
-                    "
-                >
-                    {titulo}
+        <div className="flex items-start justify-between gap-5 rounded-xl border border-border bg-card p-4">
+            <div className="min-w-0">
+                <p className="text-sm font-semibold text-neutral-titulos">
+                    {
+                        titulo
+                    }
                 </p>
 
-                <p
-                    className="
-                        mt-1
-                        text-xs
-                        leading-5
-                        text-neutral
-                    "
-                >
-                    {descripcion}
+                <p className="mt-1 text-xs leading-5 text-neutral">
+                    {
+                        descripcion
+                    }
                 </p>
             </div>
 
@@ -1630,52 +1258,15 @@ function Interruptor({
                 disabled={
                     disabled
                 }
-                onClick={() =>
-                    onCambiar(
-                        !activo
-                    )
+                onClick={
+                    () =>
+                        onCambiar(
+                            !activo,
+                        )
                 }
-                className={`
-                    relative
-                    mt-0.5
-                    h-6
-                    w-11
-                    shrink-0
-                    rounded-full
-                    border
-                    transition
-                    focus-visible:outline-none
-                    focus-visible:ring-2
-                    focus-visible:ring-primary/30
-                    disabled:cursor-not-allowed
-                    disabled:opacity-50
-
-                    ${
-                        activo
-                            ? "border-primary bg-primary"
-                            : "border-border bg-muted/40"
-                    }
-                `}
+                className={`relative mt-0.5 h-6 w-11 shrink-0 rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-50 ${activo ? "border-primary bg-primary" : "border-border bg-muted/40"}`}
             >
-                <span
-                    aria-hidden="true"
-                    className={`
-                        absolute
-                        top-[2px]
-                        h-[18px]
-                        w-[18px]
-                        rounded-full
-                        bg-white
-                        shadow-sm
-                        transition-all
-
-                        ${
-                            activo
-                                ? "left-[21px]"
-                                : "left-[2px]"
-                        }
-                    `}
-                />
+                <span aria-hidden="true" className={`absolute top-[2px] h-[18px] w-[18px] rounded-full bg-white shadow-sm transition-all ${activo ? "left-[21px]" : "left-[2px]"}`} />
             </button>
         </div>
     );

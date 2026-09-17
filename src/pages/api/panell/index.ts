@@ -1,818 +1,737 @@
-import type { APIRoute } from "astro";
-
-import { supabaseAdmin } from "@utils/supabase";
-import { obtenerUsuarioPorToken } from "@pages/api/sesiones/sesiones";
+import type {
+    APIRoute,
+} from "astro";
 
 import {
+    supabaseAdmin,
+} from "@utils/supabase";
+
+import {
+    obtenerUsuarioPorToken,
+} from "@pages/api/sesiones/sesiones";
+
+import {
+    tieneAccesoTorneo,
     tienePermiso,
-    tieneAccesoTorneo
 } from "@const/Permisos";
 
-export const prerender = false;
+export const prerender =
+    false;
+
+// ============================================================
+// CONFIGURACIÓN
+// ============================================================
+
+const UUID =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const TAMANO_PAGINA =
+    500;
 
 // ============================================================
 // TIPOS
 // ============================================================
 
 type Torneo = {
-    id: string;
+    id:
+        string;
 
-    nombre: string | null;
-    deporte: string | null;
-    descripcion: string | null;
+    nombre:
+        string | null;
 
-    logo: string | null;
-    banner: string | null;
+    deporte:
+        string | null;
 
-    activo: boolean | null;
+    descripcion:
+        string | null;
 
-    created_at: string | null;
-    updated_at: string | null;
+    logo:
+        string | null;
+
+    banner:
+        string | null;
+
+    activo:
+        boolean | null;
+
+    created_at:
+        string | null;
+
+    updated_at:
+        string | null;
 };
 
 type Edicion = {
-    id: string;
+    id:
+        string;
 
-    torneo_id: string | null;
+    torneo_id:
+        string | null;
 
-    nombre: string | null;
+    nombre:
+        string | null;
 
-    fecha_inicio: string | null;
-    fecha_fin: string | null;
+    fecha_inicio:
+        string | null;
 
-    estado: string | null;
-    sede: string | null;
+    fecha_fin:
+        string | null;
 
-    created_at: string | null;
-    updated_at: string | null;
+    estado:
+        string | null;
+
+    sede:
+        string | null;
+
+    created_at:
+        string | null;
+
+    updated_at:
+        string | null;
 };
+
+type EstadoEdicion =
+    | "BORRADOR"
+    | "ACTIVA"
+    | "FINALIZADA"
+    | "SIN_ESTADO"
+    | "DESCONOCIDO";
+
+// ============================================================
+// RESPUESTA
+// ============================================================
+
+function responder(
+    datos:
+        unknown,
+
+    estado =
+        200,
+) {
+    return Response.json(
+        datos,
+        {
+            status:
+                estado,
+
+            headers: {
+                "Cache-Control":
+                    "private, no-store",
+            },
+        },
+    );
+}
+
+// ============================================================
+// ESTADOS
+// ============================================================
+
+function normalizarEstadoEdicion(
+    estado:
+        string | null,
+): EstadoEdicion {
+    const valor =
+        estado
+            ?.trim()
+            .toLowerCase() ??
+        "";
+
+    if (
+        !valor
+    ) {
+        return "SIN_ESTADO";
+    }
+
+    switch (
+        valor
+    ) {
+        case "en_preparacio":
+        case "en preparacio":
+        case "en preparació":
+        case "borrador":
+        case "esborrany":
+            return "BORRADOR";
+
+        case "activa":
+        case "activo":
+        case "actiu":
+        case "actual":
+            return "ACTIVA";
+
+        case "finalizada":
+        case "finalizado":
+        case "finalitzada":
+        case "finalitzat":
+            return "FINALIZADA";
+
+        default:
+            return "DESCONOCIDO";
+    }
+}
+
+function estadoParaFrontend(
+    estado:
+        string | null,
+): string | null {
+    const normalizado =
+        normalizarEstadoEdicion(
+            estado,
+        );
+
+    if (
+        normalizado ===
+            "SIN_ESTADO"
+    ) {
+        return null;
+    }
+
+    if (
+        normalizado ===
+            "DESCONOCIDO"
+    ) {
+        return (
+            estado?.trim() ??
+            null
+        );
+    }
+
+    return normalizado;
+}
+
+// ============================================================
+// FECHAS
+// ============================================================
+
+function timestamp(
+    valor:
+        string | null,
+) {
+    if (
+        !valor
+    ) {
+        return 0;
+    }
+
+    const numero =
+        Date.parse(
+            valor,
+        );
+
+    return Number.isFinite(
+        numero,
+    )
+        ? numero
+        : 0;
+}
+
+function ordenarActualizacion<
+    T extends {
+        created_at:
+            string | null;
+
+        updated_at:
+            string | null;
+    },
+>(
+    elementos:
+        T[],
+) {
+    elementos.sort(
+        (
+            a,
+            b,
+        ) =>
+            timestamp(
+                b.updated_at ??
+                    b.created_at,
+            ) -
+            timestamp(
+                a.updated_at ??
+                    a.created_at,
+            ),
+    );
+}
 
 // ============================================================
 // GET
 // ============================================================
 
-export const GET: APIRoute = async ({
-    cookies,
-    url
-}) => {
-    const headers = {
-        "Cache-Control": "private, no-store"
-    };
+export const GET:
+    APIRoute =
+    async ({
+        cookies,
+        url,
+    }) => {
+        try {
+            // =================================================
+            // SESIÓN
+            // =================================================
 
-    try {
-        // ====================================================
-        // SESIÓN
-        // ====================================================
+            const token =
+                cookies.get(
+                    "token_sesion",
+                )?.value;
 
-        const token =
-            cookies.get(
-                "token_sesion"
-            )?.value;
+            const usuario =
+                token
+                    ? await obtenerUsuarioPorToken(
+                          token,
+                      )
+                    : null;
 
-        const usuario =
-            token
-                ? await obtenerUsuarioPorToken(
-                      token
-                  )
-                : null;
-
-        if (!usuario) {
-            return Response.json(
-                {
-                    mensaje:
-                        "Has d'iniciar sessió."
-                },
-                {
-                    status: 401,
-                    headers
-                }
-            );
-        }
-
-        /*
-         * panell.ver es implícito en el nuevo sistema.
-         *
-         * Un usuario con un rol administrativo válido puede
-         * entrar al panel aunque sus capacidades concretas
-         * dependan posteriormente de cada torneo.
-         */
-        if (
-            !tienePermiso(
-                usuario,
-                "panell",
-                "ver"
-            )
-        ) {
-            return Response.json(
-                {
-                    mensaje:
-                        "No tens permís per accedir al panell."
-                },
-                {
-                    status: 403,
-                    headers
-                }
-            );
-        }
-
-        // ====================================================
-        // CONTEXTO
-        // ====================================================
-
-        const torneoID =
-            url.searchParams.get(
-                "torneoID"
-            );
-
-        const edicionID =
-            url.searchParams.get(
-                "edicionID"
-            );
-
-        const formatoUUID =
-            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-        if (
-            torneoID !== null &&
-            !formatoUUID.test(
-                torneoID
-            )
-        ) {
-            return Response.json(
-                {
-                    mensaje:
-                        "L'identificador del torneig no és vàlid."
-                },
-                {
-                    status: 400,
-                    headers
-                }
-            );
-        }
-
-        if (
-            edicionID !== null &&
-            (
-                !torneoID ||
-                !formatoUUID.test(
-                    edicionID
-                )
-            )
-        ) {
-            return Response.json(
-                {
-                    mensaje:
-                        "La selecció de l'edició no és vàlida."
-                },
-                {
-                    status: 400,
-                    headers
-                }
-            );
-        }
-
-        // ====================================================
-        // ACCESO AL TORNEO SELECCIONADO
-        // ====================================================
-
-        if (
-            torneoID &&
-            (
-                !tieneAccesoTorneo(
-                    usuario,
-                    torneoID
-                ) ||
-                !tienePermiso(
-                    usuario,
-                    "tornejos",
-                    "ver",
-                    torneoID
-                )
-            )
-        ) {
-            return Response.json(
-                {
-                    mensaje:
-                        "No tens accés a aquest torneig."
-                },
-                {
-                    status: 403,
-                    headers
-                }
-            );
-        }
-
-        // ====================================================
-        // TORNEOS ACCESIBLES
-        // ====================================================
-
-        const torneos: Torneo[] =
-            [];
-
-        const tamanoPagina =
-            500;
-
-        /*
-         * IMPORTANTE
-         * ===========
-         *
-         * Antes aquí existía:
-         *
-         * if (
-         *     torneoID ||
-         *     tienePermiso(
-         *         usuario,
-         *         "tornejos",
-         *         "ver"
-         *     )
-         * )
-         *
-         * Eso impedía cargar el índice a usuarios que no tienen
-         * tornejos.ver GLOBAL pero sí dentro de un torneo.
-         *
-         * Ejemplo:
-         *
-         * Rol general: Staff
-         * Bàsquet:
-         *   acceso: true
-         *   rol: Staff
-         *   tornejos.ver: true
-         *
-         * Ahora consultamos los torneos y comprobamos el acceso
-         * individualmente para cada uno.
-         */
-        for (
-            let inicio = 0;
-            ;
-            inicio += tamanoPagina
-        ) {
-            let consulta =
-                supabaseAdmin
-                    .from(
-                        "torneos"
-                    )
-                    .select(
-                        "id, nombre, deporte, descripcion, logo, banner, activo, created_at, updated_at"
-                    )
-                    .order(
-                        "id"
-                    )
-                    .range(
-                        inicio,
-                        inicio +
-                            tamanoPagina -
-                            1
-                    );
-
-            /*
-             * Si se ha seleccionado un torneo concreto,
-             * únicamente necesitamos consultar ese torneo.
-             */
-            if (torneoID) {
-                consulta =
-                    consulta.eq(
-                        "id",
-                        torneoID
-                    );
-            }
-
-            const {
-                data,
-                error
-            } =
-                await consulta;
-
-            if (error) {
-                throw error;
-            }
-
-            const pagina =
-                (data ??
-                    []) as Torneo[];
-
-            for (
-                const torneo
-                of pagina
+            if (
+                !usuario
             ) {
-                /*
-                 * Ambas comprobaciones utilizan el ID del torneo.
-                 *
-                 * Esto permite correctamente:
-                 *
-                 * Staff general
-                 *     +
-                 * acceso específico a Bàsquet
-                 */
-                if (
-                    tieneAccesoTorneo(
-                        usuario,
-                        torneo.id
-                    ) &&
-                    tienePermiso(
-                        usuario,
-                        "tornejos",
-                        "ver",
-                        torneo.id
-                    )
-                ) {
-                    torneos.push(
-                        torneo
-                    );
-                }
+                return responder(
+                    {
+                        mensaje:
+                            "Has d'iniciar sessió.",
+                    },
+                    401,
+                );
             }
 
             if (
-                pagina.length <
-                tamanoPagina
+                !tienePermiso(
+                    usuario,
+                    "panell",
+                    "ver",
+                )
             ) {
-                break;
+                return responder(
+                    {
+                        mensaje:
+                            "No tens permís per accedir al panell.",
+                    },
+                    403,
+                );
             }
-        }
 
-        // ====================================================
-        // TORNEO SELECCIONADO
-        // ====================================================
+            // =================================================
+            // CONTEXTO
+            // =================================================
 
-        const torneoSeleccionado =
-            torneoID
-                ? torneos.find(
-                      torneo =>
-                          torneo.id ===
-                          torneoID
-                  ) ?? null
-                : null;
+            const torneoID =
+                url.searchParams.get(
+                    "torneoID",
+                );
 
-        if (
-            torneoID &&
-            !torneoSeleccionado
-        ) {
-            return Response.json(
-                {
-                    mensaje:
-                        "No s'ha trobat el torneig."
-                },
-                {
-                    status: 404,
-                    headers
-                }
-            );
-        }
+            const edicionID =
+                url.searchParams.get(
+                    "edicionID",
+                );
 
-        // ====================================================
-        // TORNEOS CON PERMISO DE EDICIONES
-        // ====================================================
+            if (
+                torneoID !==
+                    null &&
+                !UUID.test(
+                    torneoID,
+                )
+            ) {
+                return responder(
+                    {
+                        mensaje:
+                            "L'identificador del torneig no és vàlid.",
+                    },
+                    400,
+                );
+            }
 
-        /*
-         * edicions.ver también es un permiso contextual
-         * del torneo.
-         *
-         * No debemos exigir edicions.ver global.
-         */
-        const torneosConPermisoEdiciones =
-            torneos.filter(
-                torneo =>
-                    tienePermiso(
+            if (
+                edicionID !==
+                    null &&
+                (
+                    !torneoID ||
+                    !UUID.test(
+                        edicionID,
+                    )
+                )
+            ) {
+                return responder(
+                    {
+                        mensaje:
+                            "La selecció de l'edició no és vàlida.",
+                    },
+                    400,
+                );
+            }
+
+            // =================================================
+            // ACCESO TORNEO
+            // =================================================
+
+            if (
+                torneoID &&
+                (
+                    !tieneAccesoTorneo(
                         usuario,
-                        "edicions",
+                        torneoID,
+                    ) ||
+                    !tienePermiso(
+                        usuario,
+                        "tornejos",
                         "ver",
-                        torneo.id
+                        torneoID,
                     )
-            );
+                )
+            ) {
+                return responder(
+                    {
+                        mensaje:
+                            "No tens accés a aquest torneig.",
+                    },
+                    403,
+                );
+            }
 
-        // ====================================================
-        // EDICIÓN SELECCIONADA: PERMISO
-        // ====================================================
+            // =================================================
+            // TORNEOS
+            // =================================================
 
-        if (
-            edicionID &&
-            !torneosConPermisoEdiciones.some(
-                torneo =>
-                    torneo.id ===
-                    torneoID
-            )
-        ) {
-            return Response.json(
-                {
-                    mensaje:
-                        "No tens permís per consultar aquesta edició."
-                },
-                {
-                    status: 403,
-                    headers
-                }
-            );
-        }
-
-        // ====================================================
-        // EDICIONES
-        // ====================================================
-
-        const ediciones:
-            Edicion[] = [];
-
-        /*
-         * Se consultan por grupos para evitar filtros
-         * excesivamente grandes.
-         */
-        for (
-            let grupo = 0;
-            grupo <
-            torneosConPermisoEdiciones.length;
-            grupo += 100
-        ) {
-            const identificadores =
-                torneosConPermisoEdiciones
-                    .slice(
-                        grupo,
-                        grupo +
-                            100
-                    )
-                    .map(
-                        torneo =>
-                            torneo.id
-                    );
+            const torneos:
+                Torneo[] = [];
 
             for (
-                let inicio = 0;
+                let inicio =
+                    0;
                 ;
                 inicio +=
-                    tamanoPagina
+                    TAMANO_PAGINA
             ) {
-                const {
-                    data,
-                    error
-                } =
-                    await supabaseAdmin
+                let consulta =
+                    supabaseAdmin
                         .from(
-                            "ediciones"
-                        ).select(
-                            "id, torneo_id, nombre, fecha_inicio, fecha_fin, estado, sede, created_at, updated_at"
+                            "torneos",
                         )
-                        .in(
-                            "torneo_id",
-                            identificadores
+                        .select(
+                            "id,nombre,deporte,descripcion,logo,banner,activo,created_at,updated_at",
                         )
                         .order(
-                            "id"
+                            "id",
                         )
                         .range(
                             inicio,
                             inicio +
-                                tamanoPagina -
-                                1
+                                TAMANO_PAGINA -
+                                1,
                         );
 
-                if (error) {
+                if (
+                    torneoID
+                ) {
+                    consulta =
+                        consulta.eq(
+                            "id",
+                            torneoID,
+                        );
+                }
+
+                const {
+                    data,
+                    error,
+                } =
+                    await consulta;
+
+                if (
+                    error
+                ) {
                     throw error;
                 }
 
                 const pagina =
-                    (data ??
-                        []) as Edicion[];
+                    (
+                        data ??
+                        []
+                    ) as Torneo[];
 
-                ediciones.push(
-                    ...pagina
-                );
+                for (
+                    const torneo
+                    of pagina
+                ) {
+                    if (
+                        tieneAccesoTorneo(
+                            usuario,
+                            torneo.id,
+                        ) &&
+                        tienePermiso(
+                            usuario,
+                            "tornejos",
+                            "ver",
+                            torneo.id,
+                        )
+                    ) {
+                        torneos.push(
+                            torneo,
+                        );
+                    }
+                }
 
                 if (
                     pagina.length <
-                    tamanoPagina
+                        TAMANO_PAGINA ||
+                    torneoID
                 ) {
                     break;
                 }
             }
-        }
 
-        // ====================================================
-        // EDICIÓN SELECCIONADA
-        // ====================================================
+            // =================================================
+            // TORNEO SELECCIONADO
+            // =================================================
 
-        const edicionSeleccionada =
-            edicionID
-                ? ediciones.find(
-                      edicion =>
-                          edicion.id ===
-                              edicionID &&
-                          edicion.torneo_id ===
-                              torneoID
-                  ) ?? null
-                : null;
-
-        if (
-            edicionID &&
-            !edicionSeleccionada
-        ) {
-            return Response.json(
-                {
-                    mensaje:
-                        "No s'ha trobat aquesta edició dins del torneig seleccionat."
-                },
-                {
-                    status: 404,
-                    headers
-                }
-            );
-        }
-
-        // ====================================================
-        // PARÁMETROS DE CONTEXTO
-        // ====================================================
-
-        const parametros =
-            new URLSearchParams();
-
-        if (torneoID) {
-            parametros.set(
-                "torneoID",
+            const torneoSeleccionado =
                 torneoID
-            );
-        }
+                    ? torneos.find(
+                          torneo =>
+                              torneo.id ===
+                              torneoID,
+                      ) ??
+                      null
+                    : null;
 
-        if (
-            torneoID &&
-            edicionSeleccionada
-        ) {
-            parametros.set(
-                "edicionID",
-                edicionSeleccionada.id
-            );
-        }
-
-        // ====================================================
-        // ACCESOS RÁPIDOS
-        // ====================================================
-
-        /*
-         * Estos accesos pertenecen actualmente a secciones
-         * generales del panel.
-         *
-         * Por tanto NO les pasamos torneoID al comprobar
-         * permisos.
-         */
-        const accesosBase = [
-            {
-                id:
-                    "crear-torneig",
-
-                nombre:
-                    "Crear torneig",
-
-                enlace:
-                    "/panell/info/torneig?accio=crear",
-
-                seccion:
-                    "tornejos",
-
-                accion:
-                    "crear",
-
-                descripcion:
-                    "Defineix un nou esport i les seves regles base.",
-
-                usarContexto:
-                    false
-            },
-
-            {
-                id:
-                    "usuaris",
-
-                nombre:
-                    "Gestionar usuaris",
-
-                enlace:
-                    "/panell/usuaris",
-
-                seccion:
-                    "usuaris",
-
-                accion:
-                    "ver",
-
-                descripcion:
-                    "Llista d'alumnes amb accés a la plataforma.",
-
-                usarContexto:
-                    false
-            },
-
-            {
-                id:
-                    "permisos",
-
-                nombre:
-                    "Gestionar permisos",
-
-                enlace:
-                    "/panell/permisos",
-
-                seccion:
-                    "permisos",
-
-                accion:
-                    "ver",
-
-                descripcion:
-                    "Gestiona els permisos d'accés per a diferents usuaris.",
-
-                usarContexto:
-                    false
-            },
-
-            {
-                id:
-                    "configuracio",
-
-                nombre:
-                    "Configuració",
-
-                enlace:
-                    "/panell/configuracio",
-
-                seccion:
-                    "configuracio",
-
-                accion:
-                    "ver",
-
-                descripcion:
-                    "Gestiona la configuració general de la plataforma.",
-
-                usarContexto:
-                    false
-            }
-        ];
-
-        const accesos =
-            accesosBase
-                .filter(
-                    acceso =>
-                        tienePermiso(
-                            usuario,
-                            acceso.seccion,
-                            acceso.accion
-                        )
-                )
-                .map(
-                    acceso => {
-                        const {
-                            usarContexto: _,
-                            ...resultado
-                        } = acceso;
-
-                        return resultado;
-                    }
-                );
-
-        // ====================================================
-        // ORDEN DE PRESENTACIÓN
-        // ====================================================
-
-        torneos.sort(
-            (a, b) => {
-                const fechaA =
-                    Date.parse(
-                        a.updated_at ??
-                            a.created_at ??
-                            ""
-                    );
-
-                const fechaB =
-                    Date.parse(
-                        b.updated_at ??
-                            b.created_at ??
-                            ""
-                    );
-
-                return (
-                    (
-                        Number.isFinite(
-                            fechaB
-                        )
-                            ? fechaB
-                            : 0
-                    ) -
-                    (
-                        Number.isFinite(
-                            fechaA
-                        )
-                            ? fechaA
-                            : 0
-                    )
-                );
-            }
-        );
-
-        ediciones.sort(
-            (a, b) => {
-                const fechaA =
-                    Date.parse(
-                        a.updated_at ??
-                            a.created_at ??
-                            ""
-                    );
-
-                const fechaB =
-                    Date.parse(
-                        b.updated_at ??
-                            b.created_at ??
-                            ""
-                    );
-
-                return (
-                    (
-                        Number.isFinite(
-                            fechaB
-                        )
-                            ? fechaB
-                            : 0
-                    ) -
-                    (
-                        Number.isFinite(
-                            fechaA
-                        )
-                            ? fechaA
-                            : 0
-                    )
-                );
-            }
-        );
-
-        // ====================================================
-        // CONTEO DE EDICIONES POR TORNEO
-        // ====================================================
-
-        const cantidadEdiciones =
-            new Map<
-                string,
-                number
-            >();
-
-        for (
-            const edicion
-            of ediciones
-        ) {
             if (
-                !edicion.torneo_id
+                torneoID &&
+                !torneoSeleccionado
             ) {
-                continue;
+                return responder(
+                    {
+                        mensaje:
+                            "No s'ha trobat el torneig.",
+                    },
+                    404,
+                );
             }
 
-            cantidadEdiciones.set(
-                edicion.torneo_id,
+            // =================================================
+            // PERMISOS EDICIONES
+            // =================================================
 
-                (
-                    cantidadEdiciones.get(
-                        edicion.torneo_id
-                    ) ?? 0
-                ) + 1
-            );
-        }
-
-        // ====================================================
-        // MAPA DE TORNEOS
-        // ====================================================
-
-        const torneosPorID =
-            new Map(
-                torneos.map(
-                    torneo => [
-                        torneo.id,
-                        torneo
-                    ]
-                )
-            );
-
-        // ====================================================
-        // RESPUESTA DE TORNEOS
-        // ====================================================
-
-        const torneosRespuesta =
-            torneos.map(
-                torneo => {
-                    const puedeVerEdicionesTorneo =
+            const torneosConPermisoEdiciones =
+                torneos.filter(
+                    torneo =>
                         tienePermiso(
                             usuario,
                             "edicions",
                             "ver",
-                            torneo.id
+                            torneo.id,
+                        ),
+                );
+
+            if (
+                edicionID &&
+                !torneosConPermisoEdiciones.some(
+                    torneo =>
+                        torneo.id ===
+                        torneoID,
+                )
+            ) {
+                return responder(
+                    {
+                        mensaje:
+                            "No tens permís per consultar aquesta edició.",
+                    },
+                    403,
+                );
+            }
+
+            // =================================================
+            // EDICIONES
+            // =================================================
+
+            const ediciones:
+                Edicion[] = [];
+
+            for (
+                let grupo =
+                    0;
+                grupo <
+                torneosConPermisoEdiciones.length;
+                grupo +=
+                    100
+            ) {
+                const identificadores =
+                    torneosConPermisoEdiciones
+                        .slice(
+                            grupo,
+                            grupo +
+                                100,
+                        )
+                        .map(
+                            torneo =>
+                                torneo.id,
                         );
 
-                    return {
+                if (
+                    identificadores.length ===
+                    0
+                ) {
+                    continue;
+                }
+
+                for (
+                    let inicio =
+                        0;
+                    ;
+                    inicio +=
+                        TAMANO_PAGINA
+                ) {
+                    const {
+                        data,
+                        error,
+                    } =
+                        await supabaseAdmin
+                            .from(
+                                "ediciones",
+                            )
+                            .select(
+                                "id,torneo_id,nombre,fecha_inicio,fecha_fin,estado,sede,created_at,updated_at",
+                            )
+                            .in(
+                                "torneo_id",
+                                identificadores,
+                            )
+                            .order(
+                                "id",
+                            )
+                            .range(
+                                inicio,
+                                inicio +
+                                    TAMANO_PAGINA -
+                                    1,
+                            );
+
+                    if (
+                        error
+                    ) {
+                        throw error;
+                    }
+
+                    const pagina =
+                        (
+                            data ??
+                            []
+                        ) as Edicion[];
+
+                    ediciones.push(
+                        ...pagina,
+                    );
+
+                    if (
+                        pagina.length <
+                        TAMANO_PAGINA
+                    ) {
+                        break;
+                    }
+                }
+            }
+
+            // =================================================
+            // EDICIÓN SELECCIONADA
+            // =================================================
+
+            const edicionSeleccionada =
+                edicionID
+                    ? ediciones.find(
+                          edicion =>
+                              edicion.id ===
+                                  edicionID &&
+                              edicion.torneo_id ===
+                                  torneoID,
+                      ) ??
+                      null
+                    : null;
+
+            if (
+                edicionID &&
+                !edicionSeleccionada
+            ) {
+                return responder(
+                    {
+                        mensaje:
+                            "No s'ha trobat aquesta edició dins del torneig seleccionat.",
+                    },
+                    404,
+                );
+            }
+
+            // =================================================
+            // ORDEN
+            // =================================================
+
+            ordenarActualizacion(
+                torneos,
+            );
+
+            ordenarActualizacion(
+                ediciones,
+            );
+
+            // =================================================
+            // MAPA TORNEOS
+            // =================================================
+
+            const torneosPorID =
+                new Map(
+                    torneos.map(
+                        torneo => [
+                            torneo.id,
+                            torneo,
+                        ],
+                    ),
+                );
+
+            // =================================================
+            // CANTIDAD EDICIONES
+            // =================================================
+
+            const cantidadEdiciones =
+                new Map<
+                    string,
+                    number
+                >();
+
+            for (
+                const edicion
+                of ediciones
+            ) {
+                if (
+                    !edicion.torneo_id
+                ) {
+                    continue;
+                }
+
+                cantidadEdiciones.set(
+                    edicion.torneo_id,
+                    (
+                        cantidadEdiciones.get(
+                            edicion.torneo_id,
+                        ) ??
+                        0
+                    ) +
+                        1,
+                );
+            }
+
+            // =================================================
+            // RESPUESTA TORNEOS
+            // =================================================
+
+            const torneosRespuesta =
+                torneos.map(
+                    torneo => ({
                         ...torneo,
 
-                        /*
-                         * null:
-                         * el usuario no puede consultar las ediciones.
-                         *
-                         * 0:
-                         * sí puede consultarlas pero no existen.
-                         */
                         total_ediciones:
-                            puedeVerEdicionesTorneo
+                            tienePermiso(
+                                usuario,
+                                "edicions",
+                                "ver",
+                                torneo.id,
+                            )
                                 ? cantidadEdiciones.get(
-                                      torneo.id
-                                  ) ?? 0
+                                      torneo.id,
+                                  ) ??
+                                  0
                                 : null,
 
                         puedeEditar:
@@ -820,345 +739,598 @@ export const GET: APIRoute = async ({
                                 usuario,
                                 "tornejos",
                                 "editar",
-                                torneo.id
+                                torneo.id,
                             ),
 
                         enlace:
-                            `/panell?torneoID=${encodeURIComponent(
-                                torneo.id
-                            )}`,
+                            `/panell?torneoID=${encodeURIComponent(torneo.id)}`,
 
                         enlace_info:
-                            `/panell/info/torneig?accio=ver&torneoID=${encodeURIComponent(
-                                torneo.id
-                            )}`
-                    };
-                }
-            );
+                            `/panell/info/torneig?accio=ver&torneoID=${encodeURIComponent(torneo.id)}`,
+                    }),
+                );
 
-        // ====================================================
-        // RESPUESTA DE EDICIONES
-        // ====================================================
+            // =================================================
+            // RESPUESTA EDICIONES
+            // =================================================
 
-        const edicionesRespuesta =
-            ediciones.map(
-                edicion => ({
-                    ...edicion,
+            const edicionesRespuesta =
+                ediciones.map(
+                    edicion => ({
+                        ...edicion,
 
-                    torneo_nombre:
-                        edicion.torneo_id
-                            ? torneosPorID.get(
-                                  edicion.torneo_id
-                              )?.nombre ??
-                              null
-                            : null
-                })
-            );
-
-        // ====================================================
-        // ACTUALIZACIONES RECIENTES
-        // ====================================================
-
-        const actualizaciones = [
-            ...torneos.map(
-                torneo => ({
-                    id:
-                        `torneo-${torneo.id}`,
-
-                    tipo:
-                        "torneo" as const,
-
-                    nombre:
-                        torneo.nombre,
-
-                    torneo_id:
-                        torneo.id,
-
-                    torneo_nombre:
-                        torneo.nombre,
-
-                    fecha:
-                        torneo.updated_at
-                })
-            ),
-
-            ...ediciones.map(
-                edicion => ({
-                    id:
-                        `edicion-${edicion.id}`,
-
-                    tipo:
-                        "edicion" as const,
-
-                    nombre:
-                        edicion.nombre,
-
-                    torneo_id:
-                        edicion.torneo_id,
-
-                    torneo_nombre:
-                        edicion.torneo_id
-                            ? torneosPorID.get(
-                                  edicion.torneo_id
-                              )?.nombre ??
-                              null
-                            : null,
-
-                    fecha:
-                        edicion.updated_at
-                })
-            )
-        ]
-            .filter(
-                elemento =>
-                    elemento.fecha !==
-                        null &&
-                    Number.isFinite(
-                        Date.parse(
-                            elemento.fecha
-                        )
-                    )
-            )
-            .sort(
-                (a, b) =>
-                    Date.parse(
-                        b.fecha!
-                    ) -
-                    Date.parse(
-                        a.fecha!
-                    )
-            )
-            .slice(
-                0,
-                6
-            );
-
-        // ====================================================
-        // PERMISOS EFECTIVOS DEL ÍNDICE
-        // ====================================================
-
-        /*
-         * CORRECCIÓN IMPORTANTE:
-         *
-         * En modo general NO preguntamos únicamente por
-         * edicions.ver global.
-         *
-         * Basta con que exista al menos un torneo accesible
-         * en el que el usuario tenga edicions.ver.
-         */
-        const puedeVerEdiciones =
-            torneoID
-                ? tienePermiso(
-                      usuario,
-                      "edicions",
-                      "ver",
-                      torneoID
-                  )
-                : torneosConPermisoEdiciones.length >
-                  0;
-
-        /*
-         * Lo mismo para los torneos.
-         *
-         * Un Staff puede tener:
-         *
-         * tornejos.ver global = false
-         *
-         * pero:
-         *
-         * Bàsquet -> tornejos.ver = true
-         *
-         * Por tanto el índice general debe considerar que
-         * sí puede consultar torneos.
-         */
-        const puedeVerTorneos =
-            torneoID
-                ? tienePermiso(
-                      usuario,
-                      "tornejos",
-                      "ver",
-                      torneoID
-                  )
-                : (
-                      torneos.length >
-                          0 ||
-                      tienePermiso(
-                          usuario,
-                          "tornejos",
-                          "ver"
-                      )
-                  );
-
-        // ====================================================
-        // RESPUESTA
-        // ====================================================
-
-        return Response.json(
-            {
-                data: {
-                    modo:
-                        torneoID
-                            ? "torneo"
-                            : "general",
-
-                    torneoSeleccionado,
-
-                    edicionSeleccionada,
-
-                    permisos: {
-                        /*
-                         * Ya no depende únicamente
-                         * del permiso general.
-                         */
-                        verTorneos:
-                            puedeVerTorneos,
-
-                        /*
-                         * Ya no depende únicamente
-                         * del permiso general.
-                         */
-                        verEdiciones:
-                            puedeVerEdiciones,
-
-                        /*
-                         * Crear un torneo sí es una capacidad
-                         * general de la plataforma.
-                         */
-                        crearTorneo:
-                            tienePermiso(
-                                usuario,
-                                "tornejos",
-                                "crear"
+                        estado:
+                            estadoParaFrontend(
+                                edicion.estado,
                             ),
 
-                        /*
-                         * Editar depende del torneo seleccionado.
-                         */
-                        editarTorneo:
+                        torneo_nombre:
+                            edicion.torneo_id
+                                ? torneosPorID.get(
+                                      edicion.torneo_id,
+                                  )?.nombre ??
+                                  null
+                                : null,
+                    }),
+                );
+
+            const edicionSeleccionadaRespuesta =
+                edicionSeleccionada
+                    ? edicionesRespuesta.find(
+                          edicion =>
+                              edicion.id ===
+                              edicionSeleccionada.id,
+                      ) ??
+                      null
+                    : null;
+
+            // =================================================
+            // ACTUALIZACIONES
+            // =================================================
+
+            const actualizacionesBase = [
+                ...torneos.map(
+                    torneo => ({
+                        id:
+                            `torneo-${torneo.id}`,
+
+                        tipo:
+                            "torneo" as const,
+
+                        nombre:
+                            torneo.nombre,
+
+                        torneo_id:
+                            torneo.id,
+
+                        torneo_nombre:
+                            torneo.nombre,
+
+                        fecha:
+                            torneo.updated_at,
+                    }),
+                ),
+
+                ...ediciones.map(
+                    edicion => ({
+                        id:
+                            `edicion-${edicion.id}`,
+
+                        tipo:
+                            "edicion" as const,
+
+                        nombre:
+                            edicion.nombre,
+
+                        torneo_id:
+                            edicion.torneo_id,
+
+                        torneo_nombre:
+                            edicion.torneo_id
+                                ? torneosPorID.get(
+                                      edicion.torneo_id,
+                                  )?.nombre ??
+                                  null
+                                : null,
+
+                        fecha:
+                            edicion.updated_at,
+                    }),
+                ),
+            ];
+
+            const actualizaciones =
+                actualizacionesBase
+                    .flatMap(
+                        elemento => {
+                            if (
+                                !elemento.fecha ||
+                                !Number.isFinite(
+                                    Date.parse(
+                                        elemento.fecha,
+                                    ),
+                                )
+                            ) {
+                                return [];
+                            }
+
+                            return [
+                                {
+                                    ...elemento,
+
+                                    fecha:
+                                        elemento.fecha,
+                                },
+                            ];
+                        },
+                    )
+                    .sort(
+                        (
+                            a,
+                            b,
+                        ) =>
+                            Date.parse(
+                                b.fecha,
+                            ) -
+                            Date.parse(
+                                a.fecha,
+                            ),
+                    )
+                    .slice(
+                        0,
+                        6,
+                    );
+
+            // =================================================
+            // RESUMEN EDICIÓN
+            // =================================================
+
+            /*
+             * Estos contadores quedan preparados en el contrato
+             * de la API.
+             *
+             * Se conectarán cuando existan las nuevas tablas
+             * de equipos, voluntarios, participantes, partidos
+             * y formularios.
+             *
+             * null significa:
+             *
+             * "dato todavía no disponible"
+             *
+             * NO significa cero.
+             */
+
+            const actividadEdicion =
+                edicionSeleccionada
+                    ? [
+                          edicionSeleccionada.created_at &&
+                          Number.isFinite(
+                              Date.parse(
+                                  edicionSeleccionada.created_at,
+                              ),
+                          )
+                              ? {
+                                    id:
+                                        `creada-${edicionSeleccionada.id}`,
+
+                                    titulo:
+                                        "Edició creada",
+
+                                    descripcion:
+                                        "Es va crear l'edició a la plataforma.",
+
+                                    fecha:
+                                        edicionSeleccionada.created_at,
+                                }
+                              : null,
+
+                          edicionSeleccionada.updated_at &&
+                          Number.isFinite(
+                              Date.parse(
+                                  edicionSeleccionada.updated_at,
+                              ),
+                          ) &&
+                          edicionSeleccionada.updated_at !==
+                              edicionSeleccionada.created_at
+                              ? {
+                                    id:
+                                        `actualitzada-${edicionSeleccionada.id}`,
+
+                                    titulo:
+                                        "Configuració actualitzada",
+
+                                    descripcion:
+                                        "S'han modificat les dades o la configuració de l'edició.",
+
+                                    fecha:
+                                        edicionSeleccionada.updated_at,
+                                }
+                              : null,
+                      ]
+                          .filter(
+                              (
+                                  elemento,
+                              ): elemento is {
+                                  id:
+                                      string;
+
+                                  titulo:
+                                      string;
+
+                                  descripcion:
+                                      string;
+
+                                  fecha:
+                                      string;
+                              } =>
+                                  elemento !==
+                                  null,
+                          )
+                          .sort(
+                              (
+                                  a,
+                                  b,
+                              ) =>
+                                  Date.parse(
+                                      b.fecha,
+                                  ) -
+                                  Date.parse(
+                                      a.fecha,
+                                  ),
+                          )
+                    : [];
+
+            const resumenEdicion =
+                edicionSeleccionada
+                    ? {
+                          equiposInscritos:
+                              null,
+
+                          voluntarios:
+                              null,
+
+                          participantes:
+                              null,
+
+                          partidos:
+                              null,
+
+                          formulariosCompletados:
+                              null,
+
+                          formulariosError:
+                              null,
+
+                          actividad:
+                              actividadEdicion,
+                      }
+                    : null;
+
+            // =================================================
+            // PERMISOS
+            // =================================================
+
+            const puedeVerEdiciones =
+                torneoID
+                    ? tienePermiso(
+                          usuario,
+                          "edicions",
+                          "ver",
+                          torneoID,
+                      )
+                    : torneosConPermisoEdiciones.length >
+                      0;
+
+            const puedeVerTorneos =
+                torneoID
+                    ? tienePermiso(
+                          usuario,
+                          "tornejos",
+                          "ver",
+                          torneoID,
+                      )
+                    : (
+                          torneos.length >
+                              0 ||
+                          tienePermiso(
+                              usuario,
+                              "tornejos",
+                              "ver",
+                          )
+                      );
+
+            // =================================================
+            // ESTADÍSTICAS
+            // =================================================
+
+            const edicionesBorrador =
+                ediciones.filter(
+                    edicion =>
+                        normalizarEstadoEdicion(
+                            edicion.estado,
+                        ) ===
+                        "BORRADOR",
+                ).length;
+
+            const edicionesActivas =
+                ediciones.filter(
+                    edicion =>
+                        normalizarEstadoEdicion(
+                            edicion.estado,
+                        ) ===
+                        "ACTIVA",
+                ).length;
+
+            const edicionesFinalizadas =
+                ediciones.filter(
+                    edicion =>
+                        normalizarEstadoEdicion(
+                            edicion.estado,
+                        ) ===
+                        "FINALIZADA",
+                ).length;
+
+            const edicionesSinEstado =
+                ediciones.filter(
+                    edicion =>
+                        normalizarEstadoEdicion(
+                            edicion.estado,
+                        ) ===
+                        "SIN_ESTADO",
+                ).length;
+
+            const edicionesOtrosEstados =
+                ediciones.filter(
+                    edicion =>
+                        normalizarEstadoEdicion(
+                            edicion.estado,
+                        ) ===
+                        "DESCONOCIDO",
+                ).length;
+
+            // =================================================
+            // ACCESOS GENERALES
+            // =================================================
+
+            const accesosBase = [
+                {
+                    id:
+                        "crear-torneig",
+
+                    nombre:
+                        "Crear torneig",
+
+                    enlace:
+                        "/panell/info/torneig?accio=crear",
+
+                    seccion:
+                        "tornejos",
+
+                    accion:
+                        "crear",
+
+                    descripcion:
+                        "Defineix un nou esport i les seves regles base.",
+                },
+
+                {
+                    id:
+                        "usuaris",
+
+                    nombre:
+                        "Gestionar usuaris",
+
+                    enlace:
+                        "/panell/usuaris",
+
+                    seccion:
+                        "usuaris",
+
+                    accion:
+                        "ver",
+
+                    descripcion:
+                        "Llista d'alumnes amb accés a la plataforma.",
+                },
+
+                {
+                    id:
+                        "permisos",
+
+                    nombre:
+                        "Gestionar permisos",
+
+                    enlace:
+                        "/panell/permisos",
+
+                    seccion:
+                        "permisos",
+
+                    accion:
+                        "ver",
+
+                    descripcion:
+                        "Gestiona els permisos d'accés per a diferents usuaris.",
+                },
+
+                {
+                    id:
+                        "configuracio",
+
+                    nombre:
+                        "Configuració",
+
+                    enlace:
+                        "/panell/configuracio",
+
+                    seccion:
+                        "configuracio",
+
+                    accion:
+                        "ver",
+
+                    descripcion:
+                        "Gestiona la configuració general de la plataforma.",
+                },
+            ];
+
+            const accesos =
+                accesosBase.filter(
+                    acceso =>
+                        tienePermiso(
+                            usuario,
+                            acceso.seccion,
+                            acceso.accion,
+                        ),
+                );
+
+            // =================================================
+            // RESPUESTA
+            // =================================================
+
+            return responder(
+                {
+                    data: {
+                        modo:
                             torneoID
-                                ? tienePermiso(
-                                      usuario,
-                                      "tornejos",
-                                      "editar",
-                                      torneoID
-                                  )
-                                : false
-                    },
+                                ? "torneo"
+                                : "general",
 
-                    estadisticas: {
+                        torneoSeleccionado,
+
+                        edicionSeleccionada:
+                            edicionSeleccionadaRespuesta,
+
+                        resumenEdicion,
+
+                        permisos: {
+                            verTorneos:
+                                puedeVerTorneos,
+
+                            verEdiciones:
+                                puedeVerEdiciones,
+
+                            crearTorneo:
+                                tienePermiso(
+                                    usuario,
+                                    "tornejos",
+                                    "crear",
+                                ),
+
+                            editarTorneo:
+                                torneoID
+                                    ? tienePermiso(
+                                          usuario,
+                                          "tornejos",
+                                          "editar",
+                                          torneoID,
+                                      )
+                                    : false,
+
+                            crearEdicion:
+                                torneoID
+                                    ? tienePermiso(
+                                          usuario,
+                                          "edicions",
+                                          "crear",
+                                          torneoID,
+                                      )
+                                    : false,
+
+                            editarEdicion:
+                                torneoID &&
+                                edicionSeleccionada
+                                    ? tienePermiso(
+                                          usuario,
+                                          "edicions",
+                                          "editar",
+                                          torneoID,
+                                      )
+                                    : false,
+                        },
+
+                        estadisticas: {
+                            torneos:
+                                torneos.length,
+
+                            torneosActivos:
+                                torneos.filter(
+                                    torneo =>
+                                        torneo.activo ===
+                                        true,
+                                ).length,
+
+                            torneosInactivos:
+                                torneos.filter(
+                                    torneo =>
+                                        torneo.activo ===
+                                        false,
+                                ).length,
+
+                            torneosSinEstado:
+                                torneos.filter(
+                                    torneo =>
+                                        torneo.activo ===
+                                        null,
+                                ).length,
+
+                            ediciones:
+                                puedeVerEdiciones
+                                    ? ediciones.length
+                                    : null,
+
+                            edicionesBorrador:
+                                puedeVerEdiciones
+                                    ? edicionesBorrador
+                                    : null,
+
+                            edicionesActivas:
+                                puedeVerEdiciones
+                                    ? edicionesActivas
+                                    : null,
+
+                            edicionesFinalizadas:
+                                puedeVerEdiciones
+                                    ? edicionesFinalizadas
+                                    : null,
+
+                            edicionesSinEstado:
+                                puedeVerEdiciones
+                                    ? edicionesSinEstado
+                                    : null,
+
+                            edicionesOtrosEstados:
+                                puedeVerEdiciones
+                                    ? edicionesOtrosEstados
+                                    : null,
+                        },
+
+                        accesos,
+
                         torneos:
-                            torneos.length,
-
-                        torneosActivos:
-                            torneos.filter(
-                                torneo =>
-                                    torneo.activo ===
-                                    true
-                            ).length,
-
-                        torneosInactivos:
-                            torneos.filter(
-                                torneo =>
-                                    torneo.activo ===
-                                    false
-                            ).length,
-
-                        torneosSinEstado:
-                            torneos.filter(
-                                torneo =>
-                                    torneo.activo ===
-                                    null
-                            ).length,
+                            torneosRespuesta,
 
                         ediciones:
-                            puedeVerEdiciones
-                                ? ediciones.length
-                                : null,
+                            edicionesRespuesta,
 
-                        edicionesBorrador:
-                            puedeVerEdiciones
-                                ? ediciones.filter(
-                                      edicion =>
-                                          edicion.estado ===
-                                          "BORRADOR"
-                                  ).length
-                                : null,
-
-                        edicionesActivas:
-                            puedeVerEdiciones
-                                ? ediciones.filter(
-                                      edicion =>
-                                          edicion.estado ===
-                                          "ACTIVA"
-                                  ).length
-                                : null,
-
-                        edicionesFinalizadas:
-                            puedeVerEdiciones
-                                ? ediciones.filter(
-                                      edicion =>
-                                          edicion.estado ===
-                                          "FINALIZADA"
-                                  ).length
-                                : null,
-
-                        edicionesSinEstado:
-                            puedeVerEdiciones
-                                ? ediciones.filter(
-                                      edicion =>
-                                          !edicion.estado?.trim()
-                                  ).length
-                                : null,
-
-                        edicionesOtrosEstados:
-                            puedeVerEdiciones
-                                ? ediciones.filter(
-                                      edicion =>
-                                          Boolean(
-                                              edicion.estado?.trim()
-                                          ) &&
-                                          ![
-                                              "BORRADOR",
-                                              "ACTIVA",
-                                              "FINALIZADA"
-                                          ].includes(
-                                              edicion.estado!
-                                          )
-                                  ).length
-                                : null
+                        actualizaciones,
                     },
-
-                    accesos,
-
-                    torneos:
-                        torneosRespuesta,
-
-                    ediciones:
-                        edicionesRespuesta,
-
-                    actualizaciones
-                }
-            },
-            {
-                status: 200,
-                headers
-            }
-        );
-    } catch (error) {
-        console.error(
-            "Error cargando el resumen del panel:",
+                },
+            );
+        } catch (
             error
-        );
+        ) {
+            console.error(
+                "Error cargando el resumen del panel:",
+                error,
+            );
 
-        return Response.json(
-            {
-                mensaje:
-                    "No s'ha pogut carregar el resum del panell. Torna-ho a intentar."
-            },
-            {
-                status: 500,
-                headers
-            }
-        );
-    }
-};
+            return responder(
+                {
+                    mensaje:
+                        "No s'ha pogut carregar el resum del panell. Torna-ho a intentar.",
+                },
+                500,
+            );
+        }
+    };

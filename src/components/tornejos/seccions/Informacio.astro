@@ -1,0 +1,320 @@
+---
+type Props = {
+    configuracion:
+        unknown;
+};
+
+type BloqueInformacion = {
+    id:
+        string;
+
+    order:
+        number;
+
+    type:
+        "text";
+
+    title:
+        string;
+
+    body:
+        string;
+};
+
+const {
+    configuracion,
+} =
+    Astro.props as Props;
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function esRegistro(
+    valor:
+        unknown,
+): valor is Record<
+    string,
+    unknown
+> {
+    return (
+        valor !==
+            null &&
+        typeof valor ===
+            "object" &&
+        !Array.isArray(
+            valor
+        )
+    );
+}
+
+function numero(
+    valor:
+        unknown,
+
+    defecto:
+        number,
+) {
+    return (
+        typeof valor ===
+            "number" &&
+        Number.isFinite(
+            valor
+        )
+    )
+        ? valor
+        : defecto;
+}
+
+// ============================================================
+// CONFIGURACIÓN
+// ============================================================
+
+const informacion =
+    esRegistro(
+        configuracion
+    )
+        ? configuracion
+        : {};
+
+const bloques:
+    BloqueInformacion[] =
+    Array.isArray(
+        informacion.bloques
+    )
+        ? informacion
+              .bloques
+              .filter(
+                  esRegistro
+              )
+              .map(
+                  (
+                      bloque,
+                      indice,
+                  ): BloqueInformacion => ({
+                      id:
+                          typeof bloque.id ===
+                              "string"
+                              ? bloque.id
+                              : `apartat-${indice + 1}`,
+
+                      order:
+                          numero(
+                              bloque.order,
+                              indice + 1
+                          ),
+
+                      type:
+                          "text",
+
+                      title:
+                          typeof bloque.title ===
+                              "string"
+                              ? bloque.title.trim()
+                              : "",
+
+                      body:
+                          typeof bloque.body ===
+                              "string"
+                              ? bloque.body
+                              : "",
+                  })
+              )
+              .filter(
+                  bloque =>
+                      Boolean(
+                          bloque.title
+                      ) &&
+                      Boolean(
+                          bloque.body.trim()
+                      )
+              )
+              .sort(
+                  (
+                      a,
+                      b,
+                  ) =>
+                      a.order -
+                      b.order
+              )
+        : [];
+---
+
+<section class="bg-background py-10 sm:py-12 lg:py-16">
+    <div class="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
+
+        <!-- =================================================
+            CABECERA
+        ================================================== -->
+
+        <section class="overflow-hidden rounded-2xl border border-primary/15 bg-primary/5">
+            <div class="relative px-6 py-8 sm:px-8 sm:py-10 lg:px-10">
+                <div class="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-primary/10"></div>
+
+                <div class="absolute -bottom-16 right-24 h-32 w-32 rounded-full bg-secondary/10"></div>
+
+                <div class="relative max-w-3xl">
+                    <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-white">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.7"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="h-5 w-5"
+                            aria-hidden="true"
+                        >
+                            <circle
+                                cx="12"
+                                cy="12"
+                                r="9"
+                            ></circle>
+
+                            <path d="M12 11v5"></path>
+
+                            <path d="M12 8h.01"></path>
+                        </svg>
+                    </span>
+
+                    <p class="mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+                        Informació
+                    </p>
+
+                    <h2 class="mt-2 text-3xl font-bold tracking-tight text-neutral-titulos sm:text-4xl">
+                        Tot el que necessites saber
+                    </h2>
+
+                    <p class="mt-3 max-w-2xl text-sm leading-6 text-neutral sm:text-base sm:leading-7">
+                        Consulta la informació publicada per
+                        l'organització sobre aquesta edició del torneig.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- =================================================
+            ÍNDICE
+        ================================================== -->
+
+        {
+            bloques.length >
+                1 && (
+                <section class="mt-8">
+                    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+                        Continguts
+                    </p>
+
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        {
+                            bloques.map(
+                                (
+                                    bloque,
+                                    indice
+                                ) => (
+                                    <a
+                                        href={`#apartat-${indice + 1}`}
+                                        class="inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm font-medium text-neutral transition hover:border-primary/30 hover:bg-primary/5 hover:text-primary"
+                                    >
+                                        <span class="flex h-5 w-5 items-center justify-center rounded-full bg-card text-[10px] font-semibold text-neutral">
+                                            {indice + 1}
+                                        </span>
+
+                                        {bloque.title}
+                                    </a>
+                                )
+                            )
+                        }
+                    </div>
+                </section>
+            )
+        }
+
+        <!-- =================================================
+            BLOQUES
+        ================================================== -->
+
+        {
+            bloques.length >
+                0 ? (
+                <div class="mt-10 space-y-6">
+                    {
+                        bloques.map(
+                            (
+                                bloque,
+                                indice
+                            ) => (
+                                <article
+                                    id={`apartat-${indice + 1}`}
+                                    class="scroll-mt-24 overflow-hidden rounded-2xl border border-border bg-background"
+                                >
+                                    <div class="border-b border-border bg-card/35 px-6 py-5 sm:px-7">
+                                        <div class="flex items-start gap-4">
+                                            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-sm font-bold text-primary">
+                                                {indice + 1}
+                                            </span>
+
+                                            <div class="min-w-0">
+                                                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-neutral/60">
+                                                    Apartat
+                                                </p>
+
+                                                <h3 class="mt-1 text-xl font-bold tracking-tight text-neutral-titulos sm:text-2xl">
+                                                    {bloque.title}
+                                                </h3>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="px-6 py-6 sm:px-7 sm:py-7">
+                                        <div
+                                            class="text-sm leading-7 text-neutral [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-4 [&_blockquote]:my-5 [&_blockquote]:border-l-4 [&_blockquote]:border-primary/30 [&_blockquote]:bg-primary/5 [&_blockquote]:px-5 [&_blockquote]:py-4 [&_h2]:mb-3 [&_h2]:mt-7 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:text-neutral-titulos [&_h3]:mb-3 [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-bold [&_h3]:text-neutral-titulos [&_h4]:mb-2 [&_h4]:mt-5 [&_h4]:text-lg [&_h4]:font-semibold [&_h4]:text-neutral-titulos [&_hr]:my-6 [&_hr]:border-border [&_li]:mb-1.5 [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:mb-4 [&_p:last-child]:mb-0 [&_strong]:font-semibold [&_strong]:text-neutral-titulos [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-6"
+                                            set:html={
+                                                bloque.body
+                                            }
+                                        ></div>
+                                    </div>
+                                </article>
+                            )
+                        )
+                    }
+                </div>
+            ) : (
+                <div class="mt-8 rounded-2xl border border-dashed border-border bg-card/30 px-6 py-12 text-center">
+                    <span class="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.7"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="h-6 w-6"
+                        >
+                            <circle
+                                cx="12"
+                                cy="12"
+                                r="9"
+                            ></circle>
+
+                            <path d="M12 11v5"></path>
+
+                            <path d="M12 8h.01"></path>
+                        </svg>
+                    </span>
+
+                    <h3 class="mt-4 font-semibold text-neutral-titulos">
+                        Encara no hi ha informació publicada
+                    </h3>
+
+                    <p class="mx-auto mt-2 max-w-lg text-sm leading-6 text-neutral">
+                        L'organització encara no ha publicat
+                        informació addicional per aquesta edició.
+                    </p>
+                </div>
+            )
+        }
+    </div>
+</section>

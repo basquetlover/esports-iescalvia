@@ -1,49 +1,31 @@
-import type {
-    APIRoute,
-} from "astro";
-
+import type { APIRoute } from "astro";
 import sanitizeHtml from "sanitize-html";
 
-import {
-    supabaseAdmin,
-} from "@utils/supabase";
+import { supabaseAdmin } from "@utils/supabase";
+import { obtenerUsuarioPorToken } from "@pages/api/sesiones/sesiones";
+import { tieneAccesoTorneo, tienePermiso } from "@const/Permisos";
 
-import {
-    obtenerUsuarioPorToken,
-} from "@pages/api/sesiones/sesiones";
-
-import {
-    tieneAccesoTorneo,
-    tienePermiso,
-} from "@const/Permisos";
-
-export const prerender =
-    false;
+export const prerender = false;
 
 // ============================================================
 // CONFIGURACIÓN
 // ============================================================
 
-const TABLA_EDICIONES =
-    "ediciones";
-
-const TABLA_CONFIGURACION =
-    "configuracion_ediciones";
+const TABLA_EDICIONES = "ediciones";
+const TABLA_CONFIGURACION = "configuracion_ediciones";
+const TABLA_CONFIGURACION_PLATAFORMA = "configuracion_plataforma";
 
 const UUID =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const MAX_JSON_BYTES =
-    1_000_000;
+const MAX_JSON_BYTES = 1_000_000;
 
-const MAX_BLOQUES =
-    100;
+const MAX_BLOQUES = 100;
+const MAX_FAQ = 100;
+const MAX_TIPOS_VOLUNTARIADO = 100;
 
-const MAX_FAQ =
-    100;
-
-const MAX_TIPOS_VOLUNTARIADO =
-    100;
+const MAX_CURSOS = 50;
+const MAX_GRUPOS_POR_CURSO = 100;
 
 const CAMPOS_EDICION =
     "id,torneo_id,nombre,fecha_inicio,fecha_fin,estado,sede,created_at,updated_at";
@@ -75,6 +57,19 @@ type Accion =
     | "crear"
     | "editar"
     | "eliminar";
+
+type ComportamientoCupo =
+    | "permitir"
+    | "lista_espera"
+    | "bloquear";
+
+type CursoConfiguracion = {
+    curso:
+        string;
+
+    grupos:
+        string[];
+};
 
 type TorneoDB = {
     id:
@@ -142,11 +137,6 @@ type ConfiguracionDB = {
         string | null;
 };
 
-type ComportamientoCupo =
-    | "permitir"
-    | "lista_espera"
-    | "bloquear";
-
 // ============================================================
 // ERRORES / RESPUESTAS
 // ============================================================
@@ -160,7 +150,7 @@ class ErrorAPI extends Error {
             string,
     ) {
         super(
-            mensaje
+            mensaje,
         );
     }
 }
@@ -182,7 +172,7 @@ function responder(
                 "Cache-Control":
                     "private, no-store",
             },
-        }
+        },
     );
 }
 
@@ -202,13 +192,13 @@ function responderError(
                 mensaje:
                     error.message,
             },
-            error.estado
+            error.estado,
         );
     }
 
     console.error(
         "Error en la API d'edicions:",
-        error
+        error,
     );
 
     return responder(
@@ -219,7 +209,7 @@ function responderError(
             mensaje:
                 "No s'ha pogut completar l'operació.",
         },
-        500
+        500,
     );
 }
 
@@ -237,7 +227,7 @@ function esRegistro(
         typeof valor ===
             "object" &&
         !Array.isArray(
-            valor
+            valor,
         )
     );
 }
@@ -251,12 +241,12 @@ function comprobarClaves(
 ) {
     const desconocidas =
         Object.keys(
-            objeto
+            objeto,
         ).filter(
             clave =>
                 !permitidas.includes(
-                    clave
-                )
+                    clave,
+                ),
         );
 
     if (
@@ -265,7 +255,7 @@ function comprobarClaves(
     ) {
         throw new ErrorAPI(
             400,
-            "La configuració conté camps no reconeguts."
+            "La configuració conté camps no reconeguts.",
         );
     }
 }
@@ -281,12 +271,12 @@ function leerID(
         typeof valor !==
             "string" ||
         !UUID.test(
-            valor
+            valor,
         )
     ) {
         throw new ErrorAPI(
             400,
-            `El camp ${nombre} no és vàlid.`
+            `El camp ${nombre} no és vàlid.`,
         );
     }
 
@@ -319,7 +309,7 @@ function leerTexto(
         ) {
             throw new ErrorAPI(
                 400,
-                `Falta el camp ${nombre}.`
+                `Falta el camp ${nombre}.`,
             );
         }
 
@@ -332,7 +322,7 @@ function leerTexto(
     ) {
         throw new ErrorAPI(
             400,
-            `El camp ${nombre} no és vàlid.`
+            `El camp ${nombre} no és vàlid.`,
         );
     }
 
@@ -345,7 +335,7 @@ function leerTexto(
     ) {
         throw new ErrorAPI(
             400,
-            `Falta el camp ${nombre}.`
+            `Falta el camp ${nombre}.`,
         );
     }
 
@@ -355,7 +345,7 @@ function leerTexto(
     ) {
         throw new ErrorAPI(
             400,
-            `El camp ${nombre} supera els ${maximo} caràcters.`
+            `El camp ${nombre} supera els ${maximo} caràcters.`,
         );
     }
 
@@ -375,7 +365,7 @@ function leerBooleano(
     ) {
         throw new ErrorAPI(
             400,
-            `El camp ${nombre} no és vàlid.`
+            `El camp ${nombre} no és vàlid.`,
         );
     }
 
@@ -399,7 +389,7 @@ function leerEntero(
         typeof valor !==
             "number" ||
         !Number.isSafeInteger(
-            valor
+            valor,
         ) ||
         valor <
             minimo ||
@@ -408,7 +398,7 @@ function leerEntero(
     ) {
         throw new ErrorAPI(
             400,
-            `El camp ${nombre} no és vàlid.`
+            `El camp ${nombre} no és vàlid.`,
         );
     }
 
@@ -439,7 +429,7 @@ function leerEnteroNullable(
         valor,
         nombre,
         minimo,
-        maximo
+        maximo,
     );
 }
 
@@ -454,9 +444,9 @@ async function leerJSON(
     const longitud =
         Number(
             request.headers.get(
-                "content-length"
+                "content-length",
             ) ||
-                0
+                0,
         );
 
     if (
@@ -465,7 +455,7 @@ async function leerJSON(
     ) {
         throw new ErrorAPI(
             413,
-            "La configuració de l'edició és massa gran."
+            "La configuració de l'edició és massa gran.",
         );
     }
 
@@ -475,13 +465,13 @@ async function leerJSON(
     if (
         Buffer.byteLength(
             texto,
-            "utf8"
+            "utf8",
         ) >
         MAX_JSON_BYTES
     ) {
         throw new ErrorAPI(
             413,
-            "La configuració de l'edició és massa gran."
+            "La configuració de l'edició és massa gran.",
         );
     }
 
@@ -491,23 +481,23 @@ async function leerJSON(
     try {
         valor =
             JSON.parse(
-                texto
+                texto,
             );
     } catch {
         throw new ErrorAPI(
             400,
-            "La petició no conté un JSON vàlid."
+            "La petició no conté un JSON vàlid.",
         );
     }
 
     if (
         !esRegistro(
-            valor
+            valor,
         )
     ) {
         throw new ErrorAPI(
             400,
-            "La petició no és vàlida."
+            "La petició no és vàlida.",
         );
     }
 
@@ -525,7 +515,7 @@ async function exigirUsuario(
     const usuario =
         token
             ? await obtenerUsuarioPorToken(
-                  token
+                  token,
               )
             : null;
 
@@ -534,7 +524,7 @@ async function exigirUsuario(
     ) {
         throw new ErrorAPI(
             401,
-            "Has d'iniciar sessió."
+            "Has d'iniciar sessió.",
         );
     }
 
@@ -558,24 +548,24 @@ function exigirAccesoTorneo(
     if (
         !tieneAccesoTorneo(
             usuario,
-            torneoID
+            torneoID,
         ) ||
         !tienePermiso(
             usuario,
             "panell",
             "ver",
-            torneoID
+            torneoID,
         ) ||
         !tienePermiso(
             usuario,
             "edicions",
             "ver",
-            torneoID
+            torneoID,
         )
     ) {
         throw new ErrorAPI(
             403,
-            "No tens accés a les edicions d'aquest torneig."
+            "No tens accés a les edicions d'aquest torneig.",
         );
     }
 
@@ -586,12 +576,12 @@ function exigirAccesoTorneo(
             usuario,
             "edicions",
             accion,
-            torneoID
+            torneoID,
         )
     ) {
         throw new ErrorAPI(
             403,
-            "No tens permís per fer aquesta operació."
+            "No tens permís per fer aquesta operació.",
         );
     }
 }
@@ -610,14 +600,14 @@ async function obtenerTorneo(
     } =
         await supabaseAdmin
             .from(
-                "torneos"
+                "torneos",
             )
             .select(
-                "id,nombre,deporte"
+                "id,nombre,deporte",
             )
             .eq(
                 "id",
-                torneoID
+                torneoID,
             )
             .maybeSingle();
 
@@ -632,7 +622,7 @@ async function obtenerTorneo(
     ) {
         throw new ErrorAPI(
             404,
-            "No s'ha trobat el torneig."
+            "No s'ha trobat el torneig.",
         );
     }
 
@@ -656,14 +646,14 @@ async function obtenerEdicion(
     } =
         await supabaseAdmin
             .from(
-                TABLA_EDICIONES
+                TABLA_EDICIONES,
             )
             .select(
-                CAMPOS_EDICION
+                CAMPOS_EDICION,
             )
             .eq(
                 "id",
-                edicionID
+                edicionID,
             )
             .maybeSingle();
 
@@ -678,7 +668,7 @@ async function obtenerEdicion(
     ) {
         throw new ErrorAPI(
             404,
-            "No s'ha trobat l'edició."
+            "No s'ha trobat l'edició.",
         );
     }
 
@@ -688,7 +678,7 @@ async function obtenerEdicion(
     ) {
         throw new ErrorAPI(
             404,
-            "L'edició no pertany al torneig seleccionat."
+            "L'edició no pertany al torneig seleccionat.",
         );
     }
 
@@ -705,14 +695,14 @@ async function obtenerConfiguracion(
     } =
         await supabaseAdmin
             .from(
-                TABLA_CONFIGURACION
+                TABLA_CONFIGURACION,
             )
             .select(
-                CAMPOS_CONFIGURACION
+                CAMPOS_CONFIGURACION,
             )
             .eq(
                 "edicion_id",
-                edicionID
+                edicionID,
             )
             .maybeSingle();
 
@@ -725,6 +715,155 @@ async function obtenerConfiguracion(
     return data as
         | ConfiguracionDB
         | null;
+}
+
+// ============================================================
+// CONFIGURACIÓN DE PLATAFORMA
+// ============================================================
+
+function normalizarCursosPlataforma(
+    valor:
+        unknown,
+): CursoConfiguracion[] {
+    if (
+        !Array.isArray(
+            valor,
+        )
+    ) {
+        return [];
+    }
+
+    const resultado:
+        CursoConfiguracion[] =
+        [];
+
+    for (
+        const entrada
+        of valor
+    ) {
+        if (
+            !esRegistro(
+                entrada,
+            ) ||
+            typeof entrada.curso !==
+                "string"
+        ) {
+            continue;
+        }
+
+        const curso =
+            entrada.curso
+                .trim();
+
+        if (
+            !curso
+        ) {
+            continue;
+        }
+
+        const grupos =
+            Array.isArray(
+                entrada.grupos,
+            )
+                ? entrada.grupos
+                      .filter(
+                          (
+                              grupo,
+                          ): grupo is string =>
+                              typeof grupo ===
+                              "string",
+                      )
+                      .map(
+                          grupo =>
+                              grupo.trim(),
+                      )
+                      .filter(
+                          grupo =>
+                              Boolean(
+                                  grupo,
+                              ),
+                      )
+                : [];
+
+        resultado.push({
+            curso,
+            grupos,
+        });
+
+        if (
+            resultado.length >=
+            MAX_CURSOS
+        ) {
+            break;
+        }
+    }
+
+    return resultado;
+}
+
+async function obtenerCursosPlataforma() {
+    const {
+        data,
+        error,
+    } =
+        await supabaseAdmin
+            .from(
+                TABLA_CONFIGURACION_PLATAFORMA,
+            )
+            .select(
+                "curso_academico_actual,cursos,created_at",
+            )
+            .order(
+                "created_at",
+                {
+                    ascending:
+                        true,
+
+                    nullsFirst:
+                        false,
+                },
+            )
+            .limit(
+                1,
+            );
+
+    if (
+        error
+    ) {
+        throw error;
+    }
+
+    const fila =
+        data?.[
+            0
+        ];
+
+    if (
+        !fila
+    ) {
+        return {
+            cursoAcademico:
+                null,
+
+            cursos:
+                [] as CursoConfiguracion[],
+        };
+    }
+
+    return {
+        cursoAcademico:
+            typeof fila
+                .curso_academico_actual ===
+                "string"
+                ? fila
+                      .curso_academico_actual
+                : null,
+
+        cursos:
+            normalizarCursosPlataforma(
+                fila.cursos,
+            ),
+    };
 }
 
 // ============================================================
@@ -772,7 +911,7 @@ function estadoParaDB(
     ) {
         throw new ErrorAPI(
             400,
-            "L'estat de l'edició no és vàlid."
+            "L'estat de l'edició no és vàlid.",
         );
     }
 
@@ -793,7 +932,7 @@ function estadoParaDB(
         default:
             throw new ErrorAPI(
                 400,
-                "L'estat de l'edició no és vàlid."
+                "L'estat de l'edició no és vàlid.",
             );
     }
 }
@@ -816,23 +955,23 @@ function leerFecha(
     ) {
         throw new ErrorAPI(
             400,
-            `Falta ${nombre}.`
+            `Falta ${nombre}.`,
         );
     }
 
     const fecha =
         new Date(
-            valor
+            valor,
         );
 
     if (
         Number.isNaN(
-            fecha.getTime()
+            fecha.getTime(),
         )
     ) {
         throw new ErrorAPI(
             400,
-            `${nombre} no és vàlida.`
+            `${nombre} no és vàlida.`,
         );
     }
 
@@ -862,23 +1001,23 @@ function leerFechaNullable(
     ) {
         throw new ErrorAPI(
             400,
-            `${nombre} no és vàlida.`
+            `${nombre} no és vàlida.`,
         );
     }
 
     const fecha =
         new Date(
-            valor
+            valor,
         );
 
     if (
         Number.isNaN(
-            fecha.getTime()
+            fecha.getTime(),
         )
     ) {
         throw new ErrorAPI(
             400,
-            `${nombre} no és vàlida.`
+            `${nombre} no és vàlida.`,
         );
     }
 
@@ -898,15 +1037,15 @@ function validarPeriodo(
 ) {
     if (
         Boolean(
-            apertura
+            apertura,
         ) !==
         Boolean(
-            cierre
+            cierre,
         )
     ) {
         throw new ErrorAPI(
             400,
-            `Indica tant l'obertura com el tancament de ${nombre}.`
+            `Indica tant l'obertura com el tancament de ${nombre}.`,
         );
     }
 
@@ -914,15 +1053,15 @@ function validarPeriodo(
         apertura &&
         cierre &&
         Date.parse(
-            cierre
+            cierre,
         ) <
             Date.parse(
-                apertura
+                apertura,
             )
     ) {
         throw new ErrorAPI(
             400,
-            `El tancament de ${nombre} no pot ser anterior a l'obertura.`
+            `El tancament de ${nombre} no pot ser anterior a l'obertura.`,
         );
     }
 }
@@ -948,7 +1087,7 @@ function leerComportamientoCupo(
 
     throw new ErrorAPI(
         400,
-        "El comportament del límit no és vàlid."
+        "El comportament del límit no és vàlid.",
     );
 }
 
@@ -958,12 +1097,12 @@ function leerCupo(
 ) {
     if (
         !esRegistro(
-            valor
+            valor,
         )
     ) {
         throw new ErrorAPI(
             400,
-            "La configuració del límit no és vàlida."
+            "La configuració del límit no és vàlida.",
         );
     }
 
@@ -972,7 +1111,7 @@ function leerCupo(
         [
             "maximo",
             "al_superar",
-        ]
+        ],
     );
 
     return {
@@ -981,12 +1120,12 @@ function leerCupo(
                 valor.maximo,
                 "màxim",
                 0,
-                100_000
+                100_000,
             ),
 
         al_superar:
             leerComportamientoCupo(
-                valor.al_superar
+                valor.al_superar,
             ),
     };
 }
@@ -1004,12 +1143,12 @@ function leerInscripcion(
 ) {
     if (
         !esRegistro(
-            valor
+            valor,
         )
     ) {
         throw new ErrorAPI(
             400,
-            `La configuració de ${nombre} no és vàlida.`
+            `La configuració de ${nombre} no és vàlida.`,
         );
     }
 
@@ -1018,31 +1157,207 @@ function leerInscripcion(
         [
             "apertura",
             "cierre",
-        ]
+        ],
     );
 
     const apertura =
         leerFechaNullable(
             valor.apertura,
-            "La data d'obertura"
+            "La data d'obertura",
         );
 
     const cierre =
         leerFechaNullable(
             valor.cierre,
-            "La data de tancament"
+            "La data de tancament",
         );
 
     validarPeriodo(
         apertura,
         cierre,
-        nombre
+        nombre,
     );
 
     return {
         apertura,
         cierre,
     };
+}
+
+// ============================================================
+// CURSOS
+// ============================================================
+
+function leerCursos(
+    valor:
+        unknown,
+): CursoConfiguracion[] {
+    /*
+     * Compatibilidad con ediciones antiguas.
+     * Si todavía no tenían "cursos" se interpreta como [].
+     */
+    if (
+        valor ===
+        undefined ||
+        valor ===
+        null
+    ) {
+        return [];
+    }
+
+    if (
+        !Array.isArray(
+            valor,
+        )
+    ) {
+        throw new ErrorAPI(
+            400,
+            "La configuració dels cursos no és vàlida.",
+        );
+    }
+
+    if (
+        valor.length >
+        MAX_CURSOS
+    ) {
+        throw new ErrorAPI(
+            400,
+            `No es poden configurar més de ${MAX_CURSOS} cursos.`,
+        );
+    }
+
+    const resultado:
+        CursoConfiguracion[] =
+        [];
+
+    const cursosUsados =
+        new Set<string>();
+
+    for (
+        const entrada
+        of valor
+    ) {
+        if (
+            !esRegistro(
+                entrada,
+            )
+        ) {
+            throw new ErrorAPI(
+                400,
+                "Hi ha un curs no vàlid.",
+            );
+        }
+
+        comprobarClaves(
+            entrada,
+            [
+                "curso",
+                "grupos",
+            ],
+        );
+
+        const curso =
+            leerTexto(
+                entrada.curso,
+                "nom del curs",
+                100,
+                true,
+            );
+
+        const claveCurso =
+            curso.toLocaleLowerCase(
+                "ca-ES",
+            );
+
+        if (
+            cursosUsados.has(
+                claveCurso,
+            )
+        ) {
+            throw new ErrorAPI(
+                400,
+                `El curs "${curso}" està repetit.`,
+            );
+        }
+
+        cursosUsados.add(
+            claveCurso,
+        );
+
+        if (
+            !Array.isArray(
+                entrada.grupos,
+            )
+        ) {
+            throw new ErrorAPI(
+                400,
+                `Els grups del curs "${curso}" no són vàlids.`,
+            );
+        }
+
+        if (
+            entrada
+                .grupos
+                .length >
+            MAX_GRUPOS_POR_CURSO
+        ) {
+            throw new ErrorAPI(
+                400,
+                `El curs "${curso}" té massa grups.`,
+            );
+        }
+
+        const grupos:
+            string[] =
+            [];
+
+        const gruposUsados =
+            new Set<string>();
+
+        for (
+            const entradaGrupo
+            of entrada.grupos
+        ) {
+            const grupo =
+                leerTexto(
+                    entradaGrupo,
+                    `grup de ${curso}`,
+                    150,
+                    true,
+                );
+
+            const claveGrupo =
+                grupo.toLocaleLowerCase(
+                    "ca-ES",
+                );
+
+            if (
+                gruposUsados.has(
+                    claveGrupo,
+                )
+            ) {
+                throw new ErrorAPI(
+                    400,
+                    `El grup "${grupo}" està repetit dins del curs "${curso}".`,
+                );
+            }
+
+            gruposUsados.add(
+                claveGrupo,
+            );
+
+            grupos.push(
+                grupo,
+            );
+        }
+
+        resultado.push({
+            curso,
+            grupos,
+        });
+    }
+
+    return resultado;
 }
 
 // ============================================================
@@ -1055,12 +1370,12 @@ function leerEquipos(
 ) {
     if (
         !esRegistro(
-            valor
+            valor,
         )
     ) {
         throw new ErrorAPI(
             400,
-            "La configuració dels equips no és vàlida."
+            "La configuració dels equips no és vàlida.",
         );
     }
 
@@ -1069,26 +1384,23 @@ function leerEquipos(
         [
             "inscripcion",
             "cupo",
+            "cursos",
             "jugadores",
             "genero",
             "profesores",
             "entrenador",
             "staff",
-        ]
+        ],
     );
-
-    // --------------------------------------------------------
-    // JUGADORES
-    // --------------------------------------------------------
 
     if (
         !esRegistro(
-            valor.jugadores
+            valor.jugadores,
         )
     ) {
         throw new ErrorAPI(
             400,
-            "La configuració dels jugadors no és vàlida."
+            "La configuració dels jugadors no és vàlida.",
         );
     }
 
@@ -1097,25 +1409,27 @@ function leerEquipos(
         [
             "minimo",
             "maximo",
-        ]
+        ],
     );
 
     const minimoJugadores =
         leerEnteroNullable(
-            valor.jugadores
+            valor
+                .jugadores
                 .minimo,
             "mínim de jugadors",
             1,
-            1000
+            1000,
         );
 
     const maximoJugadores =
         leerEnteroNullable(
-            valor.jugadores
+            valor
+                .jugadores
                 .maximo,
             "màxim de jugadors",
             1,
-            1000
+            1000,
         );
 
     if (
@@ -1128,26 +1442,23 @@ function leerEquipos(
     ) {
         throw new ErrorAPI(
             400,
-            "El màxim de jugadors no pot ser inferior al mínim."
+            "El màxim de jugadors no pot ser inferior al mínim.",
         );
     }
 
-    // --------------------------------------------------------
-    // GÉNERO
-    // --------------------------------------------------------
-
     if (
         !esRegistro(
-            valor.genero
+            valor.genero,
         ) ||
         !esRegistro(
-            valor.genero
-                .minimos
+            valor
+                .genero
+                .minimos,
         )
     ) {
         throw new ErrorAPI(
             400,
-            "La configuració de composició per gènere no és vàlida."
+            "La configuració de composició per gènere no és vàlida.",
         );
     }
 
@@ -1156,43 +1467,47 @@ function leerEquipos(
         [
             "activo",
             "minimos",
-        ]
+        ],
     );
 
     comprobarClaves(
-        valor.genero
+        valor
+            .genero
             .minimos,
         [
             "masculino",
             "femenino",
-        ]
+        ],
     );
 
     const generoActivo =
         leerBooleano(
-            valor.genero
+            valor
+                .genero
                 .activo,
-            "composició per gènere"
+            "composició per gènere",
         );
 
     const minimoMasculino =
         leerEntero(
-            valor.genero
+            valor
+                .genero
                 .minimos
                 .masculino,
             "mínim de nois",
             0,
-            1000
+            1000,
         );
 
     const minimoFemenino =
         leerEntero(
-            valor.genero
+            valor
+                .genero
                 .minimos
                 .femenino,
             "mínim de noies",
             0,
-            1000
+            1000,
         );
 
     if (
@@ -1205,22 +1520,18 @@ function leerEquipos(
     ) {
         throw new ErrorAPI(
             400,
-            "La composició mínima per gènere no pot superar el màxim de jugadors."
+            "La composició mínima per gènere no pot superar el màxim de jugadors.",
         );
     }
 
-    // --------------------------------------------------------
-    // PROFESORES
-    // --------------------------------------------------------
-
     if (
         !esRegistro(
-            valor.profesores
+            valor.profesores,
         )
     ) {
         throw new ErrorAPI(
             400,
-            "La configuració del professorat no és vàlida."
+            "La configuració del professorat no és vàlida.",
         );
     }
 
@@ -1231,32 +1542,35 @@ function leerEquipos(
             "minimo",
             "maximo",
             "cuentan_como_jugador",
-        ]
+        ],
     );
 
     const profesoresPermitidos =
         leerBooleano(
-            valor.profesores
+            valor
+                .profesores
                 .permitidos,
-            "professorat"
+            "professorat",
         );
 
     const profesoresMinimo =
         leerEntero(
-            valor.profesores
+            valor
+                .profesores
                 .minimo,
             "mínim de professors",
             0,
-            1000
+            1000,
         );
 
     const profesoresMaximo =
         leerEntero(
-            valor.profesores
+            valor
+                .profesores
                 .maximo,
             "màxim de professors",
             0,
-            1000
+            1000,
         );
 
     if (
@@ -1266,29 +1580,26 @@ function leerEquipos(
     ) {
         throw new ErrorAPI(
             400,
-            "El màxim de professors no pot ser inferior al mínim."
+            "El màxim de professors no pot ser inferior al mínim.",
         );
     }
 
     const cuentanComoJugador =
         leerBooleano(
-            valor.profesores
+            valor
+                .profesores
                 .cuentan_como_jugador,
-            "professorat dins el nombre de jugadors"
+            "professorat dins el nombre de jugadors",
         );
-
-    // --------------------------------------------------------
-    // ENTRENADOR
-    // --------------------------------------------------------
 
     if (
         !esRegistro(
-            valor.entrenador
+            valor.entrenador,
         )
     ) {
         throw new ErrorAPI(
             400,
-            "La configuració de l'entrenador no és vàlida."
+            "La configuració de l'entrenador no és vàlida.",
         );
     }
 
@@ -1296,28 +1607,25 @@ function leerEquipos(
         valor.entrenador,
         [
             "permitido",
-        ]
+        ],
     );
 
     const entrenadorPermitido =
         leerBooleano(
-            valor.entrenador
+            valor
+                .entrenador
                 .permitido,
-            "entrenador"
+            "entrenador",
         );
-
-    // --------------------------------------------------------
-    // STAFF
-    // --------------------------------------------------------
 
     if (
         !esRegistro(
-            valor.staff
+            valor.staff,
         )
     ) {
         throw new ErrorAPI(
             400,
-            "La configuració del staff no és vàlida."
+            "La configuració del staff no és vàlida.",
         );
     }
 
@@ -1327,32 +1635,35 @@ function leerEquipos(
             "permitido",
             "minimo",
             "maximo",
-        ]
+        ],
     );
 
     const staffPermitido =
         leerBooleano(
-            valor.staff
+            valor
+                .staff
                 .permitido,
-            "staff"
+            "staff",
         );
 
     const staffMinimo =
         leerEntero(
-            valor.staff
+            valor
+                .staff
                 .minimo,
             "mínim de membres de staff",
             0,
-            1000
+            1000,
         );
 
     const staffMaximo =
         leerEntero(
-            valor.staff
+            valor
+                .staff
                 .maximo,
             "màxim de membres de staff",
             0,
-            1000
+            1000,
         );
 
     if (
@@ -1362,24 +1673,25 @@ function leerEquipos(
     ) {
         throw new ErrorAPI(
             400,
-            "El màxim de membres de staff no pot ser inferior al mínim."
+            "El màxim de membres de staff no pot ser inferior al mínim.",
         );
     }
-
-    // --------------------------------------------------------
-    // RESULTADO
-    // --------------------------------------------------------
 
     return {
         inscripcion:
             leerInscripcion(
                 valor.inscripcion,
-                "la inscripció d'equips"
+                "la inscripció d'equips",
             ),
 
         cupo:
             leerCupo(
-                valor.cupo
+                valor.cupo,
+            ),
+
+        cursos:
+            leerCursos(
+                valor.cursos,
             ),
 
         jugadores: {
@@ -1457,12 +1769,12 @@ function leerVoluntarios(
 ) {
     if (
         !esRegistro(
-            valor
+            valor,
         )
     ) {
         throw new ErrorAPI(
             400,
-            "La configuració del voluntariat no és vàlida."
+            "La configuració del voluntariat no és vàlida.",
         );
     }
 
@@ -1472,19 +1784,19 @@ function leerVoluntarios(
             "inscripcion",
             "cupo",
             "tipos",
-        ]
+        ],
     );
 
     if (
         !Array.isArray(
-            valor.tipos
+            valor.tipos,
         ) ||
         valor.tipos.length >
             MAX_TIPOS_VOLUNTARIADO
     ) {
         throw new ErrorAPI(
             400,
-            `No es poden definir més de ${MAX_TIPOS_VOLUNTARIADO} tipus de voluntariat.`
+            `No es poden definir més de ${MAX_TIPOS_VOLUNTARIADO} tipus de voluntariat.`,
         );
     }
 
@@ -1499,12 +1811,12 @@ function leerVoluntarios(
             entrada => {
                 if (
                     !esRegistro(
-                        entrada
+                        entrada,
                     )
                 ) {
                     throw new ErrorAPI(
                         400,
-                        "Hi ha un tipus de voluntariat no vàlid."
+                        "Hi ha un tipus de voluntariat no vàlid.",
                     );
                 }
 
@@ -1516,7 +1828,7 @@ function leerVoluntarios(
                         "descripcion",
                         "activo",
                         "cupo",
-                    ]
+                    ],
                 );
 
                 const id =
@@ -1524,22 +1836,22 @@ function leerVoluntarios(
                         entrada.id,
                         "identificador del tipus de voluntariat",
                         150,
-                        true
+                        true,
                     );
 
                 if (
                     ids.has(
-                        id
+                        id,
                     )
                 ) {
                     throw new ErrorAPI(
                         400,
-                        "Hi ha tipus de voluntariat amb identificadors repetits."
+                        "Hi ha tipus de voluntariat amb identificadors repetits.",
                     );
                 }
 
                 ids.add(
-                    id
+                    id,
                 );
 
                 const nombre =
@@ -1547,27 +1859,27 @@ function leerVoluntarios(
                         entrada.nombre,
                         "nom del tipus de voluntariat",
                         150,
-                        true
+                        true,
                     );
 
                 const claveNombre =
                     nombre.toLocaleLowerCase(
-                        "ca-ES"
+                        "ca-ES",
                     );
 
                 if (
                     nombres.has(
-                        claveNombre
+                        claveNombre,
                     )
                 ) {
                     throw new ErrorAPI(
                         400,
-                        "No pot haver-hi dos tipus de voluntariat amb el mateix nom."
+                        "No pot haver-hi dos tipus de voluntariat amb el mateix nom.",
                     );
                 }
 
                 nombres.add(
-                    claveNombre
+                    claveNombre,
                 );
 
                 return {
@@ -1579,33 +1891,33 @@ function leerVoluntarios(
                         leerTexto(
                             entrada.descripcion,
                             "descripció del tipus de voluntariat",
-                            5000
+                            5000,
                         ),
 
                     activo:
                         leerBooleano(
                             entrada.activo,
-                            "estat del tipus de voluntariat"
+                            "estat del tipus de voluntariat",
                         ),
 
                     cupo:
                         leerCupo(
-                            entrada.cupo
+                            entrada.cupo,
                         ),
                 };
-            }
+            },
         );
 
     return {
         inscripcion:
             leerInscripcion(
                 valor.inscripcion,
-                "la inscripció de voluntariat"
+                "la inscripció de voluntariat",
             ),
 
         cupo:
             leerCupo(
-                valor.cupo
+                valor.cupo,
             ),
 
         tipos,
@@ -1613,7 +1925,7 @@ function leerVoluntarios(
 }
 
 // ============================================================
-// INFORMACIÓN: HTML
+// INFORMACIÓN HTML
 // ============================================================
 
 function limpiarHTML(
@@ -1624,7 +1936,7 @@ function limpiarHTML(
         leerTexto(
             valor,
             "contingut de l'apartat",
-            150_000
+            150_000,
         );
 
     return sanitizeHtml(
@@ -1634,29 +1946,23 @@ function limpiarHTML(
                 "p",
                 "div",
                 "br",
-
                 "strong",
                 "b",
                 "em",
                 "i",
                 "u",
-
                 "s",
                 "strike",
                 "del",
-
                 "h2",
                 "h3",
                 "h4",
-
                 "ul",
                 "ol",
                 "li",
-
                 "blockquote",
                 "a",
                 "span",
-
                 "sub",
                 "sup",
                 "hr",
@@ -1735,7 +2041,7 @@ function limpiarHTML(
             transformTags: {
                 a: (
                     _nombre,
-                    atributos
+                    atributos,
                 ) => ({
                     tagName:
                         "a",
@@ -1757,7 +2063,7 @@ function limpiarHTML(
                     },
                 }),
             },
-        }
+        },
     );
 }
 
@@ -1774,20 +2080,20 @@ function htmlTieneContenido(
 
                 allowedAttributes:
                     {},
-            }
+            },
         )
             .replace(
                 /&nbsp;/gi,
-                " "
+                " ",
             )
             .replace(
                 /\s+/g,
-                " "
+                " ",
             )
             .trim();
 
     return Boolean(
-        texto
+        texto,
     );
 }
 
@@ -1801,12 +2107,12 @@ function leerInformacion(
 ) {
     if (
         !esRegistro(
-            valor
+            valor,
         )
     ) {
         throw new ErrorAPI(
             400,
-            "La informació pública no és vàlida."
+            "La informació pública no és vàlida.",
         );
     }
 
@@ -1814,19 +2120,19 @@ function leerInformacion(
         valor,
         [
             "bloques",
-        ]
+        ],
     );
 
     if (
         !Array.isArray(
-            valor.bloques
+            valor.bloques,
         ) ||
         valor.bloques.length >
             MAX_BLOQUES
     ) {
         throw new ErrorAPI(
             400,
-            `La informació pot tenir com a màxim ${MAX_BLOQUES} apartats.`
+            `La informació pot tenir com a màxim ${MAX_BLOQUES} apartats.`,
         );
     }
 
@@ -1837,16 +2143,16 @@ function leerInformacion(
         valor.bloques.map(
             (
                 entrada,
-                indice
+                indice,
             ) => {
                 if (
                     !esRegistro(
-                        entrada
+                        entrada,
                     )
                 ) {
                     throw new ErrorAPI(
                         400,
-                        "Hi ha un apartat d'informació no vàlid."
+                        "Hi ha un apartat d'informació no vàlid.",
                     );
                 }
 
@@ -1858,7 +2164,7 @@ function leerInformacion(
                         "type",
                         "title",
                         "body",
-                    ]
+                    ],
                 );
 
                 const id =
@@ -1866,22 +2172,22 @@ function leerInformacion(
                         entrada.id,
                         "identificador de l'apartat",
                         150,
-                        true
+                        true,
                     );
 
                 if (
                     ids.has(
-                        id
+                        id,
                     )
                 ) {
                     throw new ErrorAPI(
                         400,
-                        "Hi ha apartats d'informació amb identificadors repetits."
+                        "Hi ha apartats d'informació amb identificadors repetits.",
                     );
                 }
 
                 ids.add(
-                    id
+                    id,
                 );
 
                 if (
@@ -1890,7 +2196,7 @@ function leerInformacion(
                 ) {
                     throw new ErrorAPI(
                         400,
-                        "Hi ha un tipus d'apartat no reconegut."
+                        "Hi ha un tipus d'apartat no reconegut.",
                     );
                 }
 
@@ -1898,14 +2204,14 @@ function leerInformacion(
                     typeof entrada.order !==
                         "number" ||
                     !Number.isSafeInteger(
-                        entrada.order
+                        entrada.order,
                     ) ||
                     entrada.order <
                         1
                 ) {
                     throw new ErrorAPI(
                         400,
-                        "L'ordre d'un apartat no és vàlid."
+                        "L'ordre d'un apartat no és vàlid.",
                     );
                 }
 
@@ -1914,22 +2220,22 @@ function leerInformacion(
                         entrada.title,
                         "títol de l'apartat",
                         200,
-                        true
+                        true,
                     );
 
                 const body =
                     limpiarHTML(
-                        entrada.body
+                        entrada.body,
                     );
 
                 if (
                     !htmlTieneContenido(
-                        body
+                        body,
                     )
                 ) {
                     throw new ErrorAPI(
                         400,
-                        `L'apartat «${title}» no té contingut.`
+                        `L'apartat «${title}» no té contingut.`,
                     );
                 }
 
@@ -1949,7 +2255,7 @@ function leerInformacion(
                     indiceOriginal:
                         indice,
                 };
-            }
+            },
         );
 
     return {
@@ -1958,17 +2264,17 @@ function leerInformacion(
                 .sort(
                     (
                         a,
-                        b
+                        b,
                     ) =>
                         a.order -
                             b.order ||
                         a.indiceOriginal -
-                            b.indiceOriginal
+                            b.indiceOriginal,
                 )
                 .map(
                     (
                         bloque,
-                        indice
+                        indice,
                     ) => ({
                         id:
                             bloque.id,
@@ -1985,7 +2291,7 @@ function leerInformacion(
 
                         body:
                             bloque.body,
-                    })
+                    }),
                 ),
     };
 }
@@ -2000,12 +2306,12 @@ function leerFAQ(
 ) {
     if (
         !esRegistro(
-            valor
+            valor,
         )
     ) {
         throw new ErrorAPI(
             400,
-            "La configuració de les preguntes freqüents no és vàlida."
+            "La configuració de les preguntes freqüents no és vàlida.",
         );
     }
 
@@ -2013,19 +2319,19 @@ function leerFAQ(
         valor,
         [
             "preguntas",
-        ]
+        ],
     );
 
     if (
         !Array.isArray(
-            valor.preguntas
+            valor.preguntas,
         ) ||
         valor.preguntas.length >
             MAX_FAQ
     ) {
         throw new ErrorAPI(
             400,
-            `No es poden definir més de ${MAX_FAQ} preguntes freqüents.`
+            `No es poden definir més de ${MAX_FAQ} preguntes freqüents.`,
         );
     }
 
@@ -2039,16 +2345,16 @@ function leerFAQ(
         valor.preguntas.map(
             (
                 entrada,
-                indice
+                indice,
             ) => {
                 if (
                     !esRegistro(
-                        entrada
+                        entrada,
                     )
                 ) {
                     throw new ErrorAPI(
                         400,
-                        "Hi ha una pregunta freqüent no vàlida."
+                        "Hi ha una pregunta freqüent no vàlida.",
                     );
                 }
 
@@ -2060,7 +2366,7 @@ function leerFAQ(
                         "pregunta",
                         "respuesta",
                         "activo",
-                    ]
+                    ],
                 );
 
                 const id =
@@ -2068,36 +2374,36 @@ function leerFAQ(
                         entrada.id,
                         "identificador de la pregunta freqüent",
                         150,
-                        true
+                        true,
                     );
 
                 if (
                     ids.has(
-                        id
+                        id,
                     )
                 ) {
                     throw new ErrorAPI(
                         400,
-                        "Hi ha preguntes freqüents amb identificadors repetits."
+                        "Hi ha preguntes freqüents amb identificadors repetits.",
                     );
                 }
 
                 ids.add(
-                    id
+                    id,
                 );
 
                 if (
                     typeof entrada.order !==
                         "number" ||
                     !Number.isSafeInteger(
-                        entrada.order
+                        entrada.order,
                     ) ||
                     entrada.order <
                         1
                 ) {
                     throw new ErrorAPI(
                         400,
-                        "L'ordre d'una pregunta freqüent no és vàlid."
+                        "L'ordre d'una pregunta freqüent no és vàlid.",
                     );
                 }
 
@@ -2106,27 +2412,27 @@ function leerFAQ(
                         entrada.pregunta,
                         "pregunta freqüent",
                         200,
-                        true
+                        true,
                     );
 
                 const clavePregunta =
                     pregunta.toLocaleLowerCase(
-                        "ca-ES"
+                        "ca-ES",
                     );
 
                 if (
                     textos.has(
-                        clavePregunta
+                        clavePregunta,
                     )
                 ) {
                     throw new ErrorAPI(
                         400,
-                        "No pot haver-hi dues preguntes freqüents iguals."
+                        "No pot haver-hi dues preguntes freqüents iguals.",
                     );
                 }
 
                 textos.add(
-                    clavePregunta
+                    clavePregunta,
                 );
 
                 const respuesta =
@@ -2134,13 +2440,13 @@ function leerFAQ(
                         entrada.respuesta,
                         "resposta de la pregunta freqüent",
                         5000,
-                        true
+                        true,
                     );
 
                 const activo =
                     leerBooleano(
                         entrada.activo,
-                        "visibilitat de la pregunta freqüent"
+                        "visibilitat de la pregunta freqüent",
                     );
 
                 return {
@@ -2158,7 +2464,7 @@ function leerFAQ(
                     indiceOriginal:
                         indice,
                 };
-            }
+            },
         );
 
     return {
@@ -2167,17 +2473,17 @@ function leerFAQ(
                 .sort(
                     (
                         a,
-                        b
+                        b,
                     ) =>
                         a.order -
                             b.order ||
                         a.indiceOriginal -
-                            b.indiceOriginal
+                            b.indiceOriginal,
                 )
                 .map(
                     (
                         pregunta,
-                        indice
+                        indice,
                     ) => ({
                         id:
                             pregunta.id,
@@ -2194,7 +2500,7 @@ function leerFAQ(
 
                         activo:
                             pregunta.activo,
-                    })
+                    }),
                 ),
     };
 }
@@ -2207,20 +2513,14 @@ function leerCompeticion(
     valor:
         unknown,
 ) {
-    /*
-     * Todavía no existe el editor de competición.
-     *
-     * Conservamos el objeto existente para no perderlo al
-     * modificar cualquier otro apartado de la edición.
-     */
     if (
         !esRegistro(
-            valor
+            valor,
         )
     ) {
         throw new ErrorAPI(
             400,
-            "La configuració de competició no és vàlida."
+            "La configuració de competició no és vàlida.",
         );
     }
 
@@ -2237,12 +2537,12 @@ function leerGeneral(
 ) {
     if (
         !esRegistro(
-            valor
+            valor,
         )
     ) {
         throw new ErrorAPI(
             400,
-            "La informació general de l'edició no és vàlida."
+            "La informació general de l'edició no és vàlida.",
         );
     }
 
@@ -2254,7 +2554,7 @@ function leerGeneral(
             "fecha_fin",
             "estado",
             "sede",
-        ]
+        ],
     );
 
     const nombre =
@@ -2262,32 +2562,32 @@ function leerGeneral(
             valor.nombre,
             "nom de l'edició",
             150,
-            true
+            true,
         );
 
     const fechaInicio =
         leerFecha(
             valor.fecha_inicio,
-            "La data d'inici"
+            "La data d'inici",
         );
 
     const fechaFin =
         leerFecha(
             valor.fecha_fin,
-            "La data de finalització"
+            "La data de finalització",
         );
 
     if (
         Date.parse(
-            fechaFin
+            fechaFin,
         ) <
         Date.parse(
-            fechaInicio
+            fechaInicio,
         )
     ) {
         throw new ErrorAPI(
             400,
-            "La data de finalització no pot ser anterior a la data d'inici."
+            "La data de finalització no pot ser anterior a la data d'inici.",
         );
     }
 
@@ -2302,14 +2602,14 @@ function leerGeneral(
 
         estado:
             estadoParaDB(
-                valor.estado
+                valor.estado,
             ),
 
         sede:
             leerTexto(
                 valor.sede,
                 "seu",
-                500
+                500,
             ),
     };
 }
@@ -2324,12 +2624,12 @@ function leerConfiguracion(
 ) {
     if (
         !esRegistro(
-            valor
+            valor,
         )
     ) {
         throw new ErrorAPI(
             400,
-            "La configuració de l'edició no és vàlida."
+            "La configuració de l'edició no és vàlida.",
         );
     }
 
@@ -2341,39 +2641,39 @@ function leerConfiguracion(
             "informacion",
             "faq",
             "competicion",
-        ]
+        ],
     );
 
     return {
         equipos:
             leerEquipos(
-                valor.equipos
+                valor.equipos,
             ),
 
         voluntarios:
             leerVoluntarios(
-                valor.voluntarios
+                valor.voluntarios,
             ),
 
         informacion:
             leerInformacion(
-                valor.informacion
+                valor.informacion,
             ),
 
         faq:
             leerFAQ(
-                valor.faq
+                valor.faq,
             ),
 
         competicion:
             leerCompeticion(
-                valor.competicion
+                valor.competicion,
             ),
     };
 }
 
 // ============================================================
-// CUERPO CREAR / EDITAR
+// DATOS CREAR / EDITAR
 // ============================================================
 
 function leerDatos(
@@ -2382,12 +2682,12 @@ function leerDatos(
 ) {
     if (
         !esRegistro(
-            cuerpo.datos
+            cuerpo.datos,
         )
     ) {
         throw new ErrorAPI(
             400,
-            "Falten les dades de l'edició."
+            "Falten les dades de l'edició.",
         );
     }
 
@@ -2396,26 +2696,28 @@ function leerDatos(
         [
             "general",
             "configuracion",
-        ]
+        ],
     );
 
     return {
         general:
             leerGeneral(
-                cuerpo.datos
-                    .general
+                cuerpo
+                    .datos
+                    .general,
             ),
 
         configuracion:
             leerConfiguracion(
-                cuerpo.datos
-                    .configuracion
+                cuerpo
+                    .datos
+                    .configuracion,
             ),
     };
 }
 
 // ============================================================
-// VERSIÓN / CONCURRENCIA
+// VERSIÓN
 // ============================================================
 
 function leerVersion(
@@ -2425,12 +2727,12 @@ function leerVersion(
     if (
         !Object.hasOwn(
             cuerpo,
-            "updated_at"
+            "updated_at",
         )
     ) {
         throw new ErrorAPI(
             400,
-            "Falta la versió de l'edició."
+            "Falta la versió de l'edició.",
         );
     }
 
@@ -2443,11 +2745,11 @@ function leerVersion(
 
     if (
         typeof cuerpo.updated_at !==
-            "string"
+        "string"
     ) {
         throw new ErrorAPI(
             400,
-            "La versió de l'edició no és vàlida."
+            "La versió de l'edició no és vàlida.",
         );
     }
 
@@ -2459,39 +2761,26 @@ function leerVersion(
         !version ||
         !Number.isFinite(
             Date.parse(
-                version
-            )
+                version,
+            ),
         )
     ) {
         throw new ErrorAPI(
             400,
-            "La versió de l'edició no és vàlida."
+            "La versió de l'edició no és vàlida.",
         );
     }
 
     /*
-     * IMPORTANTE:
-     *
-     * No convertir este timestamp mediante
-     * `new Date(...).toISOString()`.
-     *
-     * PostgreSQL puede almacenar microsegundos mientras que
-     * JavaScript Date trabaja con milisegundos. Si lo
-     * convertimos perderíamos precisión y posteriormente:
-     *
-     * .eq("updated_at", version)
-     *
-     * podría no encontrar la fila aunque nadie hubiera
-     * modificado realmente la edición.
-     *
-     * Por eso conservamos exactamente el timestamp enviado
-     * originalmente por Supabase.
+     * Se conserva exactamente el timestamp de PostgreSQL.
+     * No usar Date.toISOString() aquí porque podría perder
+     * los microsegundos utilizados para el control de concurrencia.
      */
     return version;
 }
 
 // ============================================================
-// RESPUESTA DEL ASISTENTE
+// PREPARAR EDICIÓN
 // ============================================================
 
 function prepararEdicionFormulario(
@@ -2523,7 +2812,7 @@ function prepararEdicionFormulario(
 
             estado:
                 estadoParaFrontend(
-                    edicion.estado
+                    edicion.estado,
                 ),
 
             sede:
@@ -2558,7 +2847,7 @@ function prepararEdicionFormulario(
             competicion:
                 esRegistro(
                     configuracion
-                        ?.competicion
+                        ?.competicion,
                 )
                     ? configuracion
                           .competicion
@@ -2568,10 +2857,6 @@ function prepararEdicionFormulario(
         created_at:
             edicion.created_at,
 
-        /*
-         * Se devuelve exactamente el valor almacenado en
-         * PostgreSQL para conservar toda la precisión.
-         */
         updated_at:
             edicion.updated_at,
     };
@@ -2591,13 +2876,13 @@ export const GET:
             const usuario =
                 await exigirUsuario(
                     cookies.get(
-                        "token_sesion"
-                    )?.value
+                        "token_sesion",
+                    )?.value,
                 );
 
             const vista =
                 url.searchParams.get(
-                    "vista"
+                    "vista",
                 ) ??
                 "";
 
@@ -2609,27 +2894,27 @@ export const GET:
             ) {
                 throw new ErrorAPI(
                     400,
-                    "La vista sol·licitada no és vàlida."
+                    "La vista sol·licitada no és vàlida.",
                 );
             }
 
             const torneoID =
                 leerID(
                     url.searchParams.get(
-                        "torneoID"
+                        "torneoID",
                     ),
-                    "torneoID"
+                    "torneoID",
                 );
 
             const torneo =
                 await obtenerTorneo(
-                    torneoID
+                    torneoID,
                 );
 
             exigirAccesoTorneo(
                 usuario,
                 torneoID,
-                "ver"
+                "ver",
             );
 
             // =================================================
@@ -2646,14 +2931,14 @@ export const GET:
                 } =
                     await supabaseAdmin
                         .from(
-                            TABLA_EDICIONES
+                            TABLA_EDICIONES,
                         )
                         .select(
-                            CAMPOS_EDICION
+                            CAMPOS_EDICION,
                         )
                         .eq(
                             "torneo_id",
-                            torneoID
+                            torneoID,
                         )
                         .order(
                             "fecha_inicio",
@@ -2663,7 +2948,7 @@ export const GET:
 
                                 nullsFirst:
                                     false,
-                            }
+                            },
                         )
                         .order(
                             "created_at",
@@ -2673,7 +2958,7 @@ export const GET:
 
                                 nullsFirst:
                                     false,
-                            }
+                            },
                         );
 
                 if (
@@ -2689,7 +2974,7 @@ export const GET:
                     ).map(
                         (
                             edicion:
-                                EdicionDB
+                                EdicionDB,
                         ) => ({
                             id:
                                 edicion.id,
@@ -2709,7 +2994,7 @@ export const GET:
 
                             estado:
                                 estadoParaFrontend(
-                                    edicion.estado
+                                    edicion.estado,
                                 ),
 
                             sede:
@@ -2726,7 +3011,7 @@ export const GET:
                                     usuario,
                                     "edicions",
                                     "editar",
-                                    torneoID
+                                    torneoID,
                                 ),
 
                             puedeEliminar:
@@ -2734,9 +3019,9 @@ export const GET:
                                     usuario,
                                     "edicions",
                                     "eliminar",
-                                    torneoID
+                                    torneoID,
                                 ),
-                        })
+                        }),
                     );
 
                 return responder({
@@ -2752,7 +3037,7 @@ export const GET:
                             usuario,
                             "edicions",
                             "crear",
-                            torneoID
+                            torneoID,
                         ),
                 });
             }
@@ -2763,7 +3048,7 @@ export const GET:
 
             const edicionParametro =
                 url.searchParams.get(
-                    "edicionID"
+                    "edicionID",
                 );
 
             let edicionFormulario:
@@ -2779,7 +3064,7 @@ export const GET:
                 const edicionID =
                     leerID(
                         edicionParametro,
-                        "edicionID"
+                        "edicionID",
                     );
 
                 const [
@@ -2789,20 +3074,23 @@ export const GET:
                     await Promise.all([
                         obtenerEdicion(
                             edicionID,
-                            torneoID
+                            torneoID,
                         ),
 
                         obtenerConfiguracion(
-                            edicionID
+                            edicionID,
                         ),
                     ]);
 
                 edicionFormulario =
                     prepararEdicionFormulario(
                         edicion,
-                        configuracion
+                        configuracion,
                     );
             }
+
+            const cursosPlataforma =
+                await obtenerCursosPlataforma();
 
             return responder({
                 success:
@@ -2813,13 +3101,21 @@ export const GET:
                 edicion:
                     edicionFormulario,
 
+                cursoAcademicoPlataforma:
+                    cursosPlataforma
+                        .cursoAcademico,
+
+                cursosPlataforma:
+                    cursosPlataforma
+                        .cursos,
+
                 capacidades: {
                     crear:
                         tienePermiso(
                             usuario,
                             "edicions",
                             "crear",
-                            torneoID
+                            torneoID,
                         ),
 
                     editar:
@@ -2827,7 +3123,7 @@ export const GET:
                             usuario,
                             "edicions",
                             "editar",
-                            torneoID
+                            torneoID,
                         ),
 
                     eliminar:
@@ -2835,7 +3131,7 @@ export const GET:
                             usuario,
                             "edicions",
                             "eliminar",
-                            torneoID
+                            torneoID,
                         ),
                 },
             });
@@ -2843,7 +3139,7 @@ export const GET:
             error
         ) {
             return responderError(
-                error
+                error,
             );
         }
     };
@@ -2866,13 +3162,13 @@ export const POST:
             const usuario =
                 await exigirUsuario(
                     cookies.get(
-                        "token_sesion"
-                    )?.value
+                        "token_sesion",
+                    )?.value,
                 );
 
             const cuerpo =
                 await leerJSON(
-                    request
+                    request,
                 );
 
             comprobarClaves(
@@ -2883,7 +3179,7 @@ export const POST:
                     "edicionID",
                     "updated_at",
                     "datos",
-                ]
+                ],
             );
 
             if (
@@ -2892,24 +3188,24 @@ export const POST:
             ) {
                 throw new ErrorAPI(
                     400,
-                    "L'acció indicada no és vàlida."
+                    "L'acció indicada no és vàlida.",
                 );
             }
 
             const torneoID =
                 leerID(
                     cuerpo.torneoID,
-                    "torneoID"
+                    "torneoID",
                 );
 
             await obtenerTorneo(
-                torneoID
+                torneoID,
             );
 
             exigirAccesoTorneo(
                 usuario,
                 torneoID,
-                "crear"
+                "crear",
             );
 
             const {
@@ -2917,16 +3213,12 @@ export const POST:
                 configuracion,
             } =
                 leerDatos(
-                    cuerpo
+                    cuerpo,
                 );
 
             const ahora =
                 new Date()
                     .toISOString();
-
-            // =================================================
-            // CREAR EDICIÓN
-            // =================================================
 
             const {
                 data:
@@ -2936,7 +3228,7 @@ export const POST:
             } =
                 await supabaseAdmin
                     .from(
-                        TABLA_EDICIONES
+                        TABLA_EDICIONES,
                     )
                     .insert({
                         torneo_id:
@@ -2964,7 +3256,7 @@ export const POST:
                             ahora,
                     })
                     .select(
-                        CAMPOS_EDICION
+                        CAMPOS_EDICION,
                     )
                     .single();
 
@@ -2977,17 +3269,13 @@ export const POST:
             edicionCreadaID =
                 edicionCreada.id;
 
-            // =================================================
-            // CREAR CONFIGURACIÓN
-            // =================================================
-
             const {
                 error:
                     errorConfiguracion,
             } =
                 await supabaseAdmin
                     .from(
-                        TABLA_CONFIGURACION
+                        TABLA_CONFIGURACION,
                     )
                     .insert({
                         edicion_id:
@@ -3024,12 +3312,12 @@ export const POST:
                 } =
                     await supabaseAdmin
                         .from(
-                            TABLA_EDICIONES
+                            TABLA_EDICIONES,
                         )
                         .delete()
                         .eq(
                             "id",
-                            edicionCreada.id
+                            edicionCreada.id,
                         );
 
                 if (
@@ -3037,7 +3325,7 @@ export const POST:
                 ) {
                     console.error(
                         "No s'ha pogut revertir la creació de l'edició:",
-                        errorRollback
+                        errorRollback,
                     );
                 }
 
@@ -3058,7 +3346,7 @@ export const POST:
                     updated_at:
                         edicionCreada.updated_at,
                 },
-                201
+                201,
             );
         } catch (
             error
@@ -3068,12 +3356,12 @@ export const POST:
             ) {
                 console.error(
                     "La creació de l'edició ha fallat després de crear:",
-                    edicionCreadaID
+                    edicionCreadaID,
                 );
             }
 
             return responderError(
-                error
+                error,
             );
         }
     };
@@ -3092,13 +3380,13 @@ export const PATCH:
             const usuario =
                 await exigirUsuario(
                     cookies.get(
-                        "token_sesion"
-                    )?.value
+                        "token_sesion",
+                    )?.value,
                 );
 
             const cuerpo =
                 await leerJSON(
-                    request
+                    request,
                 );
 
             comprobarClaves(
@@ -3109,7 +3397,7 @@ export const PATCH:
                     "edicionID",
                     "updated_at",
                     "datos",
-                ]
+                ],
             );
 
             if (
@@ -3118,61 +3406,51 @@ export const PATCH:
             ) {
                 throw new ErrorAPI(
                     400,
-                    "L'acció indicada no és vàlida."
+                    "L'acció indicada no és vàlida.",
                 );
             }
 
             const torneoID =
                 leerID(
                     cuerpo.torneoID,
-                    "torneoID"
+                    "torneoID",
                 );
 
             const edicionID =
                 leerID(
                     cuerpo.edicionID,
-                    "edicionID"
+                    "edicionID",
                 );
 
             await obtenerTorneo(
-                torneoID
+                torneoID,
             );
 
             exigirAccesoTorneo(
                 usuario,
                 torneoID,
-                "editar"
+                "editar",
             );
-
-            // =================================================
-            // DATOS ACTUALES
-            // =================================================
 
             const edicionAnterior =
                 await obtenerEdicion(
                     edicionID,
-                    torneoID
+                    torneoID,
                 );
 
             const configuracionAnterior =
                 await obtenerConfiguracion(
-                    edicionID
+                    edicionID,
                 );
 
             const version =
                 leerVersion(
-                    cuerpo
+                    cuerpo,
                 );
 
-            /*
-             * IMPORTANTE:
-             *
-             * No convertimos updated_at con Date.toISOString().
-             * Se compara exactamente el timestamp recibido
-             * originalmente desde Supabase.
-             */
             const versionActual =
-                edicionAnterior.updated_at;
+                edicionAnterior
+                    .updated_at;
 
             if (
                 versionActual !==
@@ -3180,7 +3458,7 @@ export const PATCH:
             ) {
                 throw new ErrorAPI(
                     409,
-                    "Aquesta edició ha estat modificada per una altra persona. Torna a carregar-la abans de continuar."
+                    "Aquesta edició ha estat modificada per una altra persona. Torna a carregar-la abans de continuar.",
                 );
             }
 
@@ -3189,21 +3467,17 @@ export const PATCH:
                 configuracion,
             } =
                 leerDatos(
-                    cuerpo
+                    cuerpo,
                 );
 
             const ahora =
                 new Date()
                     .toISOString();
 
-            // =================================================
-            // ACTUALIZAR EDICIÓN CON CONTROL DE CONCURRENCIA
-            // =================================================
-
             let actualizacion =
                 supabaseAdmin
                     .from(
-                        TABLA_EDICIONES
+                        TABLA_EDICIONES,
                     )
                     .update({
                         nombre:
@@ -3226,11 +3500,11 @@ export const PATCH:
                     })
                     .eq(
                         "id",
-                        edicionID
+                        edicionID,
                     )
                     .eq(
                         "torneo_id",
-                        torneoID
+                        torneoID,
                     );
 
             if (
@@ -3240,17 +3514,13 @@ export const PATCH:
                 actualizacion =
                     actualizacion.is(
                         "updated_at",
-                        null
+                        null,
                     );
             } else {
-                /*
-                 * El valor conserva la precisión original de
-                 * PostgreSQL, incluidos sus microsegundos.
-                 */
                 actualizacion =
                     actualizacion.eq(
                         "updated_at",
-                        version
+                        version,
                     );
             }
 
@@ -3262,7 +3532,7 @@ export const PATCH:
             } =
                 await actualizacion
                     .select(
-                        CAMPOS_EDICION
+                        CAMPOS_EDICION,
                     )
                     .maybeSingle();
 
@@ -3275,20 +3545,11 @@ export const PATCH:
             if (
                 !edicionActualizada
             ) {
-                /*
-                 * Si llegamos aquí significa que alguien
-                 * modificó updated_at entre la lectura previa
-                 * y este UPDATE.
-                 */
                 throw new ErrorAPI(
                     409,
-                    "Aquesta edició ha canviat mentre l'estaves editant. Torna a carregar-la."
+                    "Aquesta edició ha canviat mentre l'estaves editant. Torna a carregar-la.",
                 );
             }
-
-            // =================================================
-            // ACTUALIZAR / CREAR CONFIGURACIÓN
-            // =================================================
 
             try {
                 if (
@@ -3302,7 +3563,7 @@ export const PATCH:
                     } =
                         await supabaseAdmin
                             .from(
-                                TABLA_CONFIGURACION
+                                TABLA_CONFIGURACION,
                             )
                             .update({
                                 equipos:
@@ -3325,10 +3586,10 @@ export const PATCH:
                             })
                             .eq(
                                 "edicion_id",
-                                edicionID
+                                edicionID,
                             )
                             .select(
-                                "edicion_id"
+                                "edicion_id",
                             )
                             .maybeSingle();
 
@@ -3342,22 +3603,17 @@ export const PATCH:
                         !configuracionActualizada
                     ) {
                         throw new Error(
-                            "La configuració de l'edició ha desaparegut durant l'actualització."
+                            "La configuració de l'edició ha desaparegut durant l'actualització.",
                         );
                     }
                 } else {
-                    /*
-                     * Compatibilidad con ediciones antiguas que
-                     * todavía no tengan una fila en
-                     * configuracion_ediciones.
-                     */
                     const {
                         error:
                             errorConfiguracion,
                     } =
                         await supabaseAdmin
                             .from(
-                                TABLA_CONFIGURACION
+                                TABLA_CONFIGURACION,
                             )
                             .insert({
                                 edicion_id:
@@ -3394,24 +3650,13 @@ export const PATCH:
             } catch (
                 errorConfiguracion
             ) {
-                // =============================================
-                // ROLLBACK DE DATOS GENERALES
-                // =============================================
-
-                /*
-                 * Solo revertimos si updated_at sigue siendo
-                 * exactamente el que acabamos de escribir.
-                 *
-                 * Así evitamos sobrescribir una modificación
-                 * posterior realizada por otra petición.
-                 */
                 const {
                     error:
                         errorRollback,
                 } =
                     await supabaseAdmin
                         .from(
-                            TABLA_EDICIONES
+                            TABLA_EDICIONES,
                         )
                         .update({
                             nombre:
@@ -3434,11 +3679,11 @@ export const PATCH:
                         })
                         .eq(
                             "id",
-                            edicionID
+                            edicionID,
                         )
                         .eq(
                             "updated_at",
-                            ahora
+                            ahora,
                         );
 
                 if (
@@ -3446,7 +3691,7 @@ export const PATCH:
                 ) {
                     console.error(
                         "No s'ha pogut revertir l'edició després d'un error de configuració:",
-                        errorRollback
+                        errorRollback,
                     );
                 }
 
@@ -3461,13 +3706,14 @@ export const PATCH:
                     edicionID,
 
                 updated_at:
-                    edicionActualizada.updated_at,
+                    edicionActualizada
+                        .updated_at,
             });
         } catch (
             error
         ) {
             return responderError(
-                error
+                error,
             );
         }
     };

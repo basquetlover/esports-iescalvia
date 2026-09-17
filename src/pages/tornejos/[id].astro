@@ -2,7 +2,9 @@
 import Layout from "@layouts/Layout.astro";
 
 import Resum from "@components/tornejos/seccions/Resum.astro";
+import Informacio from "@components/tornejos/seccions/Informacio.astro";
 import Inscripcio from "@components/tornejos/seccions/Inscripcio.astro";
+import Voluntariat from "@components/tornejos/seccions/Voluntariat.astro";
 
 import {
     supabaseAdmin,
@@ -77,7 +79,9 @@ type ConfiguracionEdicion = {
 
 type SeccionID =
     | "resum"
-    | "inscripcio";
+    | "informacio"
+    | "inscripcio"
+    | "voluntariat";
 
 // ============================================================
 // HELPERS
@@ -100,6 +104,10 @@ function esRegistro(
         )
     );
 }
+
+// ============================================================
+// INSCRIPCIÓN EQUIPOS
+// ============================================================
 
 function tieneConfiguracionInscripcion(
     valor:
@@ -172,6 +180,138 @@ function tieneConfiguracionInscripcion(
         staff
     );
 }
+
+// ============================================================
+// INFORMACIÓN
+// ============================================================
+
+function tieneInformacionPublica(
+    valor:
+        unknown,
+) {
+    if (
+        !esRegistro(
+            valor
+        ) ||
+        !Array.isArray(
+            valor.bloques
+        )
+    ) {
+        return false;
+    }
+
+    return valor.bloques.some(
+        bloque => {
+            if (
+                !esRegistro(
+                    bloque
+                )
+            ) {
+                return false;
+            }
+
+            return (
+                typeof bloque.title ===
+                    "string" &&
+                Boolean(
+                    bloque.title.trim()
+                ) &&
+                typeof bloque.body ===
+                    "string" &&
+                Boolean(
+                    bloque.body.trim()
+                )
+            );
+        }
+    );
+}
+
+// ============================================================
+// VOLUNTARIADO
+// ============================================================
+
+function tieneConfiguracionVoluntariado(
+    valor:
+        unknown,
+) {
+    if (
+        !esRegistro(
+            valor
+        )
+    ) {
+        return false;
+    }
+
+    const cupo =
+        esRegistro(
+            valor.cupo
+        )
+            ? valor.cupo
+            : {};
+
+    const maximo =
+        cupo.maximo;
+
+    /*
+     * Si se configura explícitamente 0 voluntarios,
+     * la sección pública desaparece completamente.
+     */
+    if (
+        typeof maximo ===
+            "number" &&
+        Number.isFinite(
+            maximo
+        ) &&
+        maximo <=
+            0
+    ) {
+        return false;
+    }
+
+    const tieneRolesActivos =
+        Array.isArray(
+            valor.tipos
+        ) &&
+        valor.tipos.some(
+            tipo => {
+                if (
+                    !esRegistro(
+                        tipo
+                    )
+                ) {
+                    return false;
+                }
+
+                return (
+                    tipo.activo !==
+                        false &&
+                    typeof tipo.nombre ===
+                        "string" &&
+                    Boolean(
+                        tipo.nombre.trim()
+                    )
+                );
+            }
+        );
+
+    const tieneCupoPositivo =
+        typeof maximo ===
+            "number" &&
+        Number.isFinite(
+            maximo
+        ) &&
+        maximo >
+            0;
+
+    return (
+        tieneRolesActivos ||
+        tieneCupoPositivo
+    );
+}
+
+// ============================================================
+// EDICIONES PÚBLICAS
+// ============================================================
 
 function estadoPublico(
     estado:
@@ -257,7 +397,7 @@ function tiempoFecha(
 }
 
 // ============================================================
-// ID
+// ID TORNEO
 // ============================================================
 
 const torneoID =
@@ -540,8 +680,17 @@ if (
 }
 
 // ============================================================
-// SECCIONES
+// SECCIONES DISPONIBLES
 // ============================================================
+
+const mostrarInformacion =
+    Boolean(
+        edicion
+    ) &&
+    tieneInformacionPublica(
+        configuracion
+            ?.informacion
+    );
 
 const mostrarInscripcion =
     Boolean(
@@ -551,6 +700,19 @@ const mostrarInscripcion =
         configuracion
             ?.equipos
     );
+
+const mostrarVoluntariado =
+    Boolean(
+        edicion
+    ) &&
+    tieneConfiguracionVoluntariado(
+        configuracion
+            ?.voluntarios
+    );
+
+// ============================================================
+// SECCIÓN ACTIVA
+// ============================================================
 
 const parametroSeccion =
     Astro.url
@@ -565,11 +727,29 @@ let seccionActiva:
 
 if (
     parametroSeccion ===
+        "informacio" &&
+    mostrarInformacion
+) {
+    seccionActiva =
+        "informacio";
+}
+
+if (
+    parametroSeccion ===
         "inscripcio" &&
     mostrarInscripcion
 ) {
     seccionActiva =
         "inscripcio";
+}
+
+if (
+    parametroSeccion ===
+        "voluntariat" &&
+    mostrarVoluntariado
+) {
+    seccionActiva =
+        "voluntariat";
 }
 
 // ============================================================
@@ -593,147 +773,49 @@ const descripcionPagina =
     title={tituloPagina}
     description={descripcionPagina}
 >
-    <main
-        class="
-            min-h-screen
-            bg-background
-        "
-    >
+    <main class="min-h-screen bg-background">
+
         <!-- =================================================
             HERO
         ================================================== -->
 
-        <section
-            class="
-                relative
-                min-h-screen
-                w-full
-                overflow-hidden
-                bg-card
-            "
-        >
+        <section class="relative min-h-screen w-full overflow-hidden bg-card">
             {
                 torneo.banner ? (
                     <img
                         src={torneo.banner}
                         alt=""
                         aria-hidden="true"
-                        class="
-                            absolute
-                            inset-0
-                            h-full
-                            w-full
-                            object-cover
-                        "
+                        class="absolute inset-0 h-full w-full object-cover"
                     />
                 ) : (
-                    <div
-                        class="
-                            absolute
-                            inset-0
-                            bg-primary/10
-                        "
-                    ></div>
+                    <div class="absolute inset-0 bg-primary/10"></div>
                 )
             }
 
-            <div
-                class="
-                    absolute
-                    inset-0
-                    bg-black/15
-                "
-            ></div>
+            <div class="absolute inset-0 bg-black/15"></div>
 
-            <div
-                class="
-                    absolute
-                    inset-0
-                    bg-gradient-to-t
-                    from-black/95
-                    via-black/25
-                    to-transparent
-                "
-            ></div>
+            <div class="absolute inset-0 bg-gradient-to-t from-black/95 via-black/25 to-transparent"></div>
 
-            <div
-                class="
-                    absolute
-                    inset-x-0
-                    bottom-0
-                    h-64
-                    bg-gradient-to-t
-                    from-black/60
-                    to-transparent
-                "
-            ></div>
+            <div class="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-black/60 to-transparent"></div>
 
-            <div
-                class="
-                    relative
-                    mx-auto
-                    flex
-                    min-h-screen
-                    w-full
-                    max-w-6xl
-                    flex-col
-                    justify-end
-                    px-4
-                    pb-14
-                    sm:px-6
-                    sm:pb-16
-                    lg:px-8
-                    lg:pb-20
-                "
-            >
-                <div
-                    class="
-                        max-w-4xl
-                    "
-                >
+            <div class="relative mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-end px-4 pb-14 sm:px-6 sm:pb-16 lg:px-8 lg:pb-20">
+                <div class="max-w-4xl">
                     {
                         torneo.deporte && (
-                            <p
-                                class="
-                                    mb-3
-                                    text-sm
-                                    font-semibold
-                                    uppercase
-                                    tracking-[0.2em]
-                                    text-white/75
-                                "
-                            >
+                            <p class="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-white/75">
                                 {torneo.deporte}
                             </p>
                         )
                     }
 
-                    <h1
-                        class="
-                            text-4xl
-                            font-bold
-                            leading-tight
-                            tracking-tight
-                            text-white
-                            sm:text-5xl
-                            lg:text-6xl
-                        "
-                    >
+                    <h1 class="text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl">
                         {torneo.nombre}
                     </h1>
 
                     {
-                        edicion
-                            ?.nombre && (
-                            <p
-                                class="
-                                    mt-3
-                                    text-lg
-                                    font-medium
-                                    text-white/90
-                                    sm:text-xl
-                                "
-                            >
+                        edicion?.nombre && (
+                            <p class="mt-3 text-lg font-medium text-white/90 sm:text-xl">
                                 {edicion.nombre}
                             </p>
                         )
@@ -741,16 +823,7 @@ const descripcionPagina =
 
                     {
                         torneo.descripcion && (
-                            <p
-                                class="
-                                    mt-5
-                                    max-w-3xl
-                                    text-base
-                                    leading-7
-                                    text-white/80
-                                    sm:text-lg
-                                "
-                            >
+                            <p class="mt-5 max-w-3xl text-base leading-7 text-white/80 sm:text-lg">
                                 {torneo.descripcion}
                             </p>
                         )
@@ -758,26 +831,10 @@ const descripcionPagina =
 
                     {
                         edicion && (
-                            <div
-                                class="
-                                    mt-7
-                                    flex
-                                    flex-wrap
-                                    gap-x-6
-                                    gap-y-3
-                                    text-sm
-                                    text-white/80
-                                "
-                            >
+                            <div class="mt-7 flex flex-wrap gap-x-6 gap-y-3 text-sm text-white/80">
                                 {
                                     edicion.sede && (
-                                        <span
-                                            class="
-                                                inline-flex
-                                                items-center
-                                                gap-2
-                                            "
-                                        >
+                                        <span class="inline-flex items-center gap-2">
                                             <svg
                                                 xmlns="http://www.w3.org/2000/svg"
                                                 viewBox="0 0 24 24"
@@ -786,11 +843,7 @@ const descripcionPagina =
                                                 stroke-width="1.8"
                                                 stroke-linecap="round"
                                                 stroke-linejoin="round"
-                                                class="
-                                                    h-4
-                                                    w-4
-                                                    shrink-0
-                                                "
+                                                class="h-4 w-4 shrink-0"
                                                 aria-hidden="true"
                                             >
                                                 <path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"></path>
@@ -809,13 +862,7 @@ const descripcionPagina =
 
                                 {
                                     edicion.fecha_inicio && (
-                                        <span
-                                            class="
-                                                inline-flex
-                                                items-center
-                                                gap-2
-                                            "
-                                        >
+                                        <span class="inline-flex items-center gap-2">
                                             <svg
                                                 xmlns="http://www.w3.org/2000/svg"
                                                 viewBox="0 0 24 24"
@@ -824,11 +871,7 @@ const descripcionPagina =
                                                 stroke-width="1.8"
                                                 stroke-linecap="round"
                                                 stroke-linejoin="round"
-                                                class="
-                                                    h-4
-                                                    w-4
-                                                    shrink-0
-                                                "
+                                                class="h-4 w-4 shrink-0"
                                                 aria-hidden="true"
                                             >
                                                 <rect
@@ -880,81 +923,62 @@ const descripcionPagina =
             edicion && (
                 <nav
                     aria-label="Seccions del torneig"
-                    class="
-                        sticky
-                        top-0
-                        z-30
-                        w-full
-                        border-b
-                        border-border
-                        bg-background/95
-                        backdrop-blur-md
-                    "
+                    class="sticky top-0 z-30 w-full border-b border-border bg-background/95 backdrop-blur-md"
                 >
-                    <div
-                        class="
-                            mx-auto
-                            flex
-                            w-full
-                            max-w-6xl
-                            overflow-x-auto
-                            px-4
-                            sm:px-6
-                            lg:px-8
-                        "
-                    >
+                    <div class="mx-auto flex w-full max-w-6xl overflow-x-auto px-4 sm:px-6 lg:px-8">
+
+                        <!-- RESUM -->
+
                         {
                             seccionActiva ===
                             "resum" ? (
                                 <a
                                     href={`/tornejos/${torneo.id}`}
                                     aria-current="page"
-                                    class="
-                                        relative
-                                        flex
-                                        min-h-14
-                                        shrink-0
-                                        items-center
-                                        px-4
-                                        text-sm
-                                        font-semibold
-                                        text-primary
-                                    "
+                                    class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-semibold text-primary"
                                 >
                                     Resum
 
-                                    <span
-                                        class="
-                                            absolute
-                                            inset-x-4
-                                            bottom-0
-                                            h-0.5
-                                            rounded-full
-                                            bg-primary
-                                        "
-                                    ></span>
+                                    <span class="absolute inset-x-4 bottom-0 h-0.5 rounded-full bg-primary"></span>
                                 </a>
                             ) : (
                                 <a
                                     href={`/tornejos/${torneo.id}`}
-                                    class="
-                                        relative
-                                        flex
-                                        min-h-14
-                                        shrink-0
-                                        items-center
-                                        px-4
-                                        text-sm
-                                        font-medium
-                                        text-neutral
-                                        transition
-                                        hover:text-neutral-titulos
-                                    "
+                                    class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-medium text-neutral transition hover:text-neutral-titulos"
                                 >
                                     Resum
                                 </a>
                             )
                         }
+
+                        <!-- INFORMACIÓ -->
+
+                        {
+                            mostrarInformacion &&
+                            (
+                                seccionActiva ===
+                                "informacio" ? (
+                                    <a
+                                        href={`/tornejos/${torneo.id}?seccio=informacio`}
+                                        aria-current="page"
+                                        class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-semibold text-primary"
+                                    >
+                                        Informació
+
+                                        <span class="absolute inset-x-4 bottom-0 h-0.5 rounded-full bg-primary"></span>
+                                    </a>
+                                ) : (
+                                    <a
+                                        href={`/tornejos/${torneo.id}?seccio=informacio`}
+                                        class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-medium text-neutral transition hover:text-neutral-titulos"
+                                    >
+                                        Informació
+                                    </a>
+                                )
+                            )
+                        }
+
+                        <!-- INSCRIPCIÓ -->
 
                         {
                             mostrarInscripcion &&
@@ -964,49 +988,45 @@ const descripcionPagina =
                                     <a
                                         href={`/tornejos/${torneo.id}?seccio=inscripcio`}
                                         aria-current="page"
-                                        class="
-                                            relative
-                                            flex
-                                            min-h-14
-                                            shrink-0
-                                            items-center
-                                            px-4
-                                            text-sm
-                                            font-semibold
-                                            text-primary
-                                        "
+                                        class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-semibold text-primary"
                                     >
                                         Inscripció
 
-                                        <span
-                                            class="
-                                                absolute
-                                                inset-x-4
-                                                bottom-0
-                                                h-0.5
-                                                rounded-full
-                                                bg-primary
-                                            "
-                                        ></span>
+                                        <span class="absolute inset-x-4 bottom-0 h-0.5 rounded-full bg-primary"></span>
                                     </a>
                                 ) : (
                                     <a
                                         href={`/tornejos/${torneo.id}?seccio=inscripcio`}
-                                        class="
-                                            relative
-                                            flex
-                                            min-h-14
-                                            shrink-0
-                                            items-center
-                                            px-4
-                                            text-sm
-                                            font-medium
-                                            text-neutral
-                                            transition
-                                            hover:text-neutral-titulos
-                                        "
+                                        class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-medium text-neutral transition hover:text-neutral-titulos"
                                     >
                                         Inscripció
+                                    </a>
+                                )
+                            )
+                        }
+
+                        <!-- VOLUNTARIAT -->
+
+                        {
+                            mostrarVoluntariado &&
+                            (
+                                seccionActiva ===
+                                "voluntariat" ? (
+                                    <a
+                                        href={`/tornejos/${torneo.id}?seccio=voluntariat`}
+                                        aria-current="page"
+                                        class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-semibold text-primary"
+                                    >
+                                        Voluntariat
+
+                                        <span class="absolute inset-x-4 bottom-0 h-0.5 rounded-full bg-primary"></span>
+                                    </a>
+                                ) : (
+                                    <a
+                                        href={`/tornejos/${torneo.id}?seccio=voluntariat`}
+                                        class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-medium text-neutral transition hover:text-neutral-titulos"
+                                    >
+                                        Voluntariat
                                     </a>
                                 )
                             )
@@ -1020,56 +1040,16 @@ const descripcionPagina =
             CONTENIDO
         ================================================== -->
 
-        <section
-            class="
-                min-h-[520px]
-                bg-background
-            "
-        >
+        <section class="min-h-[520px] bg-background">
             {
                 !edicion ? (
-                    <div
-                        class="
-                            mx-auto
-                            w-full
-                            max-w-6xl
-                            px-4
-                            py-16
-                            sm:px-6
-                            lg:px-8
-                        "
-                    >
-                        <div
-                            class="
-                                rounded-2xl
-                                border
-                                border-border
-                                bg-card/40
-                                px-6
-                                py-12
-                                text-center
-                            "
-                        >
-                            <h2
-                                class="
-                                    text-xl
-                                    font-semibold
-                                    text-neutral-titulos
-                                "
-                            >
+                    <div class="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
+                        <div class="rounded-2xl border border-border bg-card/40 px-6 py-12 text-center">
+                            <h2 class="text-xl font-semibold text-neutral-titulos">
                                 Encara no hi ha cap edició disponible
                             </h2>
 
-                            <p
-                                class="
-                                    mx-auto
-                                    mt-2
-                                    max-w-xl
-                                    text-sm
-                                    leading-6
-                                    text-neutral
-                                "
-                            >
+                            <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-neutral">
                                 Quan hi hagi una edició activa del torneig,
                                 la seva informació apareixerà aquí.
                             </p>
@@ -1077,6 +1057,9 @@ const descripcionPagina =
                     </div>
                 ) : (
                     <>
+
+                        <!-- RESUM -->
+
                         {
                             seccionActiva ===
                                 "resum" && (
@@ -1087,6 +1070,24 @@ const descripcionPagina =
                                 />
                             )
                         }
+
+                        <!-- INFORMACIÓ -->
+
+                        {
+                            seccionActiva ===
+                                "informacio" &&
+                            mostrarInformacion && (
+                                <Informacio
+                                    configuracion={
+                                        configuracion
+                                            ?.informacion ??
+                                        null
+                                    }
+                                />
+                            )
+                        }
+
+                        <!-- INSCRIPCIÓ -->
 
                         {
                             seccionActiva ===
@@ -1101,6 +1102,25 @@ const descripcionPagina =
                                     faq={
                                         configuracion
                                             ?.faq ??
+                                        null
+                                    }
+                                    banner={
+                                        torneo.banner
+                                    }
+                                />
+                            )
+                        }
+
+                        <!-- VOLUNTARIAT -->
+
+                        {
+                            seccionActiva ===
+                                "voluntariat" &&
+                            mostrarVoluntariado && (
+                                <Voluntariat
+                                    configuracion={
+                                        configuracion
+                                            ?.voluntarios ??
                                         null
                                     }
                                     banner={

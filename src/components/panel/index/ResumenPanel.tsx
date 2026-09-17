@@ -1,8 +1,19 @@
-import { useEffect, useState } from "react";
+import {
+    useEffect,
+    useState,
+} from "react";
+
 import EstadisticasPanel from "./EstadisticasPanel";
 import AccesosPanel from "./AccesosPanel";
 import TorneosPanel from "./TorneosPanel";
 import EdicionesPanel from "./EdicionesPanel";
+
+import TorneoSeleccionadoPanel from "./TorneoSeleccionadoPanel";
+import EdicionSeleccionadaPanel from "./EdicionSeleccionadaPanel";
+
+// ============================================================
+// TIPOS
+// ============================================================
 
 export type TorneoPanel = {
     id: string;
@@ -16,164 +27,441 @@ export type TorneoPanel = {
     updated_at: string | null;
 };
 
-export type TarjetaTorneoPanel = TorneoPanel & {
-    total_ediciones: number | null;
-    puedeEditar: boolean;
-    enlace: string;
-    enlace_info: string;
-};
+export type TarjetaTorneoPanel =
+    TorneoPanel & {
+        total_ediciones:
+            number | null;
+
+        puedeEditar:
+            boolean;
+
+        enlace:
+            string;
+
+        enlace_info:
+            string;
+    };
 
 export type EdicionPanel = {
     id: string;
-    torneo_id: string | null;
-    nombre: string | null;
-    fecha_inicio: string | null;
-    fecha_fin: string | null;
-    estado: string | null;
-    sede: string | null;
-    created_at: string | null;
-    updated_at: string | null;
-    torneo_nombre?: string | null;
+
+    torneo_id:
+        string | null;
+
+    nombre:
+        string | null;
+
+    fecha_inicio:
+        string | null;
+
+    fecha_fin:
+        string | null;
+
+    estado:
+        string | null;
+
+    sede:
+        string | null;
+
+    created_at:
+        string | null;
+
+    updated_at:
+        string | null;
+
+    torneo_nombre?:
+        string | null;
 };
 
 export type AccesoPanel = {
-    id: string;
-    nombre: string;
-    enlace: string;
-    seccion: string;
-    accion: string;
-    descripcion: string;
+    id:
+        string;
+
+    nombre:
+        string;
+
+    enlace:
+        string;
+
+    seccion:
+        string;
+
+    accion:
+        string;
+
+    descripcion:
+        string;
 };
 
 export type EstadisticasPanelDatos = {
-    torneos: number;
-    torneosActivos: number;
-    torneosInactivos: number;
-    torneosSinEstado: number;
-    ediciones: number | null;
-    edicionesBorrador: number | null;
-    edicionesActivas: number | null;
-    edicionesFinalizadas: number | null;
-    edicionesSinEstado: number | null;
-    edicionesOtrosEstados: number | null;
+    torneos:
+        number;
+
+    torneosActivos:
+        number;
+
+    torneosInactivos:
+        number;
+
+    torneosSinEstado:
+        number;
+
+    ediciones:
+        number | null;
+
+    edicionesBorrador:
+        number | null;
+
+    edicionesActivas:
+        number | null;
+
+    edicionesFinalizadas:
+        number | null;
+
+    edicionesSinEstado:
+        number | null;
+
+    edicionesOtrosEstados:
+        number | null;
+};
+
+export type ActualizacionPanel = {
+    id:
+        string;
+
+    tipo:
+        | "torneo"
+        | "edicion";
+
+    nombre:
+        string | null;
+
+    torneo_id:
+        string | null;
+
+    torneo_nombre:
+        string | null;
+
+    fecha:
+        string;
+};
+
+export type ActividadEdicionPanel = {
+    id:
+        string;
+
+    titulo:
+        string;
+
+    descripcion:
+        string;
+
+    fecha:
+        string;
+};
+
+export type ResumenEdicionPanel = {
+    equiposInscritos:
+        number | null;
+
+    voluntarios:
+        number | null;
+
+    participantes:
+        number | null;
+
+    partidos:
+        number | null;
+
+    formulariosCompletados:
+        number | null;
+
+    formulariosError:
+        number | null;
+
+    actividad:
+        ActividadEdicionPanel[];
 };
 
 type DatosPanel = {
-    modo: "general" | "torneo";
-    torneoSeleccionado: TorneoPanel | null;
-    edicionSeleccionada: EdicionPanel | null;
+    modo:
+        | "general"
+        | "torneo";
+
+    torneoSeleccionado:
+        TorneoPanel | null;
+
+    edicionSeleccionada:
+        EdicionPanel | null;
+
+    resumenEdicion:
+        ResumenEdicionPanel | null;
+
     permisos: {
-        verTorneos: boolean;
-        verEdiciones: boolean;
-        crearTorneo: boolean;
-        editarTorneo: boolean;
+        verTorneos:
+            boolean;
+
+        verEdiciones:
+            boolean;
+
+        crearTorneo:
+            boolean;
+
+        editarTorneo:
+            boolean;
+
+        crearEdicion:
+            boolean;
+
+        editarEdicion:
+            boolean;
     };
-    estadisticas: EstadisticasPanelDatos;
-    accesos: AccesoPanel[];
-    torneos: TarjetaTorneoPanel[];
-    ediciones: EdicionPanel[];
-    actualizaciones: {
-        id: string;
-        tipo: "torneo" | "edicion";
-        nombre: string | null;
-        torneo_id: string | null;
-        torneo_nombre: string | null;
-        fecha: string;
-    }[];
+
+    estadisticas:
+        EstadisticasPanelDatos;
+
+    accesos:
+        AccesoPanel[];
+
+    torneos:
+        TarjetaTorneoPanel[];
+
+    ediciones:
+        EdicionPanel[];
+
+    actualizaciones:
+        ActualizacionPanel[];
 };
+
+// ============================================================
+// FECHA
+// ============================================================
+
+function fechaHora(
+    valor: string,
+) {
+    return new Date(
+        valor,
+    ).toLocaleString(
+        "ca-ES",
+        {
+            day:
+                "2-digit",
+
+            month:
+                "short",
+
+            year:
+                "numeric",
+
+            hour:
+                "2-digit",
+
+            minute:
+                "2-digit",
+
+            timeZone:
+                "Europe/Madrid",
+        },
+    );
+}
+
+// ============================================================
+// COMPONENTE
+// ============================================================
 
 export default function ResumenPanel({
     torneoID,
-    edicionID
+    edicionID,
 }: {
-    torneoID: string | null;
-    edicionID: string | null;
+    torneoID:
+        string | null;
+
+    edicionID:
+        string | null;
 }) {
-    const [datos, setDatos] = useState<DatosPanel | null>(null);
-    const [cargando, setCargando] = useState(true);
-    const [error, setError] = useState("");
-    const [intento, setIntento] = useState(0);
+    const [
+        datos,
+        setDatos,
+    ] =
+        useState<
+            DatosPanel | null
+        >(
+            null,
+        );
 
-    useEffect(() => {
-        const controlador = new AbortController();
+    const [
+        cargando,
+        setCargando,
+    ] =
+        useState(
+            true,
+        );
 
-        setCargando(true);
-        setError("");
-        setDatos(null);
+    const [
+        error,
+        setError,
+    ] =
+        useState(
+            "",
+        );
 
-        async function cargarResumen() {
-            try {
-                const parametros = new URLSearchParams();
+    const [
+        intento,
+        setIntento,
+    ] =
+        useState(
+            0,
+        );
 
-                if (torneoID) {
-                    parametros.set("torneoID", torneoID);
-                }
+    // ========================================================
+    // CARGA
+    // ========================================================
 
-                if (torneoID && edicionID) {
-                    parametros.set("edicionID", edicionID);
-                }
+    useEffect(
+        () => {
+            const controlador =
+                new AbortController();
 
-                const respuesta = await fetch(
-                    `/api/panell${
-                        parametros.size
-                            ? `?${parametros.toString()}`
-                            : ""
-                    }`,
-                    {
-                        signal: controlador.signal,
-                        credentials: "same-origin",
-                        cache: "no-store"
+            setCargando(
+                true,
+            );
+
+            setError(
+                "",
+            );
+
+            setDatos(
+                null,
+            );
+
+            async function cargarResumen() {
+                try {
+                    const parametros =
+                        new URLSearchParams();
+
+                    if (
+                        torneoID
+                    ) {
+                        parametros.set(
+                            "torneoID",
+                            torneoID,
+                        );
                     }
-                );
 
-                const json = await respuesta.json();
+                    if (
+                        torneoID &&
+                        edicionID
+                    ) {
+                        parametros.set(
+                            "edicionID",
+                            edicionID,
+                        );
+                    }
 
-                if (!respuesta.ok) {
-                    throw new Error(
-                        json.mensaje ||
-                        "No s'ha pogut carregar el panell."
-                    );
-                }
+                    const respuesta =
+                        await fetch(
+                            `/api/panell${parametros.size ? `?${parametros.toString()}` : ""}`,
+                            {
+                                signal:
+                                    controlador.signal,
 
-                if (!json.data) {
-                    throw new Error(
-                        "La resposta del servidor no és vàlida."
-                    );
-                }
+                                credentials:
+                                    "same-origin",
 
-                if (!controlador.signal.aborted) {
-                    setDatos(json.data);
-                }
-            } catch (err) {
-                if (!controlador.signal.aborted) {
+                                cache:
+                                    "no-store",
+                            },
+                        );
+
+                    const json =
+                        await respuesta
+                            .json()
+                            .catch(
+                                () =>
+                                    null,
+                            );
+
+                    if (
+                        !respuesta.ok
+                    ) {
+                        throw new Error(
+                            json?.mensaje ??
+                                "No s'ha pogut carregar el panell.",
+                        );
+                    }
+
+                    if (
+                        !json?.data
+                    ) {
+                        throw new Error(
+                            "La resposta del servidor no és vàlida.",
+                        );
+                    }
+
+                    if (
+                        !controlador
+                            .signal
+                            .aborted
+                    ) {
+                        setDatos(
+                            json.data,
+                        );
+                    }
+                } catch (
+                    err
+                ) {
+                    if (
+                        controlador
+                            .signal
+                            .aborted
+                    ) {
+                        return;
+                    }
+
                     setError(
-                        err instanceof Error
+                        err instanceof
+                            Error
                             ? err.message
-                            : "No s'ha pogut carregar el panell."
+                            : "No s'ha pogut carregar el panell.",
                     );
-                }
-            } finally {
-                if (!controlador.signal.aborted) {
-                    setCargando(false);
+                } finally {
+                    if (
+                        !controlador
+                            .signal
+                            .aborted
+                    ) {
+                        setCargando(
+                            false,
+                        );
+                    }
                 }
             }
-        }
 
-        cargarResumen();
+            void cargarResumen();
 
-        return () => controlador.abort();
-    }, [torneoID, edicionID, intento]);
+            return () =>
+                controlador.abort();
+        },
+        [
+            torneoID,
+            edicionID,
+            intento,
+        ],
+    );
 
-    if (cargando) {
+    // ========================================================
+    // CARGANDO
+    // ========================================================
+
+    if (
+        cargando
+    ) {
         return (
-            <div
-                className="w-full p-4 md:p-6 space-y-6"
-                role="status"
-                aria-live="polite"
-                aria-busy="true"
-            >
+            <div className="w-full space-y-6 p-4 md:p-6" role="status" aria-live="polite" aria-busy="true">
+
                 <div>
-                    <h1 className="text-3xl max-md:text-2xl font-bold text-neutral-titulos">
+                    <h1 className="text-3xl font-bold text-neutral-titulos max-md:text-2xl">
                         Panell d'administració
                     </h1>
 
@@ -182,249 +470,286 @@ export default function ResumenPanel({
                     </p>
                 </div>
 
-                <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-                    {[0, 1, 2, 3].map(elemento => (
-                        <div
-                            key={elemento}
-                            className="h-28 rounded-lg bg-card border border-border animate-pulse"
-                            aria-hidden="true"
-                        />
-                    ))}
+                <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+                    {[0, 1, 2, 3].map(
+                        numero => (
+                            <div key={numero} className="h-28 animate-pulse rounded-lg border border-border bg-card" />
+                        ),
+                    )}
                 </div>
 
-                <div
-                    className="h-64 rounded-lg bg-card border border-border animate-pulse"
-                    aria-hidden="true"
-                />
+                <div className="h-64 animate-pulse rounded-lg border border-border bg-card" />
+
             </div>
         );
     }
 
-    if (error || !datos) {
+    // ========================================================
+    // ERROR
+    // ========================================================
+
+    if (
+        error ||
+        !datos
+    ) {
         return (
             <div className="w-full p-4 md:p-6">
-                <h1 className="text-3xl max-md:text-2xl font-bold text-neutral-titulos">
+
+                <h1 className="text-3xl font-bold text-neutral-titulos max-md:text-2xl">
                     Panell d'administració
                 </h1>
 
                 <div className="mt-6 rounded-lg border border-error bg-error-container/20 p-4">
-                    <p className="text-error" role="alert">
+
+                    <p className="text-error">
                         {error || "No s'ha pogut carregar el panell."}
                     </p>
 
-                    <button
-                        type="button"
-                        onClick={() => setIntento(prev => prev + 1)}
-                        className="mt-4 rounded-lg border border-error px-4 py-2 text-error hover:bg-error-container/40"
-                    >
+                    <button type="button" onClick={() => setIntento(valor => valor + 1)} className="mt-4 rounded-lg border border-error px-4 py-2 text-error hover:bg-error-container/40">
                         Tornar-ho a intentar
                     </button>
+
                 </div>
+
             </div>
         );
     }
 
-    const torneo = datos.torneoSeleccionado;
-    const estadisticas = datos.estadisticas;
-
-    const avisos: string[] = [];
+    // ========================================================
+    // EDICIÓN
+    // ========================================================
 
     if (
-        datos.modo === "general" &&
-        datos.permisos.verTorneos &&
-        estadisticas.torneos === 0
+        datos.torneoSeleccionado &&
+        datos.edicionSeleccionada
     ) {
-        avisos.push("No tens cap torneig accessible.");
+        return (
+            <EdicionSeleccionadaPanel
+                torneo={datos.torneoSeleccionado}
+                edicion={datos.edicionSeleccionada}
+                resumen={datos.resumenEdicion ?? {
+                    equiposInscritos: null,
+                    voluntarios: null,
+                    participantes: null,
+                    partidos: null,
+                    formulariosCompletados: null,
+                    formulariosError: null,
+                    actividad: [],
+                }}
+                puedeEditar={datos.permisos.editarEdicion}
+            />
+        );
     }
 
-    if (torneo?.activo === false) {
-        avisos.push("Aquest torneig està marcat com a inactiu.");
-    }
-
-    if (torneo && torneo.activo === null) {
-        avisos.push("Aquest torneig encara no té definit l'estat.");
-    }
+    // ========================================================
+    // TORNEO
+    // ========================================================
 
     if (
-        datos.modo === "general" &&
-        estadisticas.torneosSinEstado > 0
+        datos.torneoSeleccionado
+    ) {
+        return (
+            <TorneoSeleccionadoPanel
+                torneo={
+                    datos.torneoSeleccionado
+                }
+                ediciones={
+                    datos.ediciones
+                }
+                actualizaciones={
+                    datos.actualizaciones
+                }
+                puedeCrearEdicion={
+                    datos.permisos.crearEdicion
+                }
+                puedeEditarTorneo={
+                    datos.permisos.editarTorneo
+                }
+            />
+        );
+    }
+
+    // ========================================================
+    // PANEL GENERAL
+    // ========================================================
+
+    const estadisticas =
+        datos.estadisticas;
+
+    const avisos:
+        string[] = [];
+
+    if (
+        datos.permisos
+            .verTorneos &&
+        estadisticas
+            .torneos ===
+            0
     ) {
         avisos.push(
-            `${estadisticas.torneosSinEstado} tornejos tenen l'estat pendent de definir.`
+            "No tens cap torneig accessible.",
         );
     }
 
     if (
-        datos.permisos.verEdiciones &&
-        estadisticas.ediciones === 0 &&
-        estadisticas.torneos > 0
+        estadisticas
+            .torneosSinEstado >
+        0
     ) {
         avisos.push(
-            torneo
-                ? "Aquest torneig encara no té edicions."
-                : "No hi ha edicions accessibles als teus tornejos."
+            `${estadisticas.torneosSinEstado} tornejos tenen l'estat pendent de definir.`,
         );
     }
 
-    if ((estadisticas.edicionesSinEstado ?? 0) > 0) {
+    if (
+        datos.permisos
+            .verEdiciones &&
+        estadisticas
+            .ediciones ===
+            0 &&
+        estadisticas
+            .torneos >
+            0
+    ) {
         avisos.push(
-            `${estadisticas.edicionesSinEstado} edicions no tenen estat.`
+            "No hi ha edicions accessibles als teus tornejos.",
         );
     }
 
-    if ((estadisticas.edicionesOtrosEstados ?? 0) > 0) {
+    if (
+        (
+            estadisticas
+                .edicionesSinEstado ??
+            0
+        ) >
+        0
+    ) {
         avisos.push(
-            `${estadisticas.edicionesOtrosEstados} edicions tenen un estat diferent dels previstos.`
+            `${estadisticas.edicionesSinEstado} edicions no tenen estat.`,
+        );
+    }
+
+    if (
+        (
+            estadisticas
+                .edicionesOtrosEstados ??
+            0
+        ) >
+        0
+    ) {
+        avisos.push(
+            `${estadisticas.edicionesOtrosEstados} edicions tenen un estat diferent dels previstos.`,
         );
     }
 
     return (
-        <div className="w-full min-w-0 p-4 md:p-6 space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="w-full min-w-0 space-y-6 p-4 md:p-6">
+
+            {/* CABECERA */}
+
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+
                 <div className="min-w-0">
-                    <h1 className="text-3xl max-md:text-2xl font-bold text-neutral-titulos wrap-break-words">
-                        {torneo
-                            ? torneo.nombre || "Torneig sense nom"
-                            : "Panell d'administració"}
+
+                    <h1 className="text-3xl font-bold text-neutral-titulos max-md:text-2xl">
+                        Panell d'administració
                     </h1>
 
                     <p className="mt-1 text-neutral">
-                        {torneo
-                            ? "Consulta el resum del torneig i gestiona les seves edicions."
-                            : "Gestiona els teus tornejos, consulta les actualitzacions recents i accedeix a les funcions principals de la plataforma."}
+                        Gestiona els teus tornejos, consulta les actualitzacions recents i accedeix a les funcions principals de la plataforma.
                     </p>
 
-                    {datos.edicionSeleccionada && (
-                        <p className="mt-2 text-sm text-neutral">
-                            Edició seleccionada:{" "}
-                            <span className="font-semibold text-neutral-titulos">
-                                {datos.edicionSeleccionada.nombre ||
-                                    "Edició sense nom"}
-                            </span>
-                            . Les estadístiques mostren tot el torneig.
-                        </p>
-                    )}
                 </div>
 
-                {torneo ? (
-                    <a
-                        href={`/panell/info/torneig?accio=${
-                            datos.permisos.editarTorneo ? "editar" : "ver"
-                        }&torneoID=${encodeURIComponent(torneo.id)}`}
-                        className="shrink-0 w-max rounded-lg bg-primary px-4 py-2 text-secondary-variant hover:bg-primary/80"
-                    >
-                        {datos.permisos.editarTorneo
-                            ? "Editar torneig"
-                            : "Veure informació"}
-                    </a>
-                ) : datos.permisos.crearTorneo ? (
-                    <a
-                        href="/panell/info/torneig?accio=crear"
-                        className="shrink-0 w-max rounded-lg bg-primary px-4 py-2 text-secondary-variant hover:bg-primary/80"
-                    >
+                {datos.permisos.crearTorneo && (
+                    <a href="/panell/info/torneig?accio=crear" className="w-max shrink-0 rounded-lg bg-primary px-4 py-2 text-white transition hover:bg-primary/80">
                         + Crear torneig
                     </a>
-                ) : null}
+                )}
+
             </div>
 
-            {torneo && (
-                <div className="rounded-lg border border-border bg-card p-4 flex items-start gap-4">
-                    {torneo.logo && (
-                        <img
-                            key={torneo.logo}
-                            src={torneo.logo}
-                            alt={`Logo de ${torneo.nombre || "torneig"}`}
-                            className="h-16 w-16 shrink-0 rounded-lg bg-background/40 object-contain p-1"
-                            onError={e => {
-                                e.currentTarget.style.display = "none";
-                            }}
-                        />
-                    )}
-
-                    <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-semibold text-neutral-titulos">
-                                {torneo.deporte || "Esport no definit"}
-                            </span>
-
-                            <span className="rounded bg-primary/15 px-2 py-1 text-xs text-neutral">
-                                {torneo.activo === true
-                                    ? "Actiu"
-                                    : torneo.activo === false
-                                      ? "Inactiu"
-                                      : "Sense estat"}
-                            </span>
-                        </div>
-
-                        <p className="mt-2 text-sm text-neutral whitespace-pre-line wrap-break-words">
-                            {torneo.descripcion?.trim() ||
-                                "Aquest torneig encara no té descripció."}
-                        </p>
-                    </div>
-                </div>
-            )}
-
             <EstadisticasPanel
-                modo={datos.modo}
-                estadisticas={datos.estadisticas}
-                verTorneos={datos.permisos.verTorneos}
-                verEdiciones={datos.permisos.verEdiciones}
+                modo="general"
+                estadisticas={
+                    datos.estadisticas
+                }
+                verTorneos={
+                    datos.permisos.verTorneos
+                }
+                verEdiciones={
+                    datos.permisos.verEdiciones
+                }
             />
 
-            <AccesosPanel accesos={datos.accesos} />
+            <AccesosPanel
+                accesos={
+                    datos.accesos
+                }
+            />
 
-            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px] gap-6 items-start">
+            <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
+
                 <div className="min-w-0 space-y-6">
-                    {datos.modo === "general" &&
-                        datos.permisos.verTorneos && (
-                            <TorneosPanel torneos={datos.torneos} />
-                        )}
+
+                    {datos.permisos.verTorneos && (
+                        <TorneosPanel
+                            torneos={
+                                datos.torneos
+                            }
+                        />
+                    )}
 
                     {datos.permisos.verEdiciones && (
                         <EdicionesPanel
-                            ediciones={datos.ediciones}
-                            torneoSeleccionado={Boolean(torneo)}
-                            edicionID={datos.edicionSeleccionada?.id ?? null}
+                            ediciones={
+                                datos.ediciones
+                            }
+                            torneoSeleccionado={
+                                false
+                            }
+                            edicionID={
+                                null
+                            }
                         />
                     )}
+
                 </div>
 
                 <aside className="min-w-0 space-y-6">
+
                     <section className="rounded-lg border border-border bg-card p-4">
+
                         <h2 className="font-semibold text-neutral-titulos">
                             Avisos del resum
                         </h2>
 
                         {avisos.length > 0 ? (
                             <ul className="mt-3 space-y-3">
-                                {avisos.map(aviso => (
-                                    <li
-                                        key={aviso}
-                                        className="flex items-start gap-2 text-sm text-neutral"
-                                    >
-                                        <span
-                                            className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-secondary"
-                                            aria-hidden="true"
-                                        />
-                                        <span>{aviso}</span>
-                                    </li>
-                                ))}
+
+                                {avisos.map(
+                                    aviso => (
+                                        <li key={aviso} className="flex items-start gap-2 text-sm text-neutral">
+                                            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-secondary" />
+                                            <span>{aviso}</span>
+                                        </li>
+                                    ),
+                                )}
+
                             </ul>
                         ) : (
                             <p className="mt-3 text-sm text-neutral">
                                 No hi ha avisos sobre les dades d'aquest resum.
                             </p>
                         )}
+
                     </section>
 
                     <section className="rounded-lg border border-border bg-card p-4">
+
                         <h2 className="font-semibold text-neutral-titulos">
                             Actualitzacions recents
                         </h2>
-
-                        <p className="mt-1 text-xs text-neutral">
-                            Segons la darrera data d'actualització registrada.
-                        </p>
 
                         {datos.actualizaciones.length === 0 ? (
                             <p className="mt-4 text-sm text-neutral">
@@ -432,56 +757,42 @@ export default function ResumenPanel({
                             </p>
                         ) : (
                             <ul className="mt-4 space-y-4">
-                                {datos.actualizaciones.map(elemento => (
-                                    <li
-                                        key={elemento.id}
-                                        className="flex items-start gap-3"
-                                    >
-                                        <span
-                                            className="mt-1 h-2 w-2 shrink-0 rounded-full bg-secondary"
-                                            aria-hidden="true"
-                                        />
 
-                                        <div className="min-w-0">
-                                            <p className="text-xs text-neutral">
-                                                {elemento.tipo === "torneo"
-                                                    ? "Torneig"
-                                                    : "Edició"}
-                                            </p>
+                                {datos.actualizaciones.map(
+                                    elemento => (
+                                        <li key={elemento.id} className="flex items-start gap-3">
 
-                                            <p className="text-sm font-semibold text-neutral-titulos wrap-break-words">
-                                                {elemento.nombre || "Sense nom"}
-                                            </p>
+                                            <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-secondary" />
 
-                                            {elemento.tipo === "edicion" && (
-                                                <p className="text-xs text-neutral wrap-break-words">
-                                                    {elemento.torneo_nombre ||
-                                                        "Torneig sense nom"}
+                                            <div className="min-w-0">
+
+                                                <p className="text-xs text-neutral">
+                                                    {elemento.tipo === "torneo" ? "Torneig" : "Edició"}
                                                 </p>
-                                            )}
 
-                                            <time
-                                                dateTime={elemento.fecha}
-                                                className="mt-1 block text-xs text-neutral"
-                                            >
-                                                {new Date(
-                                                    elemento.fecha
-                                                ).toLocaleString("ca-ES", {
-                                                    day: "2-digit",
-                                                    month: "short",
-                                                    year: "numeric",
-                                                    hour: "2-digit",
-                                                    minute: "2-digit"
-                                                })}
-                                            </time>
-                                        </div>
-                                    </li>
-                                ))}
+                                                <p className="text-sm font-semibold text-neutral-titulos">
+                                                    {elemento.nombre || "Sense nom"}
+                                                </p>
+
+                                                <time dateTime={elemento.fecha} className="mt-1 block text-xs text-neutral">
+                                                    {fechaHora(elemento.fecha)}
+                                                </time>
+
+                                            </div>
+
+                                        </li>
+                                    ),
+                                )}
+
                             </ul>
                         )}
+
                     </section>
+
                 </aside>
+
             </div>
+
         </div>
     );
 }
