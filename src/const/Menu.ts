@@ -22,7 +22,7 @@ export const MENU = [
     {
         nombre: 'Contacte',
         enlace: `/contacte`,
-        estado: 'Pròximament'
+        estado: 'Activa'
     },
     {
         nombre: 'Galeria',

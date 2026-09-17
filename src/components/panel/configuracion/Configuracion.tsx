@@ -27,7 +27,7 @@ interface ConfiguracionPlataforma {
     email_notificaciones_principal: string;
     email_notificaciones_secundario: string;
 
-    notificar_nuevo_usuario: boolean;
+    notificar_modificacion: boolean;
     notificar_nuevo_equipo: boolean;
     notificar_nuevo_voluntario: boolean;
     notificar_incidencias_formularios: boolean;
@@ -62,7 +62,7 @@ const CONFIGURACION_INICIAL: ConfiguracionPlataforma = {
     email_notificaciones_principal: "",
     email_notificaciones_secundario: "",
 
-    notificar_nuevo_usuario: true,
+    notificar_modificacion: true,
     notificar_nuevo_equipo: true,
     notificar_nuevo_voluntario: true,
     notificar_incidencias_formularios: true,
@@ -1332,14 +1332,14 @@ export default function Configuracion() {
 
                 <div className="mt-6 space-y-5 border-t border-border pt-5">
                     <FilaInterruptor
-                        titulo="Nou usuari registrat"
-                        descripcion="Enviar un avís quan es crea un nou compte d’usuari."
+                        titulo="Modificacións als formularis"
+                        descripcion="Enviar un avís quan es modifica un formulari."
                         activo={
-                            configuracion.notificar_nuevo_usuario
+                            configuracion.notificar_modificacion
                         }
                         onChange={(valor) =>
                             actualizar(
-                                "notificar_nuevo_usuario",
+                                "notificar_modificacion",
                                 valor,
                             )
                         }
@@ -1477,7 +1477,7 @@ export default function Configuracion() {
                 </div>
             </section>
 
-            <div className="sticky bottom-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card/95 p-3 shadow-lg backdrop-blur">
+            <div className=" bottom-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card/95 p-3 shadow-lg backdrop-blur">
                 <p className="text-xs">
                     {hayCambios
                         ? "Hi ha canvis pendents de guardar."

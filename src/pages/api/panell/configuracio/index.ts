@@ -22,7 +22,7 @@ const MAX_GRUPOS_POR_CURSO = 100;
  * Mantener como cadena literal para que Supabase
  * pueda inferir correctamente los campos seleccionados.
  */
-const CAMPOS = "id,curso_academico_actual,cursos,registros_habilitados,admin_mode,emails_registro_permitidos,dominios_registro_permitidos,email_notificaciones_principal,email_notificaciones_secundario,notificar_nuevo_usuario,notificar_nuevo_equipo,notificar_nuevo_voluntario,notificar_incidencias_formularios,horas_aviso_formulario_incompleto,mensaje_registro_cerrado,created_at,updated_at,updated_by";
+const CAMPOS = "id,curso_academico_actual,cursos,registros_habilitados,admin_mode,emails_registro_permitidos,dominios_registro_permitidos,email_notificaciones_principal,email_notificaciones_secundario,notificar_modificacion,notificar_nuevo_equipo,notificar_nuevo_voluntario,notificar_incidencias_formularios,horas_aviso_formulario_incompleto,mensaje_registro_cerrado,created_at,updated_at,updated_by";
 
 type Usuario = NonNullable<
     Awaited<ReturnType<typeof obtenerUsuarioPorToken>>
@@ -54,7 +54,7 @@ type ConfiguracionPlataforma = {
 
     email_notificaciones_secundario: string;
 
-    notificar_nuevo_usuario: boolean;
+    notificar_modificacion: boolean;
 
     notificar_nuevo_equipo: boolean;
 
@@ -96,7 +96,7 @@ const CONFIGURACION_DEFECTO: Omit<
 
     email_notificaciones_secundario: "",
 
-    notificar_nuevo_usuario: true,
+    notificar_modificacion: true,
 
     notificar_nuevo_equipo: true,
 
@@ -758,10 +758,10 @@ function leerConfiguracion(
                 "correu secundari de notificacions",
             ),
 
-        notificar_nuevo_usuario:
+        notificar_modificacion:
             leerBooleano(
                 cuerpo
-                    .notificar_nuevo_usuario,
+                    .notificar_modificacion,
                 "notificació de nou usuari",
             ),
 
@@ -988,9 +988,9 @@ function normalizarFila(
                       .email_notificaciones_secundario
                 : "",
 
-        notificar_nuevo_usuario:
+        notificar_modificacion:
             fila
-                .notificar_nuevo_usuario !==
+                .notificar_modificacion !==
             false,
 
         notificar_nuevo_equipo:
