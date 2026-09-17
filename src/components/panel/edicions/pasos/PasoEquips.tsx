@@ -22,7 +22,7 @@ type Props = {
 
     onCambiar: (
         valor:
-            ConfigEquipos
+            ConfigEquipos,
     ) => void;
 };
 
@@ -78,14 +78,16 @@ const COMPORTAMIENTOS_CUPO: {
 ];
 
 // ============================================================
-// HELPERS DE FECHA
+// FECHAS
 // ============================================================
 
 function fechaParaInput(
     valor:
-        string | null
+        string | null,
 ) {
-    if (!valor) {
+    if (
+        !valor
+    ) {
         return "";
     }
 
@@ -123,9 +125,11 @@ function fechaParaInput(
 
 function fechaDesdeInput(
     valor:
-        string
+        string,
 ): string | null {
-    if (!valor) {
+    if (
+        !valor
+    ) {
         return null;
     }
 
@@ -146,12 +150,12 @@ function fechaDesdeInput(
 }
 
 // ============================================================
-// HELPERS DE NÚMEROS
+// NÚMEROS
 // ============================================================
 
 function numeroNullable(
     valor:
-        string
+        string,
 ): number | null {
     if (
         valor.trim() ===
@@ -183,7 +187,7 @@ function numeroNullable(
 
 function numeroEntero(
     valor:
-        string
+        string,
 ): number {
     const numero =
         Number(
@@ -238,12 +242,12 @@ export default function PasoEquips({
         bloqueado;
 
     // ========================================================
-    // ACTUALIZAR
+    // APLICAR
     // ========================================================
 
     function aplicar(
         nuevo:
-            ConfigEquipos
+            ConfigEquipos,
     ) {
         if (
             deshabilitado
@@ -266,7 +270,7 @@ export default function PasoEquips({
             "cierre",
 
         nuevo:
-            string | null
+            string | null,
     ) {
         aplicar({
             ...valor,
@@ -286,7 +290,7 @@ export default function PasoEquips({
 
     function cambiarMaximoEquipos(
         maximo:
-            number | null
+            number | null,
     ) {
         aplicar({
             ...valor,
@@ -301,7 +305,7 @@ export default function PasoEquips({
 
     function cambiarComportamiento(
         al_superar:
-            ComportamientoCupo
+            ComportamientoCupo,
     ) {
         aplicar({
             ...valor,
@@ -324,7 +328,7 @@ export default function PasoEquips({
             "maximo",
 
         nuevo:
-            number | null
+            number | null,
     ) {
         aplicar({
             ...valor,
@@ -344,7 +348,7 @@ export default function PasoEquips({
 
     function cambiarGeneroActivo(
         activo:
-            boolean
+            boolean,
     ) {
         aplicar({
             ...valor,
@@ -363,7 +367,7 @@ export default function PasoEquips({
             "femenino",
 
         nuevo:
-            number
+            number,
     ) {
         aplicar({
             ...valor,
@@ -389,7 +393,7 @@ export default function PasoEquips({
 
     function cambiarProfesoresPermitidos(
         permitidos:
-            boolean
+            boolean,
     ) {
         aplicar({
             ...valor,
@@ -420,7 +424,7 @@ export default function PasoEquips({
             "maximo",
 
         nuevo:
-            number
+            number,
     ) {
         aplicar({
             ...valor,
@@ -436,7 +440,7 @@ export default function PasoEquips({
 
     function cambiarProfesoresCuentan(
         cuentan_como_jugador:
-            boolean
+            boolean,
     ) {
         aplicar({
             ...valor,
@@ -450,12 +454,31 @@ export default function PasoEquips({
     }
 
     // ========================================================
+    // ENTRENADOR
+    // ========================================================
+
+    function cambiarEntrenadorPermitido(
+        permitido:
+            boolean,
+    ) {
+        aplicar({
+            ...valor,
+
+            entrenador: {
+                ...valor.entrenador,
+
+                permitido,
+            },
+        });
+    }
+
+    // ========================================================
     // STAFF
     // ========================================================
 
     function cambiarStaffPermitido(
         permitido:
-            boolean
+            boolean,
     ) {
         aplicar({
             ...valor,
@@ -486,7 +509,7 @@ export default function PasoEquips({
             "maximo",
 
         nuevo:
-            number
+            number,
     ) {
         aplicar({
             ...valor,
@@ -611,31 +634,20 @@ export default function PasoEquips({
                         leading-6
                     "
                 >
-                    Defineix quan es poden inscriure els
-                    equips, quants participants poden
-                    tenir i les condicions de composició.
+                    Defineix quan es poden inscriure els equips,
+                    quants participants poden tenir i les
+                    condicions de composició.
                 </p>
             </header>
 
             {/* =================================================
-                PERIODO DE INSCRIPCIÓN
+                INSCRIPCIÓN
             ================================================= */}
 
-            <div
-                className="
-                    rounded-2xl
-                    border
-                    border-border
-                    bg-background
-                    p-5
-                "
+            <Bloque
+                titulo="Període d'inscripció"
+                descripcion="Indica durant quin període estarà disponible la inscripció d'equips."
             >
-                <CabeceraBloque
-                    titulo="Període d'inscripció"
-                    descripcion="Indica durant quin període estarà disponible el formulari d'inscripció d'equips."
-                    icono="calendari"
-                />
-
                 <div
                     className="
                         grid
@@ -664,11 +676,13 @@ export default function PasoEquips({
                             disabled={
                                 deshabilitado
                             }
-                            value={fechaParaInput(
-                                valor
-                                    .inscripcion
-                                    .apertura
-                            )}
+                            value={
+                                fechaParaInput(
+                                    valor
+                                        .inscripcion
+                                        .apertura
+                                )
+                            }
                             onChange={
                                 evento =>
                                     cambiarInscripcion(
@@ -704,19 +718,23 @@ export default function PasoEquips({
                         <input
                             id="equips-tancament"
                             type="datetime-local"
-                            min={fechaParaInput(
-                                valor
-                                    .inscripcion
-                                    .apertura
-                            )}
+                            min={
+                                fechaParaInput(
+                                    valor
+                                        .inscripcion
+                                        .apertura
+                                )
+                            }
                             disabled={
                                 deshabilitado
                             }
-                            value={fechaParaInput(
-                                valor
-                                    .inscripcion
-                                    .cierre
-                            )}
+                            value={
+                                fechaParaInput(
+                                    valor
+                                        .inscripcion
+                                        .cierre
+                                )
+                            }
                             onChange={
                                 evento =>
                                     cambiarInscripcion(
@@ -735,40 +753,16 @@ export default function PasoEquips({
                         />
                     </div>
                 </div>
-
-                <p
-                    className="
-                        mt-4
-                        text-xs
-                        leading-5
-                        text-neutral/70
-                    "
-                >
-                    Fora d'aquest període el formulari
-                    públic d'inscripció no estarà
-                    disponible.
-                </p>
-            </div>
+            </Bloque>
 
             {/* =================================================
                 CUPO
             ================================================= */}
 
-            <div
-                className="
-                    rounded-2xl
-                    border
-                    border-border
-                    bg-background
-                    p-5
-                "
+            <Bloque
+                titulo="Nombre d'equips"
+                descripcion="Configura el nombre màxim d'equips i què passa quan s'assoleix."
             >
-                <CabeceraBloque
-                    titulo="Nombre d'equips"
-                    descripcion="Defineix el nombre màxim previst i què ha de fer el sistema quan s'hi arribi."
-                    icono="grup"
-                />
-
                 <div
                     className="
                         max-w-xs
@@ -776,16 +770,16 @@ export default function PasoEquips({
                     "
                 >
                     <label
-                        htmlFor="equips-cupo"
+                        htmlFor="equips-maxim"
                         className={
                             etiqueta
                         }
                     >
-                        Màxim orientatiu
+                        Màxim d'equips
                     </label>
 
                     <input
-                        id="equips-cupo"
+                        id="equips-maxim"
                         type="number"
                         min={
                             0
@@ -793,7 +787,6 @@ export default function PasoEquips({
                         step={
                             1
                         }
-                        inputMode="numeric"
                         disabled={
                             deshabilitado
                         }
@@ -818,43 +811,20 @@ export default function PasoEquips({
                             campo
                         }
                     />
-
-                    <p
-                        className="
-                            text-xs
-                            text-neutral/70
-                        "
-                    >
-                        Deixa'l buit si no vols definir
-                        cap quantitat orientativa.
-                    </p>
                 </div>
 
                 <div
                     className="
-                        mt-6
+                        mt-5
+                        grid
+                        gap-3
+                        lg:grid-cols-3
                     "
                 >
-                    <p
-                        className={
-                            etiqueta
-                        }
-                    >
-                        Quan s'arribi al màxim
-                    </p>
-
-                    <div
-                        className="
-                            mt-3
-                            grid
-                            grid-cols-1
-                            gap-3
-                            lg:grid-cols-3
-                        "
-                    >
-                        {COMPORTAMIENTOS_CUPO.map(
+                    {
+                        COMPORTAMIENTOS_CUPO.map(
                             opcion => {
-                                const seleccionado =
+                                const activo =
                                     valor
                                         .cupo
                                         .al_superar ===
@@ -881,83 +851,55 @@ export default function PasoEquips({
                                             text-left
                                             transition
                                             disabled:cursor-not-allowed
-                                            disabled:opacity-60
+                                            disabled:opacity-50
 
                                             ${
-                                                seleccionado
+                                                activo
                                                     ? "border-primary bg-primary/10"
                                                     : "border-border bg-card hover:border-neutral/40"
                                             }
                                         `}
                                     >
-                                        <div
+                                        <p
                                             className="
-                                                flex
-                                                items-start
-                                                justify-between
-                                                gap-3
+                                                text-sm
+                                                font-semibold
+                                                text-neutral-titulos
                                             "
                                         >
-                                            <div>
-                                                <p
-                                                    className="
-                                                        text-sm
-                                                        font-semibold
-                                                        text-neutral-titulos
-                                                    "
-                                                >
-                                                    {
-                                                        opcion.nombre
-                                                    }
-                                                </p>
+                                            {
+                                                opcion.nombre
+                                            }
+                                        </p>
 
-                                                <p
-                                                    className="
-                                                        mt-1
-                                                        text-xs
-                                                        leading-5
-                                                        text-neutral
-                                                    "
-                                                >
-                                                    {
-                                                        opcion.descripcion
-                                                    }
-                                                </p>
-                                            </div>
-
-                                            <Selector
-                                                activo={
-                                                    seleccionado
-                                                }
-                                            />
-                                        </div>
+                                        <p
+                                            className="
+                                                mt-1
+                                                text-xs
+                                                leading-5
+                                                text-neutral
+                                            "
+                                        >
+                                            {
+                                                opcion.descripcion
+                                            }
+                                        </p>
                                     </button>
                                 );
                             }
-                        )}
-                    </div>
+                        )
+                    }
                 </div>
-            </div>
+            </Bloque>
 
             {/* =================================================
                 JUGADORES
             ================================================= */}
 
-            <div
-                className="
-                    rounded-2xl
-                    border
-                    border-border
-                    bg-background
-                    p-5
-                "
+            <Bloque
+                titulo="Jugadors"
+                descripcion="Defineix el nombre mínim i màxim de jugadors per equip."
             >
-                <CabeceraBloque
-                    titulo="Participants de l'equip"
-                    descripcion="Estableix quants jugadors ha de tenir cada equip per poder participar."
-                    icono="persona"
-                />
-
                 <div
                     className="
                         grid
@@ -978,7 +920,7 @@ export default function PasoEquips({
                                 etiqueta
                             }
                         >
-                            Mínim de jugadors
+                            Mínim
                         </label>
 
                         <input
@@ -990,7 +932,6 @@ export default function PasoEquips({
                             step={
                                 1
                             }
-                            inputMode="numeric"
                             disabled={
                                 deshabilitado
                             }
@@ -1012,7 +953,6 @@ export default function PasoEquips({
                                         )
                                     )
                             }
-                            placeholder="Ex: 6"
                             className={
                                 campo
                             }
@@ -1030,7 +970,7 @@ export default function PasoEquips({
                                 etiqueta
                             }
                         >
-                            Màxim de jugadors
+                            Màxim
                         </label>
 
                         <input
@@ -1042,7 +982,6 @@ export default function PasoEquips({
                             step={
                                 1
                             }
-                            inputMode="numeric"
                             disabled={
                                 deshabilitado
                             }
@@ -1064,34 +1003,22 @@ export default function PasoEquips({
                                         )
                                     )
                             }
-                            placeholder="Ex: 10"
                             className={
                                 campo
                             }
                         />
                     </div>
                 </div>
-            </div>
+            </Bloque>
 
             {/* =================================================
                 GÉNERO
             ================================================= */}
 
-            <div
-                className="
-                    rounded-2xl
-                    border
-                    border-border
-                    bg-background
-                    p-5
-                "
+            <Bloque
+                titulo="Composició per gènere"
+                descripcion="Pots exigir una composició mínima de nois i noies."
             >
-                <CabeceraBloque
-                    titulo="Composició per gènere"
-                    descripcion="Pots exigir una composició mínima de nois i noies dins de cada equip."
-                    icono="genero"
-                />
-
                 <Interruptor
                     activo={
                         valor
@@ -1101,153 +1028,142 @@ export default function PasoEquips({
                     disabled={
                         deshabilitado
                     }
-                    titulo="Establir mínims per gènere"
-                    descripcion="Activa aquesta opció si cada equip ha de complir una composició mínima."
+                    titulo="Activar composició mínima"
+                    descripcion="L'equip haurà de complir els mínims indicats."
                     onCambiar={
                         cambiarGeneroActivo
                     }
                 />
 
-                {valor
-                    .genero
-                    .activo && (
-                    <div
-                        className="
-                            mt-5
-                            grid
-                            max-w-2xl
-                            grid-cols-1
-                            gap-4
-                            border-t
-                            border-border
-                            pt-5
-                            sm:grid-cols-2
-                        "
-                    >
+                {
+                    valor
+                        .genero
+                        .activo && (
                         <div
                             className="
-                                space-y-2
+                                mt-5
+                                grid
+                                max-w-2xl
+                                grid-cols-1
+                                gap-4
+                                border-t
+                                border-border
+                                pt-5
+                                sm:grid-cols-2
                             "
                         >
-                            <label
-                                htmlFor="genero-masculino"
-                                className={
-                                    etiqueta
-                                }
+                            <div
+                                className="
+                                    space-y-2
+                                "
                             >
-                                Mínim de nois
-                            </label>
+                                <label
+                                    htmlFor="minim-nois"
+                                    className={
+                                        etiqueta
+                                    }
+                                >
+                                    Mínim de nois
+                                </label>
 
-                            <input
-                                id="genero-masculino"
-                                type="number"
-                                min={
-                                    0
-                                }
-                                step={
-                                    1
-                                }
-                                inputMode="numeric"
-                                disabled={
-                                    deshabilitado
-                                }
-                                value={
-                                    valor
-                                        .genero
-                                        .minimos
-                                        .masculino
-                                }
-                                onChange={
-                                    evento =>
-                                        cambiarMinimoGenero(
-                                            "masculino",
+                                <input
+                                    id="minim-nois"
+                                    type="number"
+                                    min={
+                                        0
+                                    }
+                                    step={
+                                        1
+                                    }
+                                    disabled={
+                                        deshabilitado
+                                    }
+                                    value={
+                                        valor
+                                            .genero
+                                            .minimos
+                                            .masculino
+                                    }
+                                    onChange={
+                                        evento =>
+                                            cambiarMinimoGenero(
+                                                "masculino",
 
-                                            numeroEntero(
-                                                evento
-                                                    .target
-                                                    .value
+                                                numeroEntero(
+                                                    evento
+                                                        .target
+                                                        .value
+                                                )
                                             )
-                                        )
-                                }
-                                className={
-                                    campo
-                                }
-                            />
-                        </div>
+                                    }
+                                    className={
+                                        campo
+                                    }
+                                />
+                            </div>
 
-                        <div
-                            className="
-                                space-y-2
-                            "
-                        >
-                            <label
-                                htmlFor="genero-femenino"
-                                className={
-                                    etiqueta
-                                }
+                            <div
+                                className="
+                                    space-y-2
+                                "
                             >
-                                Mínim de noies
-                            </label>
+                                <label
+                                    htmlFor="minim-noies"
+                                    className={
+                                        etiqueta
+                                    }
+                                >
+                                    Mínim de noies
+                                </label>
 
-                            <input
-                                id="genero-femenino"
-                                type="number"
-                                min={
-                                    0
-                                }
-                                step={
-                                    1
-                                }
-                                inputMode="numeric"
-                                disabled={
-                                    deshabilitado
-                                }
-                                value={
-                                    valor
-                                        .genero
-                                        .minimos
-                                        .femenino
-                                }
-                                onChange={
-                                    evento =>
-                                        cambiarMinimoGenero(
-                                            "femenino",
+                                <input
+                                    id="minim-noies"
+                                    type="number"
+                                    min={
+                                        0
+                                    }
+                                    step={
+                                        1
+                                    }
+                                    disabled={
+                                        deshabilitado
+                                    }
+                                    value={
+                                        valor
+                                            .genero
+                                            .minimos
+                                            .femenino
+                                    }
+                                    onChange={
+                                        evento =>
+                                            cambiarMinimoGenero(
+                                                "femenino",
 
-                                            numeroEntero(
-                                                evento
-                                                    .target
-                                                    .value
+                                                numeroEntero(
+                                                    evento
+                                                        .target
+                                                        .value
+                                                )
                                             )
-                                        )
-                                }
-                                className={
-                                    campo
-                                }
-                            />
+                                    }
+                                    className={
+                                        campo
+                                    }
+                                />
+                            </div>
                         </div>
-                    </div>
-                )}
-            </div>
+                    )
+                }
+            </Bloque>
 
             {/* =================================================
                 PROFESORES
             ================================================= */}
 
-            <div
-                className="
-                    rounded-2xl
-                    border
-                    border-border
-                    bg-background
-                    p-5
-                "
+            <Bloque
+                titulo="Professorat"
+                descripcion="Configura si els equips poden incloure professorat."
             >
-                <CabeceraBloque
-                    titulo="Professorat"
-                    descripcion="Configura si els professors poden participar com a membres de l'equip."
-                    icono="professor"
-                />
-
                 <Interruptor
                     activo={
                         valor
@@ -1258,30 +1174,216 @@ export default function PasoEquips({
                         deshabilitado
                     }
                     titulo="Permetre professorat"
-                    descripcion="Els equips podran incloure professors entre els seus participants."
+                    descripcion="Els equips podran afegir professors."
                     onCambiar={
                         cambiarProfesoresPermitidos
                     }
                 />
 
-                {valor
-                    .profesores
-                    .permitidos && (
-                    <div
-                        className="
-                            mt-5
-                            space-y-5
-                            border-t
-                            border-border
-                            pt-5
-                        "
-                    >
+                {
+                    valor
+                        .profesores
+                        .permitidos && (
                         <div
                             className="
+                                mt-5
+                                space-y-5
+                                border-t
+                                border-border
+                                pt-5
+                            "
+                        >
+                            <div
+                                className="
+                                    grid
+                                    max-w-2xl
+                                    grid-cols-1
+                                    gap-4
+                                    sm:grid-cols-2
+                                "
+                            >
+                                <div
+                                    className="
+                                        space-y-2
+                                    "
+                                >
+                                    <label
+                                        htmlFor="professors-minim"
+                                        className={
+                                            etiqueta
+                                        }
+                                    >
+                                        Mínim
+                                    </label>
+
+                                    <input
+                                        id="professors-minim"
+                                        type="number"
+                                        min={
+                                            0
+                                        }
+                                        step={
+                                            1
+                                        }
+                                        disabled={
+                                            deshabilitado
+                                        }
+                                        value={
+                                            valor
+                                                .profesores
+                                                .minimo
+                                        }
+                                        onChange={
+                                            evento =>
+                                                cambiarProfesoresNumero(
+                                                    "minimo",
+
+                                                    numeroEntero(
+                                                        evento
+                                                            .target
+                                                            .value
+                                                    )
+                                                )
+                                        }
+                                        className={
+                                            campo
+                                        }
+                                    />
+                                </div>
+
+                                <div
+                                    className="
+                                        space-y-2
+                                    "
+                                >
+                                    <label
+                                        htmlFor="professors-maxim"
+                                        className={
+                                            etiqueta
+                                        }
+                                    >
+                                        Màxim
+                                    </label>
+
+                                    <input
+                                        id="professors-maxim"
+                                        type="number"
+                                        min={
+                                            0
+                                        }
+                                        step={
+                                            1
+                                        }
+                                        disabled={
+                                            deshabilitado
+                                        }
+                                        value={
+                                            valor
+                                                .profesores
+                                                .maximo
+                                        }
+                                        onChange={
+                                            evento =>
+                                                cambiarProfesoresNumero(
+                                                    "maximo",
+
+                                                    numeroEntero(
+                                                        evento
+                                                            .target
+                                                            .value
+                                                    )
+                                                )
+                                        }
+                                        className={
+                                            campo
+                                        }
+                                    />
+                                </div>
+                            </div>
+
+                            <Interruptor
+                                activo={
+                                    valor
+                                        .profesores
+                                        .cuentan_como_jugador
+                                }
+                                disabled={
+                                    deshabilitado
+                                }
+                                titulo="Compta com a jugador"
+                                descripcion="El professor ocuparà una plaça dins el nombre màxim de jugadors."
+                                onCambiar={
+                                    cambiarProfesoresCuentan
+                                }
+                            />
+                        </div>
+                    )
+                }
+            </Bloque>
+
+            {/* =================================================
+                ENTRENADOR
+            ================================================= */}
+
+            <Bloque
+                titulo="Entrenador"
+                descripcion="Defineix si cada equip pot registrar un entrenador."
+            >
+                <Interruptor
+                    activo={
+                        valor
+                            .entrenador
+                            .permitido
+                    }
+                    disabled={
+                        deshabilitado
+                    }
+                    titulo="Permetre entrenador"
+                    descripcion="Si està activat, els equips podran indicar un entrenador durant la inscripció."
+                    onCambiar={
+                        cambiarEntrenadorPermitido
+                    }
+                />
+            </Bloque>
+
+            {/* =================================================
+                STAFF
+            ================================================= */}
+
+            <Bloque
+                titulo="Staff"
+                descripcion="Configura si els equips poden incloure altres membres de suport."
+            >
+                <Interruptor
+                    activo={
+                        valor
+                            .staff
+                            .permitido
+                    }
+                    disabled={
+                        deshabilitado
+                    }
+                    titulo="Permetre staff"
+                    descripcion="Els equips podran afegir membres de staff."
+                    onCambiar={
+                        cambiarStaffPermitido
+                    }
+                />
+
+                {
+                    valor
+                        .staff
+                        .permitido && (
+                        <div
+                            className="
+                                mt-5
                                 grid
                                 max-w-2xl
                                 grid-cols-1
                                 gap-4
+                                border-t
+                                border-border
+                                pt-5
                                 sm:grid-cols-2
                             "
                         >
@@ -1291,16 +1393,16 @@ export default function PasoEquips({
                                 "
                             >
                                 <label
-                                    htmlFor="professors-minim"
+                                    htmlFor="staff-minim"
                                     className={
                                         etiqueta
                                     }
                                 >
-                                    Mínim de professors
+                                    Mínim
                                 </label>
 
                                 <input
-                                    id="professors-minim"
+                                    id="staff-minim"
                                     type="number"
                                     min={
                                         0
@@ -1308,18 +1410,17 @@ export default function PasoEquips({
                                     step={
                                         1
                                     }
-                                    inputMode="numeric"
                                     disabled={
                                         deshabilitado
                                     }
                                     value={
                                         valor
-                                            .profesores
+                                            .staff
                                             .minimo
                                     }
                                     onChange={
                                         evento =>
-                                            cambiarProfesoresNumero(
+                                            cambiarStaffNumero(
                                                 "minimo",
 
                                                 numeroEntero(
@@ -1341,16 +1442,16 @@ export default function PasoEquips({
                                 "
                             >
                                 <label
-                                    htmlFor="professors-maxim"
+                                    htmlFor="staff-maxim"
                                     className={
                                         etiqueta
                                     }
                                 >
-                                    Màxim de professors
+                                    Màxim
                                 </label>
 
                                 <input
-                                    id="professors-maxim"
+                                    id="staff-maxim"
                                     type="number"
                                     min={
                                         0
@@ -1358,18 +1459,17 @@ export default function PasoEquips({
                                     step={
                                         1
                                     }
-                                    inputMode="numeric"
                                     disabled={
                                         deshabilitado
                                     }
                                     value={
                                         valor
-                                            .profesores
+                                            .staff
                                             .maximo
                                     }
                                     onChange={
                                         evento =>
-                                            cambiarProfesoresNumero(
+                                            cambiarStaffNumero(
                                                 "maximo",
 
                                                 numeroEntero(
@@ -1385,180 +1485,70 @@ export default function PasoEquips({
                                 />
                             </div>
                         </div>
+                    )
+                }
+            </Bloque>
+        </section>
+    );
+}
 
-                        <Interruptor
-                            activo={
-                                valor
-                                    .profesores
-                                    .cuentan_como_jugador
-                            }
-                            disabled={
-                                deshabilitado
-                            }
-                            titulo="Compten dins el nombre de jugadors"
-                            descripcion="Si està activat, un professor ocuparà una de les places definides al màxim de jugadors de l'equip."
-                            onCambiar={
-                                cambiarProfesoresCuentan
-                            }
-                        />
-                    </div>
-                )}
-            </div>
+// ============================================================
+// BLOQUE
+// ============================================================
 
-            {/* =================================================
-                STAFF
-            ================================================= */}
+function Bloque({
+    titulo,
+    descripcion,
+    children,
+}: {
+    titulo:
+        string;
 
+    descripcion:
+        string;
+
+    children:
+        React.ReactNode;
+}) {
+    return (
+        <div
+            className="
+                rounded-2xl
+                border
+                border-border
+                bg-background
+                p-5
+            "
+        >
             <div
                 className="
-                    rounded-2xl
-                    border
-                    border-border
-                    bg-background
-                    p-5
+                    mb-5
                 "
             >
-                <CabeceraBloque
-                    titulo="Staff de l'equip"
-                    descripcion="Defineix si els equips poden registrar persones de suport que no formen part dels jugadors."
-                    icono="staff"
-                />
+                <h3
+                    className="
+                        font-semibold
+                        text-neutral-titulos
+                    "
+                >
+                    {titulo}
+                </h3>
 
-                <Interruptor
-                    activo={
-                        valor
-                            .staff
-                            .permitido
-                    }
-                    disabled={
-                        deshabilitado
-                    }
-                    titulo="Permetre staff"
-                    descripcion="L'equip podrà registrar membres de staff independents dels jugadors."
-                    onCambiar={
-                        cambiarStaffPermitido
-                    }
-                />
-
-                {valor
-                    .staff
-                    .permitido && (
-                    <div
-                        className="
-                            mt-5
-                            grid
-                            max-w-2xl
-                            grid-cols-1
-                            gap-4
-                            border-t
-                            border-border
-                            pt-5
-                            sm:grid-cols-2
-                        "
-                    >
-                        <div
-                            className="
-                                space-y-2
-                            "
-                        >
-                            <label
-                                htmlFor="staff-minim"
-                                className={
-                                    etiqueta
-                                }
-                            >
-                                Mínim de membres
-                            </label>
-
-                            <input
-                                id="staff-minim"
-                                type="number"
-                                min={
-                                    0
-                                }
-                                step={
-                                    1
-                                }
-                                inputMode="numeric"
-                                disabled={
-                                    deshabilitado
-                                }
-                                value={
-                                    valor
-                                        .staff
-                                        .minimo
-                                }
-                                onChange={
-                                    evento =>
-                                        cambiarStaffNumero(
-                                            "minimo",
-
-                                            numeroEntero(
-                                                evento
-                                                    .target
-                                                    .value
-                                            )
-                                        )
-                                }
-                                className={
-                                    campo
-                                }
-                            />
-                        </div>
-
-                        <div
-                            className="
-                                space-y-2
-                            "
-                        >
-                            <label
-                                htmlFor="staff-maxim"
-                                className={
-                                    etiqueta
-                                }
-                            >
-                                Màxim de membres
-                            </label>
-
-                            <input
-                                id="staff-maxim"
-                                type="number"
-                                min={
-                                    0
-                                }
-                                step={
-                                    1
-                                }
-                                inputMode="numeric"
-                                disabled={
-                                    deshabilitado
-                                }
-                                value={
-                                    valor
-                                        .staff
-                                        .maximo
-                                }
-                                onChange={
-                                    evento =>
-                                        cambiarStaffNumero(
-                                            "maximo",
-
-                                            numeroEntero(
-                                                evento
-                                                    .target
-                                                    .value
-                                            )
-                                        )
-                                }
-                                className={
-                                    campo
-                                }
-                            />
-                        </div>
-                    </div>
-                )}
+                <p
+                    className="
+                        mt-1
+                        max-w-3xl
+                        text-sm
+                        leading-6
+                        text-neutral
+                    "
+                >
+                    {descripcion}
+                </p>
             </div>
-        </section>
+
+            {children}
+        </div>
     );
 }
 
@@ -1587,7 +1577,7 @@ function Interruptor({
 
     onCambiar: (
         activo:
-            boolean
+            boolean,
     ) => void;
 }) {
     return (
@@ -1622,7 +1612,6 @@ function Interruptor({
                 <p
                     className="
                         mt-1
-                        max-w-2xl
                         text-xs
                         leading-5
                         text-neutral
@@ -1672,9 +1661,9 @@ function Interruptor({
                     aria-hidden="true"
                     className={`
                         absolute
-                        top-0.5
-                        h-4.5
-                        w-4.5
+                        top-[2px]
+                        h-[18px]
+                        w-[18px]
                         rounded-full
                         bg-white
                         shadow-sm
@@ -1683,300 +1672,11 @@ function Interruptor({
                         ${
                             activo
                                 ? "left-[21px]"
-                                : "left-0.5"
+                                : "left-[2px]"
                         }
                     `}
                 />
             </button>
-        </div>
-    );
-}
-
-// ============================================================
-// SELECTOR
-// ============================================================
-
-function Selector({
-    activo,
-}: {
-    activo:
-        boolean;
-}) {
-    return (
-        <span
-            aria-hidden="true"
-            className={`
-                mt-0.5
-                flex
-                h-5
-                w-5
-                shrink-0
-                items-center
-                justify-center
-                rounded-full
-                border
-
-                ${
-                    activo
-                        ? "border-primary bg-primary"
-                        : "border-border bg-background"
-                }
-            `}
-        >
-            {activo && (
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="
-                        h-3
-                        w-3
-                        text-white
-                    "
-                >
-                    <path d="m5 12 4 4L19 6" />
-                </svg>
-            )}
-        </span>
-    );
-}
-
-// ============================================================
-// CABECERA DE BLOQUE
-// ============================================================
-
-function CabeceraBloque({
-    titulo,
-    descripcion,
-    icono,
-}: {
-    titulo:
-        string;
-
-    descripcion:
-        string;
-
-    icono:
-        | "calendari"
-        | "grup"
-        | "persona"
-        | "genero"
-        | "professor"
-        | "staff";
-}) {
-    return (
-        <div
-            className="
-                mb-5
-                flex
-                items-start
-                gap-3
-            "
-        >
-            <span
-                aria-hidden="true"
-                className="
-                    mt-0.5
-                    flex
-                    h-8
-                    w-8
-                    shrink-0
-                    items-center
-                    justify-center
-                    rounded-lg
-                    bg-card
-                "
-            >
-                {icono ===
-                    "calendari" && (
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.7"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-4 w-4"
-                    >
-                        <rect
-                            x="3"
-                            y="5"
-                            width="18"
-                            height="16"
-                            rx="2"
-                        />
-
-                        <path d="M16 3v4" />
-
-                        <path d="M8 3v4" />
-
-                        <path d="M3 10h18" />
-                    </svg>
-                )}
-
-                {icono ===
-                    "grup" && (
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.7"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-4 w-4"
-                    >
-                        <circle
-                            cx="9"
-                            cy="8"
-                            r="3"
-                        />
-
-                        <circle
-                            cx="17"
-                            cy="9"
-                            r="2.5"
-                        />
-
-                        <path d="M3.5 20v-1a5.5 5.5 0 0 1 11 0v1" />
-
-                        <path d="M16 14.5a5 5 0 0 1 4.5 5V20" />
-                    </svg>
-                )}
-
-                {icono ===
-                    "persona" && (
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.7"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-4 w-4"
-                    >
-                        <circle
-                            cx="12"
-                            cy="8"
-                            r="3.5"
-                        />
-
-                        <path d="M5 20v-1a7 7 0 0 1 14 0v1" />
-                    </svg>
-                )}
-
-                {icono ===
-                    "genero" && (
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.7"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-4 w-4"
-                    >
-                        <circle
-                            cx="9"
-                            cy="9"
-                            r="4"
-                        />
-
-                        <path d="M12 6l5-5" />
-
-                        <path d="M13 1h4v4" />
-
-                        <circle
-                            cx="15"
-                            cy="15"
-                            r="4"
-                        />
-
-                        <path d="M15 19v4" />
-
-                        <path d="M12.5 21h5" />
-                    </svg>
-                )}
-
-                {icono ===
-                    "professor" && (
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.7"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-4 w-4"
-                    >
-                        <path d="M3 4h18v12H3z" />
-
-                        <path d="M8 20h8" />
-
-                        <path d="M12 16v4" />
-
-                        <path d="m8 10 2 2 5-5" />
-                    </svg>
-                )}
-
-                {icono ===
-                    "staff" && (
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.7"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-4 w-4"
-                    >
-                        <circle
-                            cx="8"
-                            cy="8"
-                            r="3"
-                        />
-
-                        <path d="M3 20v-1a5 5 0 0 1 10 0v1" />
-
-                        <path d="M16 8h5" />
-
-                        <path d="M18.5 5.5v5" />
-
-                        <path d="M16 16h5" />
-                    </svg>
-                )}
-            </span>
-
-            <div>
-                <h3
-                    className="
-                        font-semibold
-                        text-neutral-titulos
-                    "
-                >
-                    {titulo}
-                </h3>
-
-                <p
-                    className="
-                        mt-1
-                        max-w-3xl
-                        text-sm
-                        leading-6
-                    "
-                >
-                    {descripcion}
-                </p>
-            </div>
         </div>
     );
 }

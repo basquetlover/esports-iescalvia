@@ -9,11 +9,8 @@ import PasoGeneral from "./pasos/PasoGeneral";
 import PasoEquips from "./pasos/PasoEquips";
 import PasoVoluntariat from "./pasos/PasoVoluntariat";
 import PasoInformacio from "./pasos/PasoInformacio";
+import PasoFAQ from "./pasos/PasoFAQ";
 import PasoResumen from "./pasos/PasoResumen";
-
-// ============================================================
-// API
-// ============================================================
 
 const API =
     "/api/panell/edicions";
@@ -28,16 +25,17 @@ export type ModoEdicion =
     | "editar";
 
 type Props = {
-    torneoID: string;
+    torneoID:
+        string;
 
     edicionID:
-        | string
-        | null;
+        string | null;
 
     modo:
         ModoEdicion;
 
-    volver: string;
+    volver:
+        string;
 };
 
 // ============================================================
@@ -45,7 +43,8 @@ type Props = {
 // ============================================================
 
 export type TorneoEdicion = {
-    id: string;
+    id:
+        string;
 
     nombre:
         string | null;
@@ -59,7 +58,8 @@ export type TorneoEdicion = {
 // ============================================================
 
 export type DatosGeneralesEdicion = {
-    nombre: string;
+    nombre:
+        string;
 
     fecha_inicio:
         string;
@@ -75,7 +75,7 @@ export type DatosGeneralesEdicion = {
 };
 
 // ============================================================
-// EQUIPOS
+// CONFIGURACIÓN COMÚN
 // ============================================================
 
 export type ConfigInscripcion = {
@@ -95,6 +95,10 @@ export type ConfigCupo = {
         | "lista_espera"
         | "bloquear";
 };
+
+// ============================================================
+// EQUIPOS
+// ============================================================
 
 export type ConfigEquipos = {
     inscripcion:
@@ -138,6 +142,11 @@ export type ConfigEquipos = {
             boolean;
     };
 
+    entrenador: {
+        permitido:
+            boolean;
+    };
+
     staff: {
         permitido:
             boolean;
@@ -151,13 +160,15 @@ export type ConfigEquipos = {
 };
 
 // ============================================================
-// VOLUNTARIOS
+// VOLUNTARIADO
 // ============================================================
 
 export type TipoVoluntariado = {
-    id: string;
+    id:
+        string;
 
-    nombre: string;
+    nombre:
+        string;
 
     descripcion:
         string;
@@ -192,7 +203,8 @@ export type ConfigVoluntarios = {
 // ============================================================
 
 export type BloqueInformacion = {
-    id: string;
+    id:
+        string;
 
     order:
         number;
@@ -213,6 +225,32 @@ export type ConfigInformacion = {
 };
 
 // ============================================================
+// FAQ
+// ============================================================
+
+export type PreguntaFAQ = {
+    id:
+        string;
+
+    order:
+        number;
+
+    pregunta:
+        string;
+
+    respuesta:
+        string;
+
+    activo:
+        boolean;
+};
+
+export type ConfigFAQ = {
+    preguntas:
+        PreguntaFAQ[];
+};
+
+// ============================================================
 // CONFIGURACIÓN COMPLETA
 // ============================================================
 
@@ -225,6 +263,9 @@ export type ConfiguracionEdicion = {
 
     informacion:
         ConfigInformacion;
+
+    faq:
+        ConfigFAQ;
 
     competicion:
         Record<
@@ -262,7 +303,8 @@ export type EdicionFormulario = {
 // ============================================================
 
 type RespuestaAsistente = {
-    success: true;
+    success:
+        true;
 
     torneo:
         TorneoEdicion;
@@ -291,6 +333,7 @@ type PasoID =
     | "equips"
     | "voluntariat"
     | "informacio"
+    | "faq"
     | "resum";
 
 type Paso = {
@@ -359,6 +402,11 @@ function crearConfiguracionEquipos():
                 true,
         },
 
+        entrenador: {
+            permitido:
+                false,
+        },
+
         staff: {
             permitido:
                 false,
@@ -404,6 +452,14 @@ function crearConfiguracionInformacion():
     };
 }
 
+function crearConfiguracionFAQ():
+    ConfigFAQ {
+    return {
+        preguntas:
+            [],
+    };
+}
+
 function crearEdicionVacia(
     torneoID:
         string,
@@ -442,6 +498,9 @@ function crearEdicionVacia(
             informacion:
                 crearConfiguracionInformacion(),
 
+            faq:
+                crearConfiguracionFAQ(),
+
             competicion:
                 {},
         },
@@ -466,7 +525,8 @@ function esObjeto(
     unknown
 > {
     return (
-        valor !== null &&
+        valor !==
+            null &&
         typeof valor ===
             "object" &&
         !Array.isArray(
@@ -518,6 +578,10 @@ function textoONull(
         : null;
 }
 
+// ============================================================
+// NORMALIZAR INSCRIPCIÓN
+// ============================================================
+
 function normalizarInscripcion(
     valor:
         unknown,
@@ -548,6 +612,10 @@ function normalizarInscripcion(
             ),
     };
 }
+
+// ============================================================
+// NORMALIZAR CUPO
+// ============================================================
 
 function normalizarCupo(
     valor:
@@ -585,6 +653,10 @@ function normalizarCupo(
                 : "permitir",
     };
 }
+
+// ============================================================
+// NORMALIZAR EQUIPOS
+// ============================================================
 
 function normalizarEquipos(
     valor:
@@ -627,6 +699,13 @@ function normalizarEquipos(
             valor.profesores
         )
             ? valor.profesores
+            : {};
+
+    const entrenador =
+        esObjeto(
+            valor.entrenador
+        )
+            ? valor.entrenador
             : {};
 
     const staff =
@@ -698,6 +777,12 @@ function normalizarEquipos(
                 false,
         },
 
+        entrenador: {
+            permitido:
+                entrenador.permitido ===
+                true,
+        },
+
         staff: {
             permitido:
                 staff.permitido ===
@@ -716,19 +801,20 @@ function normalizarEquipos(
     };
 }
 
+// ============================================================
+// NORMALIZAR VOLUNTARIADO
+// ============================================================
+
 function normalizarVoluntarios(
     valor:
         unknown,
 ): ConfigVoluntarios {
-    const defecto =
-        crearConfiguracionVoluntarios();
-
     if (
         !esObjeto(
             valor
         )
     ) {
-        return defecto;
+        return crearConfiguracionVoluntarios();
     }
 
     const tipos =
@@ -790,6 +876,10 @@ function normalizarVoluntarios(
     };
 }
 
+// ============================================================
+// NORMALIZAR INFORMACIÓN
+// ============================================================
+
 function normalizarInformacion(
     valor:
         unknown,
@@ -799,10 +889,7 @@ function normalizarInformacion(
             valor
         )
     ) {
-        return {
-            bloques:
-                [],
-        };
+        return crearConfiguracionInformacion();
     }
 
     const bloques =
@@ -861,6 +948,84 @@ function normalizarInformacion(
         bloques,
     };
 }
+
+// ============================================================
+// NORMALIZAR FAQ
+// ============================================================
+
+function normalizarFAQ(
+    valor:
+        unknown,
+): ConfigFAQ {
+    if (
+        !esObjeto(
+            valor
+        )
+    ) {
+        return crearConfiguracionFAQ();
+    }
+
+    const preguntas =
+        Array.isArray(
+            valor.preguntas
+        )
+            ? valor.preguntas
+                  .filter(
+                      esObjeto
+                  )
+                  .map(
+                      (
+                          pregunta,
+                          indice,
+                      ): PreguntaFAQ => ({
+                          id:
+                              typeof pregunta.id ===
+                                  "string" &&
+                              pregunta.id.trim()
+                                  ? pregunta.id
+                                  : `faq-${indice + 1}`,
+
+                          order:
+                              numero(
+                                  pregunta.order,
+                                  indice + 1
+                              ),
+
+                          pregunta:
+                              typeof pregunta.pregunta ===
+                              "string"
+                                  ? pregunta.pregunta
+                                  : "",
+
+                          respuesta:
+                              typeof pregunta.respuesta ===
+                              "string"
+                                  ? pregunta.respuesta
+                                  : "",
+
+                          activo:
+                              pregunta.activo !==
+                              false,
+                      })
+                  )
+                  .sort(
+                      (
+                          a,
+                          b,
+                      ) =>
+                          a.order -
+                          b.order
+                  )
+            : [];
+
+    return {
+        preguntas,
+    };
+}
+
+// ============================================================
+// NORMALIZAR EDICIÓN
+// ============================================================
 
 function normalizarEdicion(
     valor:
@@ -924,11 +1089,12 @@ function normalizarEdicion(
                         ?.informacion
                 ),
 
-            /*
-             * Aunque todavía no exista un paso específico
-             * para competición, conservamos su JSON para
-             * no destruir configuraciones existentes.
-             */
+            faq:
+                normalizarFAQ(
+                    configuracion
+                        ?.faq
+                ),
+
             competicion:
                 esObjeto(
                     configuracion
@@ -942,7 +1108,7 @@ function normalizarEdicion(
 }
 
 // ============================================================
-// HELPERS DE VALIDACIÓN
+// VALIDACIÓN DE FECHAS
 // ============================================================
 
 function fechaValida(
@@ -966,9 +1132,6 @@ function validarPeriodo(
     nombre:
         string,
 ): string | null {
-    /*
-     * O se definen ambas fechas o no se define ninguna.
-     */
     if (
         Boolean(
             apertura
@@ -980,9 +1143,6 @@ function validarPeriodo(
         return `Indica tant l'obertura com el tancament de ${nombre}.`;
     }
 
-    /*
-     * Sin periodo configurado es válido.
-     */
     if (
         !apertura &&
         !cierre
@@ -1198,6 +1358,14 @@ export default function Asistente({
 
                 {
                     id:
+                        "faq",
+
+                    titulo:
+                        "Preguntes freqüents",
+                },
+
+                {
+                    id:
                         "resum",
 
                     titulo:
@@ -1309,11 +1477,6 @@ export default function Asistente({
                 const resultado =
                     datos as RespuestaAsistente;
 
-                /*
-                 * Crear no necesita una edición existente.
-                 *
-                 * Ver y editar sí.
-                 */
                 if (
                     !creando &&
                     !resultado.edicion
@@ -1429,18 +1592,9 @@ export default function Asistente({
     ]);
 
     // ========================================================
-    // FOCO AL CAMBIAR DE PASO
+    // FOCO AL CAMBIAR PASO
     // ========================================================
 
-    /*
-     * IMPORTANTE:
-     *
-     * No hacemos setError("") aquí.
-     *
-     * Si una validación detecta un problema y nos envía
-     * automáticamente a otro paso, borraríamos el mensaje
-     * inmediatamente después del cambio de paso.
-     */
     useEffect(() => {
         window.requestAnimationFrame(
             () =>
@@ -1474,7 +1628,7 @@ export default function Asistente({
         guardando;
 
     // ========================================================
-    // ACTUALIZACIÓN CENTRAL
+    // ACTUALIZACIÓN
     // ========================================================
 
     function aplicarEdicion(
@@ -1499,10 +1653,6 @@ export default function Asistente({
                 originalRef.current
         );
 
-        /*
-         * Si el usuario está corrigiendo un dato,
-         * retiramos el aviso de validación anterior.
-         */
         setError(
             ""
         );
@@ -1567,6 +1717,22 @@ export default function Asistente({
         });
     }
 
+    function cambiarFAQ(
+        faq:
+            ConfigFAQ,
+    ) {
+        aplicarEdicion({
+            ...edicion,
+
+            configuracion: {
+                ...edicion
+                    .configuracion,
+
+                faq,
+            },
+        });
+    }
+
     // ========================================================
     // VALIDACIÓN GENERAL
     // ========================================================
@@ -1616,19 +1782,13 @@ export default function Asistente({
             return "Les dates de l'edició no són vàlides.";
         }
 
-        const inicio =
-            new Date(
-                general.fecha_inicio
-            );
-
-        const fin =
+        if (
             new Date(
                 general.fecha_fin
-            );
-
-        if (
-            fin.getTime() <
-            inicio.getTime()
+            ).getTime() <
+            new Date(
+                general.fecha_inicio
+            ).getTime()
         ) {
             return "La data de finalització no pot ser anterior a la data d'inici.";
         }
@@ -1659,10 +1819,6 @@ export default function Asistente({
                 .configuracion
                 .equipos;
 
-        // ----------------------------------------------------
-        // PERIODO
-        // ----------------------------------------------------
-
         const problemaPeriodo =
             validarPeriodo(
                 config
@@ -1682,24 +1838,18 @@ export default function Asistente({
             return problemaPeriodo;
         }
 
-        // ----------------------------------------------------
-        // CUPO
-        // ----------------------------------------------------
-
         if (
-            config.cupo
+            config
+                .cupo
                 .maximo !==
                 null &&
-            config.cupo
+            config
+                .cupo
                 .maximo <
                 0
         ) {
             return "El màxim d'equips no pot ser negatiu.";
         }
-
-        // ----------------------------------------------------
-        // JUGADORES
-        // ----------------------------------------------------
 
         const min =
             config
@@ -1740,10 +1890,6 @@ export default function Asistente({
             return "El màxim de jugadors no pot ser inferior al mínim.";
         }
 
-        // ----------------------------------------------------
-        // GÉNERO
-        // ----------------------------------------------------
-
         if (
             config
                 .genero
@@ -1778,10 +1924,6 @@ export default function Asistente({
             return "La composició mínima per gènere no pot superar el màxim de jugadors de l'equip.";
         }
 
-        // ----------------------------------------------------
-        // PROFESORES
-        // ----------------------------------------------------
-
         if (
             config
                 .profesores
@@ -1808,10 +1950,6 @@ export default function Asistente({
         ) {
             return "El màxim de professors no pot ser inferior al mínim.";
         }
-
-        // ----------------------------------------------------
-        // STAFF
-        // ----------------------------------------------------
 
         if (
             config
@@ -1854,10 +1992,6 @@ export default function Asistente({
                 .configuracion
                 .voluntarios;
 
-        // ----------------------------------------------------
-        // PERIODO
-        // ----------------------------------------------------
-
         const problemaPeriodo =
             validarPeriodo(
                 config
@@ -1877,34 +2011,25 @@ export default function Asistente({
             return problemaPeriodo;
         }
 
-        // ----------------------------------------------------
-        // CUPO GENERAL
-        // ----------------------------------------------------
-
         if (
-            config.cupo
+            config
+                .cupo
                 .maximo !==
                 null &&
-            config.cupo
+            config
+                .cupo
                 .maximo <
                 0
         ) {
             return "El màxim general de voluntaris no pot ser negatiu.";
         }
 
-        // ----------------------------------------------------
-        // TIPOS
-        // ----------------------------------------------------
-
-        const tipos =
-            config.tipos;
-
         const nombres =
             new Set<string>();
 
         for (
             const tipo
-            of tipos
+            of config.tipos
         ) {
             const nombre =
                 tipo.nombre
@@ -1942,27 +2067,16 @@ export default function Asistente({
             );
 
             if (
-                tipo.cupo
+                tipo
+                    .cupo
                     .maximo !==
                     null &&
-                tipo.cupo
+                tipo
+                    .cupo
                     .maximo <
                     0
             ) {
                 return `El màxim de voluntaris de «${nombre}» no pot ser negatiu.`;
-            }
-
-            if (
-                ![
-                    "permitir",
-                    "lista_espera",
-                    "bloquear",
-                ].includes(
-                    tipo.cupo
-                        .al_superar
-                )
-            ) {
-                return `La configuració del límit de «${nombre}» no és vàlida.`;
             }
         }
 
@@ -2002,11 +2116,6 @@ export default function Asistente({
                 return `El títol «${titulo}» supera els 200 caràcters.`;
             }
 
-            /*
-             * El contenido se guarda como HTML.
-             * Para validar si está vacío quitamos etiquetas,
-             * espacios HTML básicos y espacios repetidos.
-             */
             const texto =
                 bloque.body
                     .replace(
@@ -2046,6 +2155,83 @@ export default function Asistente({
     }
 
     // ========================================================
+    // VALIDACIÓN FAQ
+    // ========================================================
+
+    function validarFAQ():
+        string | null {
+        const preguntas =
+            edicion
+                .configuracion
+                .faq
+                .preguntas;
+
+        const textos =
+            new Set<string>();
+
+        for (
+            const pregunta
+            of preguntas
+        ) {
+            const titulo =
+                pregunta
+                    .pregunta
+                    .trim();
+
+            const respuesta =
+                pregunta
+                    .respuesta
+                    .trim();
+
+            if (
+                !titulo
+            ) {
+                return "Totes les preguntes freqüents han de tenir una pregunta.";
+            }
+
+            if (
+                titulo.length >
+                200
+            ) {
+                return `La pregunta «${titulo}» supera els 200 caràcters.`;
+            }
+
+            if (
+                !respuesta
+            ) {
+                return `La pregunta «${titulo}» no té resposta.`;
+            }
+
+            if (
+                respuesta.length >
+                5000
+            ) {
+                return `La resposta de «${titulo}» supera els 5000 caràcters.`;
+            }
+
+            const clave =
+                titulo
+                    .toLocaleLowerCase(
+                        "ca-ES"
+                    );
+
+            if (
+                textos.has(
+                    clave
+                )
+            ) {
+                return "No pot haver-hi dues preguntes freqüents iguals.";
+            }
+
+            textos.add(
+                clave
+            );
+        }
+
+        return null;
+    }
+
+    // ========================================================
     // VALIDAR PASO
     // ========================================================
 
@@ -2067,6 +2253,9 @@ export default function Asistente({
 
             case "informacio":
                 return validarInformacion();
+
+            case "faq":
+                return validarFAQ();
 
             case "resum":
                 return null;
@@ -2091,21 +2280,11 @@ export default function Asistente({
             return;
         }
 
-        /*
-         * En modo consulta permitimos navegar libremente,
-         * incluso si estamos visualizando datos antiguos
-         * que no cumplen las reglas actuales.
-         */
         if (
             !soloLectura &&
             nuevoIndice >
                 indiceActual
         ) {
-            /*
-             * Si el usuario pulsa directamente un paso
-             * posterior, validamos todos los pasos que
-             * intenta saltarse.
-             */
             for (
                 let indice =
                     indiceActual;
@@ -2204,93 +2383,76 @@ export default function Asistente({
             return;
         }
 
-        // ----------------------------------------------------
-        // GENERAL
-        // ----------------------------------------------------
+        const validaciones: {
+            paso:
+                PasoID;
 
-        const problemaGeneral =
-            validarGeneral();
+            problema:
+                string | null;
+        }[] = [
+            {
+                paso:
+                    "general",
+
+                problema:
+                    validarGeneral(),
+            },
+
+            {
+                paso:
+                    "equips",
+
+                problema:
+                    validarEquipos(),
+            },
+
+            {
+                paso:
+                    "voluntariat",
+
+                problema:
+                    validarVoluntariado(),
+            },
+
+            {
+                paso:
+                    "informacio",
+
+                problema:
+                    validarInformacion(),
+            },
+
+            {
+                paso:
+                    "faq",
+
+                problema:
+                    validarFAQ(),
+            },
+        ];
+
+        const errorValidacion =
+            validaciones.find(
+                entrada =>
+                    entrada.problema
+            );
 
         if (
-            problemaGeneral
+            errorValidacion
+                ?.problema
         ) {
             setPasoID(
-                "general"
+                errorValidacion
+                    .paso
             );
 
             setError(
-                problemaGeneral
+                errorValidacion
+                    .problema
             );
 
             return;
         }
-
-        // ----------------------------------------------------
-        // EQUIPOS
-        // ----------------------------------------------------
-
-        const problemaEquipos =
-            validarEquipos();
-
-        if (
-            problemaEquipos
-        ) {
-            setPasoID(
-                "equips"
-            );
-
-            setError(
-                problemaEquipos
-            );
-
-            return;
-        }
-
-        // ----------------------------------------------------
-        // VOLUNTARIADO
-        // ----------------------------------------------------
-
-        const problemaVoluntarios =
-            validarVoluntariado();
-
-        if (
-            problemaVoluntarios
-        ) {
-            setPasoID(
-                "voluntariat"
-            );
-
-            setError(
-                problemaVoluntarios
-            );
-
-            return;
-        }
-
-        // ----------------------------------------------------
-        // INFORMACIÓN
-        // ----------------------------------------------------
-
-        const problemaInformacion =
-            validarInformacion();
-
-        if (
-            problemaInformacion
-        ) {
-            setPasoID(
-                "informacio"
-            );
-
-            setError(
-                problemaInformacion
-            );
-
-            return;
-        }
-
-        // ----------------------------------------------------
-        // BLOQUEO
-        // ----------------------------------------------------
 
         bloqueoGuardado
             .current =
@@ -2303,10 +2465,6 @@ export default function Asistente({
         setError(
             ""
         );
-
-        // ----------------------------------------------------
-        // PETICIÓN
-        // ----------------------------------------------------
 
         try {
             const respuesta =
@@ -2341,11 +2499,6 @@ export default function Asistente({
                                 edicionID:
                                     edicion.id,
 
-                                /*
-                                 * Control de concurrencia.
-                                 * La API podrá detectar si otra persona
-                                 * modificó la edición entretanto.
-                                 */
                                 updated_at:
                                     edicion.updated_at,
 
@@ -2353,11 +2506,6 @@ export default function Asistente({
                                     general:
                                         edicion.general,
 
-                                    /*
-                                     * Incluye también `competicion`
-                                     * aunque todavía no disponga de
-                                     * pantalla propia.
-                                     */
                                     configuracion:
                                         edicion.configuracion,
                                 },
@@ -2489,7 +2637,7 @@ export default function Asistente({
     }
 
     // ========================================================
-    // ERROR DE CARGA
+    // ERROR CARGA
     // ========================================================
 
     if (
@@ -2531,8 +2679,10 @@ export default function Asistente({
                             leading-6
                         "
                     >
-                        {errorCarga ||
-                            "La informació necessària no està disponible."}
+                        {
+                            errorCarga ||
+                            "La informació necessària no està disponible."
+                        }
                     </p>
 
                     <div
@@ -2600,109 +2750,130 @@ export default function Asistente({
     // ========================================================
 
     function renderPaso(
-    torneoActual:
-        TorneoEdicion,
-) {
-    switch (
-        pasoActual.id
+        torneoActual:
+            TorneoEdicion,
     ) {
-        case "general":
-            return (
-                <PasoGeneral
-                    valor={
-                        edicion.general
-                    }
-                    torneo={
-                        torneoActual
-                    }
-                    soloLectura={
-                        soloLectura
-                    }
-                    bloqueado={
-                        bloqueado
-                    }
-                    onCambiar={
-                        cambiarGeneral
-                    }
-                />
-            );
+        switch (
+            pasoActual.id
+        ) {
+            case "general":
+                return (
+                    <PasoGeneral
+                        valor={
+                            edicion
+                                .general
+                        }
+                        torneo={
+                            torneoActual
+                        }
+                        soloLectura={
+                            soloLectura
+                        }
+                        bloqueado={
+                            bloqueado
+                        }
+                        onCambiar={
+                            cambiarGeneral
+                        }
+                    />
+                );
 
-        case "equips":
-            return (
-                <PasoEquips
-                    valor={
-                        edicion
-                            .configuracion
-                            .equipos
-                    }
-                    soloLectura={
-                        soloLectura
-                    }
-                    bloqueado={
-                        bloqueado
-                    }
-                    onCambiar={
-                        cambiarEquipos
-                    }
-                />
-            );
+            case "equips":
+                return (
+                    <PasoEquips
+                        valor={
+                            edicion
+                                .configuracion
+                                .equipos
+                        }
+                        soloLectura={
+                            soloLectura
+                        }
+                        bloqueado={
+                            bloqueado
+                        }
+                        onCambiar={
+                            cambiarEquipos
+                        }
+                    />
+                );
 
-        case "voluntariat":
-            return (
-                <PasoVoluntariat
-                    valor={
-                        edicion
-                            .configuracion
-                            .voluntarios
-                    }
-                    soloLectura={
-                        soloLectura
-                    }
-                    bloqueado={
-                        bloqueado
-                    }
-                    onCambiar={
-                        cambiarVoluntarios
-                    }
-                />
-            );
+            case "voluntariat":
+                return (
+                    <PasoVoluntariat
+                        valor={
+                            edicion
+                                .configuracion
+                                .voluntarios
+                        }
+                        soloLectura={
+                            soloLectura
+                        }
+                        bloqueado={
+                            bloqueado
+                        }
+                        onCambiar={
+                            cambiarVoluntarios
+                        }
+                    />
+                );
 
-        case "informacio":
-            return (
-                <PasoInformacio
-                    valor={
-                        edicion
-                            .configuracion
-                            .informacion
-                    }
-                    soloLectura={
-                        soloLectura
-                    }
-                    bloqueado={
-                        bloqueado
-                    }
-                    onCambiar={
-                        cambiarInformacion
-                    }
-                />
-            );
+            case "informacio":
+                return (
+                    <PasoInformacio
+                        valor={
+                            edicion
+                                .configuracion
+                                .informacion
+                        }
+                        soloLectura={
+                            soloLectura
+                        }
+                        bloqueado={
+                            bloqueado
+                        }
+                        onCambiar={
+                            cambiarInformacion
+                        }
+                    />
+                );
 
-        case "resum":
-            return (
-                <PasoResumen
-                    torneo={
-                        torneoActual
-                    }
-                    edicion={
-                        edicion
-                    }
-                    soloLectura={
-                        soloLectura
-                    }
-                />
-            );
+            case "faq":
+                return (
+                    <PasoFAQ
+                        valor={
+                            edicion
+                                .configuracion
+                                .faq
+                        }
+                        soloLectura={
+                            soloLectura
+                        }
+                        bloqueado={
+                            bloqueado
+                        }
+                        onCambiar={
+                            cambiarFAQ
+                        }
+                    />
+                );
+
+            case "resum":
+                return (
+                    <PasoResumen
+                        torneo={
+                            torneoActual
+                        }
+                        edicion={
+                            edicion
+                        }
+                        soloLectura={
+                            soloLectura
+                        }
+                    />
+                );
+        }
     }
-}
 
     // ========================================================
     // UI
@@ -2773,15 +2944,17 @@ export default function Asistente({
                                     outline-none
                                 "
                             >
-                                {creando
-                                    ? "Crear nova edició"
-                                    : modo ===
-                                        "ver"
-                                      ? edicion
-                                            .general
-                                            .nombre ||
-                                        "Consultar edició"
-                                      : "Editar edició"}
+                                {
+                                    creando
+                                        ? "Crear nova edició"
+                                        : modo ===
+                                            "ver"
+                                          ? edicion
+                                                .general
+                                                .nombre ||
+                                            "Consultar edició"
+                                          : "Editar edició"
+                                }
                             </h2>
 
                             <p
@@ -2791,11 +2964,15 @@ export default function Asistente({
                                     leading-6
                                 "
                             >
-                                {torneo.nombre ||
-                                    "Torneig seleccionat"}
+                                {
+                                    torneo.nombre ||
+                                    "Torneig seleccionat"
+                                }
 
-                                {torneo.deporte &&
-                                    ` · ${torneo.deporte}`}
+                                {
+                                    torneo.deporte &&
+                                    ` · ${torneo.deporte}`
+                                }
                             </p>
                         </div>
 
@@ -2806,30 +2983,33 @@ export default function Asistente({
                                 gap-2
                             "
                         >
-                            {edicion
-                                .general
-                                .estado && (
-                                <span
-                                    className="
-                                        rounded-full
-                                        border
-                                        border-border
-                                        bg-card
-                                        px-3
-                                        py-1.5
-                                        text-xs
-                                    "
-                                >
-                                    Estat:{" "}
-                                    {
-                                        edicion
-                                            .general
-                                            .estado
-                                    }
-                                </span>
-                            )}
+                            {
+                                edicion
+                                    .general
+                                    .estado && (
+                                    <span
+                                        className="
+                                            rounded-full
+                                            border
+                                            border-border
+                                            bg-card
+                                            px-3
+                                            py-1.5
+                                            text-xs
+                                        "
+                                    >
+                                        Estat:{" "}
+                                        {
+                                            edicion
+                                                .general
+                                                .estado
+                                        }
+                                    </span>
+                                )
+                            }
 
-                            {modificado &&
+                            {
+                                modificado &&
                                 puedeEditar && (
                                     <span
                                         className="
@@ -2844,23 +3024,26 @@ export default function Asistente({
                                     >
                                         Canvis sense desar
                                     </span>
-                                )}
+                                )
+                            }
 
-                            {soloLectura && (
-                                <span
-                                    className="
-                                        rounded-full
-                                        border
-                                        border-border
-                                        bg-card
-                                        px-3
-                                        py-1.5
-                                        text-xs
-                                    "
-                                >
-                                    Només lectura
-                                </span>
-                            )}
+                            {
+                                soloLectura && (
+                                    <span
+                                        className="
+                                            rounded-full
+                                            border
+                                            border-border
+                                            bg-card
+                                            px-3
+                                            py-1.5
+                                            text-xs
+                                        "
+                                    >
+                                        Només lectura
+                                    </span>
+                                )
+                            }
                         </div>
                     </div>
                 </header>
@@ -2889,139 +3072,145 @@ export default function Asistente({
                             pb-1
                         "
                     >
-                        {pasos.map(
-                            (
-                                paso,
-                                indice
-                            ) => {
-                                const activo =
-                                    indice ===
-                                    indiceActual;
+                        {
+                            pasos.map(
+                                (
+                                    paso,
+                                    indice
+                                ) => {
+                                    const activo =
+                                        indice ===
+                                        indiceActual;
 
-                                const anterior =
-                                    indice <
-                                    indiceActual;
+                                    const anterior =
+                                        indice <
+                                        indiceActual;
 
-                                return (
-                                    <button
-                                        key={
-                                            paso.id
-                                        }
-                                        type="button"
-                                        aria-current={
-                                            activo
-                                                ? "step"
-                                                : undefined
-                                        }
-                                        disabled={
-                                            guardando
-                                        }
-                                        onClick={() =>
-                                            irPaso(
-                                                indice
-                                            )
-                                        }
-                                        className={`
-                                            group
-                                            flex
-                                            min-w-max
-                                            items-center
-                                            gap-2.5
-                                            rounded-xl
-                                            border
-                                            px-3
-                                            py-2.5
-                                            text-left
-                                            transition-colors
-                                            focus-visible:outline-none
-                                            focus-visible:ring-2
-                                            focus-visible:ring-neutral/30
-                                            disabled:cursor-wait
-                                            disabled:opacity-60
-
-                                            ${
-                                                activo
-                                                    ? "border-neutral/40 bg-background"
-                                                    : "border-transparent hover:border-border hover:bg-background/70"
+                                    return (
+                                        <button
+                                            key={
+                                                paso.id
                                             }
-                                        `}
-                                    >
-                                        <span
-                                            aria-hidden="true"
+                                            type="button"
+                                            aria-current={
+                                                activo
+                                                    ? "step"
+                                                    : undefined
+                                            }
+                                            disabled={
+                                                guardando
+                                            }
+                                            onClick={() =>
+                                                irPaso(
+                                                    indice
+                                                )
+                                            }
                                             className={`
+                                                group
                                                 flex
-                                                h-7
-                                                w-7
+                                                min-w-max
                                                 items-center
-                                                justify-center
-                                                rounded-lg
+                                                gap-2.5
+                                                rounded-xl
                                                 border
-                                                text-xs
-                                                font-semibold
+                                                px-3
+                                                py-2.5
+                                                text-left
+                                                transition-colors
+                                                focus-visible:outline-none
+                                                focus-visible:ring-2
+                                                focus-visible:ring-neutral/30
+                                                disabled:cursor-wait
+                                                disabled:opacity-60
 
                                                 ${
                                                     activo
-                                                        ? "border-neutral/40 bg-card"
-                                                        : anterior
-                                                          ? "border-border bg-background"
-                                                          : "border-border bg-card"
+                                                        ? "border-neutral/40 bg-background"
+                                                        : "border-transparent hover:border-border hover:bg-background/70"
                                                 }
                                             `}
                                         >
-                                            {anterior ? (
-                                                <svg
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    viewBox="0 0 24 24"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    strokeWidth="1.8"
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    className="
-                                                        h-3.5
-                                                        w-3.5
-                                                    "
-                                                >
-                                                    <path d="m5 12 4 4L19 6" />
-                                                </svg>
-                                            ) : (
-                                                indice +
-                                                1
-                                            )}
-                                        </span>
-
-                                        <span>
                                             <span
-                                                className="
-                                                    block
-                                                    text-[10px]
-                                                    leading-none
-                                                "
-                                            >
-                                                PAS{" "}
-                                                {indice +
-                                                    1}
-                                            </span>
-
-                                            <span
-                                                className="
-                                                    mt-1
-                                                    block
-                                                    max-w-44
-                                                    truncate
+                                                aria-hidden="true"
+                                                className={`
+                                                    flex
+                                                    h-7
+                                                    w-7
+                                                    items-center
+                                                    justify-center
+                                                    rounded-lg
+                                                    border
                                                     text-xs
                                                     font-semibold
-                                                "
+
+                                                    ${
+                                                        activo
+                                                            ? "border-neutral/40 bg-card"
+                                                            : anterior
+                                                              ? "border-border bg-background"
+                                                              : "border-border bg-card"
+                                                    }
+                                                `}
                                             >
                                                 {
-                                                    paso.titulo
+                                                    anterior ? (
+                                                        <svg
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                            viewBox="0 0 24 24"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            strokeWidth="1.8"
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                            className="
+                                                                h-3.5
+                                                                w-3.5
+                                                            "
+                                                        >
+                                                            <path d="m5 12 4 4L19 6" />
+                                                        </svg>
+                                                    ) : (
+                                                        indice +
+                                                        1
+                                                    )
                                                 }
                                             </span>
-                                        </span>
-                                    </button>
-                                );
-                            }
-                        )}
+
+                                            <span>
+                                                <span
+                                                    className="
+                                                        block
+                                                        text-[10px]
+                                                        leading-none
+                                                    "
+                                                >
+                                                    PAS{" "}
+                                                    {
+                                                        indice +
+                                                        1
+                                                    }
+                                                </span>
+
+                                                <span
+                                                    className="
+                                                        mt-1
+                                                        block
+                                                        max-w-44
+                                                        truncate
+                                                        text-xs
+                                                        font-semibold
+                                                    "
+                                                >
+                                                    {
+                                                        paso.titulo
+                                                    }
+                                                </span>
+                                            </span>
+                                        </button>
+                                    );
+                                }
+                            )
+                        }
                     </div>
                 </nav>
 
@@ -3040,75 +3229,77 @@ export default function Asistente({
                         sm:py-8
                     "
                 >
-                    {error && (
-                        <div
-                            role="alert"
-                            className="
-                                mb-6
-                                flex
-                                items-start
-                                gap-3
-                                rounded-xl
-                                border
-                                border-error/30
-                                bg-error-container/40
-                                p-4
-                                text-error-foreground
-                            "
-                        >
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="1.7"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                className="
-                                    mt-0.5
-                                    h-5
-                                    w-5
-                                    shrink-0
-                                "
-                                aria-hidden="true"
-                            >
-                                <circle
-                                    cx="12"
-                                    cy="12"
-                                    r="9"
-                                />
-
-                                <path d="M12 8v5" />
-
-                                <path d="M12 16h.01" />
-                            </svg>
-
+                    {
+                        error && (
                             <div
+                                role="alert"
                                 className="
-                                    min-w-0
+                                    mb-6
+                                    flex
+                                    items-start
+                                    gap-3
+                                    rounded-xl
+                                    border
+                                    border-error/30
+                                    bg-error-container/40
+                                    p-4
+                                    text-error-foreground
                                 "
                             >
-                                <p
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="1.7"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
                                     className="
-                                        text-sm
-                                        font-semibold
+                                        mt-0.5
+                                        h-5
+                                        w-5
+                                        shrink-0
                                     "
+                                    aria-hidden="true"
                                 >
-                                    Revisa aquest pas
-                                </p>
+                                    <circle
+                                        cx="12"
+                                        cy="12"
+                                        r="9"
+                                    />
 
-                                <p
+                                    <path d="M12 8v5" />
+
+                                    <path d="M12 16h.01" />
+                                </svg>
+
+                                <div
                                     className="
-                                        mt-1
-                                        text-sm
-                                        leading-6
+                                        min-w-0
                                     "
                                 >
-                                    {error}
-                                </p>
+                                    <p
+                                        className="
+                                            text-sm
+                                            font-semibold
+                                        "
+                                    >
+                                        Revisa aquest pas
+                                    </p>
+
+                                    <p
+                                        className="
+                                            mt-1
+                                            text-sm
+                                            leading-6
+                                        "
+                                    >
+                                        {error}
+                                    </p>
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        )
+                    }
 
                     {renderPaso(torneo)}
                 </main>
@@ -3163,10 +3354,12 @@ export default function Asistente({
                                 disabled:opacity-50
                             "
                         >
-                            {modo ===
-                            "ver"
-                                ? "Tancar"
-                                : "Cancel·lar"}
+                            {
+                                modo ===
+                                "ver"
+                                    ? "Tancar"
+                                    : "Cancel·lar"
+                            }
                         </button>
 
                         <div
@@ -3177,21 +3370,267 @@ export default function Asistente({
                                 sm:flex-row
                             "
                         >
-                            {indiceActual >
-                                0 && (
+                            {
+                                indiceActual >
+                                    0 && (
+                                    <button
+                                        type="button"
+                                        disabled={
+                                            guardando
+                                        }
+                                        onClick={
+                                            anterior
+                                        }
+                                        className="
+                                            inline-flex
+                                            items-center
+                                            justify-center
+                                            gap-2
+                                            rounded-lg
+                                            border
+                                            border-border
+                                            bg-background
+                                            px-4
+                                            py-2.5
+                                            text-sm
+                                            font-medium
+                                            text-neutral
+                                            hover:border-neutral/40
+                                            disabled:cursor-wait
+                                            disabled:opacity-50
+                                        "
+                                    >
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="1.7"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            className="
+                                                h-4
+                                                w-4
+                                            "
+                                        >
+                                            <path d="m15 18-6-6 6-6" />
+                                        </svg>
+
+                                        Anterior
+                                    </button>
+                                )
+                            }
+
+                            {
+                                !ultimoPaso ? (
+                                    <button
+                                        type="button"
+                                        disabled={
+                                            guardando
+                                        }
+                                        onClick={
+                                            siguiente
+                                        }
+                                        className="
+                                            inline-flex
+                                            items-center
+                                            justify-center
+                                            gap-2
+                                            rounded-lg
+                                            bg-primary
+                                            px-5
+                                            py-2.5
+                                            text-sm
+                                            font-semibold
+                                            text-white
+                                            hover:bg-primary/90
+                                            disabled:cursor-wait
+                                            disabled:opacity-50
+                                        "
+                                    >
+                                        Següent
+
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="1.7"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            className="
+                                                h-4
+                                                w-4
+                                            "
+                                        >
+                                            <path d="m9 18 6-6-6-6" />
+                                        </svg>
+                                    </button>
+                                ) : puedeEditar ? (
+                                    <button
+                                        type="button"
+                                        disabled={
+                                            guardando
+                                        }
+                                        onClick={() =>
+                                            void guardar()
+                                        }
+                                        className="
+                                            inline-flex
+                                            items-center
+                                            justify-center
+                                            gap-2
+                                            rounded-lg
+                                            bg-primary
+                                            px-5
+                                            py-2.5
+                                            text-sm
+                                            font-semibold
+                                            text-white
+                                            hover:bg-primary/90
+                                            disabled:cursor-wait
+                                            disabled:opacity-50
+                                        "
+                                    >
+                                        {
+                                            guardando && (
+                                                <span
+                                                    aria-hidden="true"
+                                                    className="
+                                                        h-4
+                                                        w-4
+                                                        animate-spin
+                                                        rounded-full
+                                                        border-2
+                                                        border-white/35
+                                                        border-t-white
+                                                    "
+                                                />
+                                            )
+                                        }
+
+                                        {
+                                            guardando
+                                                ? "Desant..."
+                                                : creando
+                                                  ? "Crear edició"
+                                                  : "Desar canvis"
+                                        }
+                                    </button>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            window.location.assign(
+                                                volver
+                                            )
+                                        }
+                                        className="
+                                            rounded-lg
+                                            bg-primary
+                                            px-5
+                                            py-2.5
+                                            text-sm
+                                            font-semibold
+                                            text-white
+                                            hover:bg-primary/90
+                                        "
+                                    >
+                                        Tancar
+                                    </button>
+                                )
+                            }
+                        </div>
+                    </div>
+                </footer>
+            </div>
+
+            {/* =============================================
+                CONFIRMACIÓN SALIDA
+            ============================================= */}
+
+            {
+                confirmarSalida && (
+                    <div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="sortir-edicio-titol"
+                        className="
+                            fixed
+                            inset-0
+                            z-100
+                            flex
+                            items-center
+                            justify-center
+                            bg-black/35
+                            p-4
+                            backdrop-blur-sm
+                        "
+                        onMouseDown={
+                            evento => {
+                                if (
+                                    evento.target ===
+                                    evento.currentTarget
+                                ) {
+                                    setConfirmarSalida(
+                                        false
+                                    );
+                                }
+                            }
+                        }
+                    >
+                        <div
+                            className="
+                                w-full
+                                max-w-md
+                                rounded-2xl
+                                border
+                                border-border
+                                bg-background
+                                p-6
+                                shadow-xl
+                            "
+                        >
+                            <h2
+                                id="sortir-edicio-titol"
+                                className="
+                                    text-lg
+                                    font-semibold
+                                    text-neutral-titulos
+                                "
+                            >
+                                Descartar els canvis?
+                            </h2>
+
+                            <p
+                                className="
+                                    mt-2
+                                    text-sm
+                                    leading-6
+                                    text-neutral
+                                "
+                            >
+                                Hi ha canvis que encara no s'han desat. Si surts ara, es perdran.
+                            </p>
+
+                            <div
+                                className="
+                                    mt-6
+                                    flex
+                                    flex-col-reverse
+                                    gap-2
+                                    sm:flex-row
+                                    sm:justify-end
+                                "
+                            >
                                 <button
                                     type="button"
-                                    disabled={
-                                        guardando
-                                    }
-                                    onClick={
-                                        anterior
+                                    onClick={() =>
+                                        setConfirmarSalida(
+                                            false
+                                        )
                                     }
                                     className="
-                                        inline-flex
-                                        items-center
-                                        justify-center
-                                        gap-2
                                         rounded-lg
                                         border
                                         border-border
@@ -3202,122 +3641,11 @@ export default function Asistente({
                                         font-medium
                                         text-neutral
                                         hover:border-neutral/40
-                                        disabled:cursor-wait
-                                        disabled:opacity-50
                                     "
                                 >
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="1.7"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        className="
-                                            h-4
-                                            w-4
-                                        "
-                                    >
-                                        <path d="m15 18-6-6 6-6" />
-                                    </svg>
-
-                                    Anterior
+                                    Continuar editant
                                 </button>
-                            )}
 
-                            {!ultimoPaso ? (
-                                <button
-                                    type="button"
-                                    disabled={
-                                        guardando
-                                    }
-                                    onClick={
-                                        siguiente
-                                    }
-                                    className="
-                                        inline-flex
-                                        items-center
-                                        justify-center
-                                        gap-2
-                                        rounded-lg
-                                        bg-primary
-                                        px-5
-                                        py-2.5
-                                        text-sm
-                                        font-semibold
-                                        text-white
-                                        hover:bg-primary/90
-                                        disabled:cursor-wait
-                                        disabled:opacity-50
-                                    "
-                                >
-                                    Següent
-
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="1.7"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        className="
-                                            h-4
-                                            w-4
-                                        "
-                                    >
-                                        <path d="m9 18 6-6-6-6" />
-                                    </svg>
-                                </button>
-                            ) : puedeEditar ? (
-                                <button
-                                    type="button"
-                                    disabled={
-                                        guardando
-                                    }
-                                    onClick={() =>
-                                        void guardar()
-                                    }
-                                    className="
-                                        inline-flex
-                                        items-center
-                                        justify-center
-                                        gap-2
-                                        rounded-lg
-                                        bg-primary
-                                        px-5
-                                        py-2.5
-                                        text-sm
-                                        font-semibold
-                                        text-white
-                                        hover:bg-primary/90
-                                        disabled:cursor-wait
-                                        disabled:opacity-50
-                                    "
-                                >
-                                    {guardando && (
-                                        <span
-                                            aria-hidden="true"
-                                            className="
-                                                h-4
-                                                w-4
-                                                animate-spin
-                                                rounded-full
-                                                border-2
-                                                border-white/35
-                                                border-t-white
-                                            "
-                                        />
-                                    )}
-
-                                    {guardando
-                                        ? "Desant..."
-                                        : creando
-                                          ? "Crear edició"
-                                          : "Desar canvis"}
-                                </button>
-                            ) : (
                                 <button
                                     type="button"
                                     onClick={() =>
@@ -3327,148 +3655,21 @@ export default function Asistente({
                                     }
                                     className="
                                         rounded-lg
-                                        bg-primary
-                                        px-5
+                                        bg-error
+                                        px-4
                                         py-2.5
                                         text-sm
                                         font-semibold
                                         text-white
-                                        hover:bg-primary/90
                                     "
                                 >
-                                    Tancar
+                                    Descartar i sortir
                                 </button>
-                            )}
+                            </div>
                         </div>
                     </div>
-                </footer>
-            </div>
-
-            {/* =============================================
-                CONFIRMACIÓN DE SALIDA
-            ============================================= */}
-
-            {confirmarSalida && (
-                <div
-                    role="dialog"
-                    aria-modal="true"
-                    aria-labelledby="sortir-edicio-titol"
-                    className="
-                        fixed
-                        inset-0
-                        z-100
-                        flex
-                        items-center
-                        justify-center
-                        bg-black/35
-                        p-4
-                        backdrop-blur-sm
-                    "
-                    onMouseDown={
-                        evento => {
-                            if (
-                                evento.target ===
-                                evento.currentTarget
-                            ) {
-                                setConfirmarSalida(
-                                    false
-                                );
-                            }
-                        }
-                    }
-                >
-                    <div
-                        className="
-                            w-full
-                            max-w-md
-                            rounded-2xl
-                            border
-                            border-border
-                            bg-background
-                            p-6
-                            shadow-xl
-                        "
-                    >
-                        <h2
-                            id="sortir-edicio-titol"
-                            className="
-                                text-lg
-                                font-semibold
-                                text-neutral-titulos
-                            "
-                        >
-                            Descartar els canvis?
-                        </h2>
-
-                        <p
-                            className="
-                                mt-2
-                                text-sm
-                                leading-6
-                                text-neutral
-                            "
-                        >
-                            Hi ha canvis que encara no
-                            s'han desat. Si surts ara,
-                            es perdran.
-                        </p>
-
-                        <div
-                            className="
-                                mt-6
-                                flex
-                                flex-col-reverse
-                                gap-2
-                                sm:flex-row
-                                sm:justify-end
-                            "
-                        >
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    setConfirmarSalida(
-                                        false
-                                    )
-                                }
-                                className="
-                                    rounded-lg
-                                    border
-                                    border-border
-                                    bg-background
-                                    px-4
-                                    py-2.5
-                                    text-sm
-                                    font-medium
-                                    text-neutral
-                                    hover:border-neutral/40
-                                "
-                            >
-                                Continuar editant
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    window.location.assign(
-                                        volver
-                                    )
-                                }
-                                className="
-                                    rounded-lg
-                                    bg-error
-                                    px-4
-                                    py-2.5
-                                    text-sm
-                                    font-semibold
-                                    text-white
-                                "
-                            >
-                                Descartar i sortir
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+                )
+            }
         </>
     );
 }

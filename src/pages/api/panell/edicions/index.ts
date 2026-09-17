@@ -39,6 +39,9 @@ const MAX_JSON_BYTES =
 const MAX_BLOQUES =
     100;
 
+const MAX_FAQ =
+    100;
+
 const MAX_TIPOS_VOLUNTARIADO =
     100;
 
@@ -46,7 +49,7 @@ const CAMPOS_EDICION =
     "id,torneo_id,nombre,fecha_inicio,fecha_fin,estado,sede,created_at,updated_at";
 
 const CAMPOS_CONFIGURACION =
-    "edicion_id,equipos,voluntarios,informacion,competicion,created_at,updated_at";
+    "edicion_id,equipos,voluntarios,informacion,faq,competicion,created_at,updated_at";
 
 // ============================================================
 // TIPOS
@@ -74,7 +77,8 @@ type Accion =
     | "eliminar";
 
 type TorneoDB = {
-    id: string;
+    id:
+        string;
 
     nombre:
         string | null;
@@ -84,7 +88,8 @@ type TorneoDB = {
 };
 
 type EdicionDB = {
-    id: string;
+    id:
+        string;
 
     torneo_id:
         string | null;
@@ -122,6 +127,9 @@ type ConfiguracionDB = {
         unknown;
 
     informacion:
+        unknown;
+
+    faq:
         unknown;
 
     competicion:
@@ -628,7 +636,7 @@ async function obtenerTorneo(
         );
     }
 
-    return data;
+    return data as TorneoDB;
 }
 
 // ============================================================
@@ -714,11 +722,9 @@ async function obtenerConfiguracion(
         throw error;
     }
 
-    return (
-        data as
-            | ConfiguracionDB
-            | null
-    );
+    return data as
+        | ConfiguracionDB
+        | null;
 }
 
 // ============================================================
@@ -775,10 +781,6 @@ function estadoParaDB(
             .trim()
             .toUpperCase()
     ) {
-        /*
-         * Mantiene compatibilidad con el listado
-         * de torneos existente.
-         */
         case "BORRADOR":
             return "en_preparacio";
 
@@ -1070,6 +1072,7 @@ function leerEquipos(
             "jugadores",
             "genero",
             "profesores",
+            "entrenador",
             "staff",
         ]
     );
@@ -1275,6 +1278,35 @@ function leerEquipos(
         );
 
     // --------------------------------------------------------
+    // ENTRENADOR
+    // --------------------------------------------------------
+
+    if (
+        !esRegistro(
+            valor.entrenador
+        )
+    ) {
+        throw new ErrorAPI(
+            400,
+            "La configuració de l'entrenador no és vàlida."
+        );
+    }
+
+    comprobarClaves(
+        valor.entrenador,
+        [
+            "permitido",
+        ]
+    );
+
+    const entrenadorPermitido =
+        leerBooleano(
+            valor.entrenador
+                .permitido,
+            "entrenador"
+        );
+
+    // --------------------------------------------------------
     // STAFF
     // --------------------------------------------------------
 
@@ -1391,6 +1423,11 @@ function leerEquipos(
 
             cuentan_como_jugador:
                 cuentanComoJugador,
+        },
+
+        entrenador: {
+            permitido:
+                entrenadorPermitido,
         },
 
         staff: {
@@ -1954,6 +1991,215 @@ function leerInformacion(
 }
 
 // ============================================================
+// FAQ
+// ============================================================
+
+function leerFAQ(
+    valor:
+        unknown,
+) {
+    if (
+        !esRegistro(
+            valor
+        )
+    ) {
+        throw new ErrorAPI(
+            400,
+            "La configuració de les preguntes freqüents no és vàlida."
+        );
+    }
+
+    comprobarClaves(
+        valor,
+        [
+            "preguntas",
+        ]
+    );
+
+    if (
+        !Array.isArray(
+            valor.preguntas
+        ) ||
+        valor.preguntas.length >
+            MAX_FAQ
+    ) {
+        throw new ErrorAPI(
+            400,
+            `No es poden definir més de ${MAX_FAQ} preguntes freqüents.`
+        );
+    }
+
+    const ids =
+        new Set<string>();
+
+    const textos =
+        new Set<string>();
+
+    const preguntas =
+        valor.preguntas.map(
+            (
+                entrada,
+                indice
+            ) => {
+                if (
+                    !esRegistro(
+                        entrada
+                    )
+                ) {
+                    throw new ErrorAPI(
+                        400,
+                        "Hi ha una pregunta freqüent no vàlida."
+                    );
+                }
+
+                comprobarClaves(
+                    entrada,
+                    [
+                        "id",
+                        "order",
+                        "pregunta",
+                        "respuesta",
+                        "activo",
+                    ]
+                );
+
+                const id =
+                    leerTexto(
+                        entrada.id,
+                        "identificador de la pregunta freqüent",
+                        150,
+                        true
+                    );
+
+                if (
+                    ids.has(
+                        id
+                    )
+                ) {
+                    throw new ErrorAPI(
+                        400,
+                        "Hi ha preguntes freqüents amb identificadors repetits."
+                    );
+                }
+
+                ids.add(
+                    id
+                );
+
+                if (
+                    typeof entrada.order !==
+                        "number" ||
+                    !Number.isSafeInteger(
+                        entrada.order
+                    ) ||
+                    entrada.order <
+                        1
+                ) {
+                    throw new ErrorAPI(
+                        400,
+                        "L'ordre d'una pregunta freqüent no és vàlid."
+                    );
+                }
+
+                const pregunta =
+                    leerTexto(
+                        entrada.pregunta,
+                        "pregunta freqüent",
+                        200,
+                        true
+                    );
+
+                const clavePregunta =
+                    pregunta.toLocaleLowerCase(
+                        "ca-ES"
+                    );
+
+                if (
+                    textos.has(
+                        clavePregunta
+                    )
+                ) {
+                    throw new ErrorAPI(
+                        400,
+                        "No pot haver-hi dues preguntes freqüents iguals."
+                    );
+                }
+
+                textos.add(
+                    clavePregunta
+                );
+
+                const respuesta =
+                    leerTexto(
+                        entrada.respuesta,
+                        "resposta de la pregunta freqüent",
+                        5000,
+                        true
+                    );
+
+                const activo =
+                    leerBooleano(
+                        entrada.activo,
+                        "visibilitat de la pregunta freqüent"
+                    );
+
+                return {
+                    id,
+
+                    order:
+                        entrada.order,
+
+                    pregunta,
+
+                    respuesta,
+
+                    activo,
+
+                    indiceOriginal:
+                        indice,
+                };
+            }
+        );
+
+    return {
+        preguntas:
+            preguntas
+                .sort(
+                    (
+                        a,
+                        b
+                    ) =>
+                        a.order -
+                            b.order ||
+                        a.indiceOriginal -
+                            b.indiceOriginal
+                )
+                .map(
+                    (
+                        pregunta,
+                        indice
+                    ) => ({
+                        id:
+                            pregunta.id,
+
+                        order:
+                            indice +
+                            1,
+
+                        pregunta:
+                            pregunta.pregunta,
+
+                        respuesta:
+                            pregunta.respuesta,
+
+                        activo:
+                            pregunta.activo,
+                    })
+                ),
+    };
+}
+
+// ============================================================
 // COMPETICIÓN
 // ============================================================
 
@@ -1964,8 +2210,8 @@ function leerCompeticion(
     /*
      * Todavía no existe el editor de competición.
      *
-     * Conservamos el objeto que ya exista para que una edición
-     * no pierda su configuración al editar otros apartados.
+     * Conservamos el objeto existente para no perderlo al
+     * modificar cualquier otro apartado de la edición.
      */
     if (
         !esRegistro(
@@ -2093,6 +2339,7 @@ function leerConfiguracion(
             "equipos",
             "voluntarios",
             "informacion",
+            "faq",
             "competicion",
         ]
     );
@@ -2111,6 +2358,11 @@ function leerConfiguracion(
         informacion:
             leerInformacion(
                 valor.informacion
+            ),
+
+        faq:
+            leerFAQ(
+                valor.faq
             ),
 
         competicion:
@@ -2162,6 +2414,10 @@ function leerDatos(
     };
 }
 
+// ============================================================
+// VERSIÓN / CONCURRENCIA
+// ============================================================
+
 function leerVersion(
     cuerpo:
         Registro,
@@ -2187,10 +2443,23 @@ function leerVersion(
 
     if (
         typeof cuerpo.updated_at !==
-            "string" ||
+            "string"
+    ) {
+        throw new ErrorAPI(
+            400,
+            "La versió de l'edició no és vàlida."
+        );
+    }
+
+    const version =
+        cuerpo.updated_at
+            .trim();
+
+    if (
+        !version ||
         !Number.isFinite(
             Date.parse(
-                cuerpo.updated_at
+                version
             )
         )
     ) {
@@ -2200,9 +2469,25 @@ function leerVersion(
         );
     }
 
-    return new Date(
-        cuerpo.updated_at
-    ).toISOString();
+    /*
+     * IMPORTANTE:
+     *
+     * No convertir este timestamp mediante
+     * `new Date(...).toISOString()`.
+     *
+     * PostgreSQL puede almacenar microsegundos mientras que
+     * JavaScript Date trabaja con milisegundos. Si lo
+     * convertimos perderíamos precisión y posteriormente:
+     *
+     * .eq("updated_at", version)
+     *
+     * podría no encontrar la fila aunque nadie hubiera
+     * modificado realmente la edición.
+     *
+     * Por eso conservamos exactamente el timestamp enviado
+     * originalmente por Supabase.
+     */
+    return version;
 }
 
 // ============================================================
@@ -2262,13 +2547,21 @@ function prepararEdicionFormulario(
                     ?.informacion ??
                 {},
 
+            faq:
+                configuracion
+                    ?.faq ??
+                {
+                    preguntas:
+                        [],
+                },
+
             competicion:
                 esRegistro(
                     configuracion
                         ?.competicion
                 )
                     ? configuracion
-                          ?.competicion
+                          .competicion
                     : {},
         },
 
@@ -2276,8 +2569,8 @@ function prepararEdicionFormulario(
             edicion.created_at,
 
         /*
-         * Utilizamos updated_at de `ediciones` como versión
-         * del formulario completo.
+         * Se devuelve exactamente el valor almacenado en
+         * PostgreSQL para conservar toda la precisión.
          */
         updated_at:
             edicion.updated_at,
@@ -2709,6 +3002,9 @@ export const POST:
                         informacion:
                             configuracion.informacion,
 
+                        faq:
+                            configuracion.faq,
+
                         competicion:
                             configuracion.competicion,
 
@@ -2722,13 +3018,6 @@ export const POST:
             if (
                 errorConfiguracion
             ) {
-                /*
-                 * No tenemos una función SQL transaccional
-                 * porque la tabla se creó sin RPC adicional.
-                 *
-                 * Si falla la segunda inserción eliminamos
-                 * inmediatamente la edición creada.
-                 */
                 const {
                     error:
                         errorRollback,
@@ -2774,11 +3063,6 @@ export const POST:
         } catch (
             error
         ) {
-            /*
-             * edicionCreadaID se conserva únicamente para
-             * facilitar el diagnóstico si alguna operación
-             * inesperada falla después de la creación.
-             */
             if (
                 edicionCreadaID
             ) {
@@ -2860,6 +3144,10 @@ export const PATCH:
                 "editar"
             );
 
+            // =================================================
+            // DATOS ACTUALES
+            // =================================================
+
             const edicionAnterior =
                 await obtenerEdicion(
                     edicionID,
@@ -2877,15 +3165,14 @@ export const PATCH:
                 );
 
             /*
-             * Comprobación previa para devolver un mensaje
-             * claro antes de escribir.
+             * IMPORTANTE:
+             *
+             * No convertimos updated_at con Date.toISOString().
+             * Se compara exactamente el timestamp recibido
+             * originalmente desde Supabase.
              */
             const versionActual =
-                edicionAnterior.updated_at
-                    ? new Date(
-                          edicionAnterior.updated_at
-                      ).toISOString()
-                    : null;
+                edicionAnterior.updated_at;
 
             if (
                 versionActual !==
@@ -2956,6 +3243,10 @@ export const PATCH:
                         null
                     );
             } else {
+                /*
+                 * El valor conserva la precisión original de
+                 * PostgreSQL, incluidos sus microsegundos.
+                 */
                 actualizacion =
                     actualizacion.eq(
                         "updated_at",
@@ -2984,6 +3275,11 @@ export const PATCH:
             if (
                 !edicionActualizada
             ) {
+                /*
+                 * Si llegamos aquí significa que alguien
+                 * modificó updated_at entre la lectura previa
+                 * y este UPDATE.
+                 */
                 throw new ErrorAPI(
                     409,
                     "Aquesta edició ha canviat mentre l'estaves editant. Torna a carregar-la."
@@ -3018,6 +3314,9 @@ export const PATCH:
                                 informacion:
                                     configuracion.informacion,
 
+                                faq:
+                                    configuracion.faq,
+
                                 competicion:
                                     configuracion.competicion,
 
@@ -3048,8 +3347,9 @@ export const PATCH:
                     }
                 } else {
                     /*
-                     * Permite editar ediciones antiguas
-                     * creadas antes de existir esta tabla.
+                     * Compatibilidad con ediciones antiguas que
+                     * todavía no tengan una fila en
+                     * configuracion_ediciones.
                      */
                     const {
                         error:
@@ -3072,6 +3372,9 @@ export const PATCH:
                                 informacion:
                                     configuracion.informacion,
 
+                                faq:
+                                    configuracion.faq,
+
                                 competicion:
                                     configuracion.competicion,
 
@@ -3092,14 +3395,15 @@ export const PATCH:
                 errorConfiguracion
             ) {
                 // =============================================
-                // ROLLBACK DE LOS DATOS GENERALES
+                // ROLLBACK DE DATOS GENERALES
                 // =============================================
 
                 /*
-                 * Solo revertimos si `updated_at` sigue siendo
+                 * Solo revertimos si updated_at sigue siendo
                  * exactamente el que acabamos de escribir.
                  *
-                 * Así no pisamos una modificación posterior.
+                 * Así evitamos sobrescribir una modificación
+                 * posterior realizada por otra petición.
                  */
                 const {
                     error:

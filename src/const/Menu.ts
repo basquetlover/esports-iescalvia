@@ -7,7 +7,7 @@ export const MENU = [
     {
         nombre: 'Tornejos',
         enlace: `/tornejos`,
-        estado: 'Pròximament'
+        estado: 'Activa'
     },
     {
         nombre: 'Calendari',

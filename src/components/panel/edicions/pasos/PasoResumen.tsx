@@ -28,9 +28,11 @@ type Props = {
 
 function fechaVisible(
     valor:
-        string | null
+        string | null,
 ) {
-    if (!valor) {
+    if (
+        !valor
+    ) {
         return "No definida";
     }
 
@@ -66,7 +68,7 @@ function fechaVisible(
 
 function nombreEstado(
     estado:
-        string
+        string,
 ) {
     switch (
         estado
@@ -90,7 +92,7 @@ function nombreEstado(
 
 function nombreComportamiento(
     valor:
-        string
+        string,
 ) {
     switch (
         valor
@@ -111,7 +113,7 @@ function nombreComportamiento(
 
 function numeroONoDefinido(
     valor:
-        number | null
+        number | null,
 ) {
     return valor ===
         null
@@ -123,7 +125,7 @@ function numeroONoDefinido(
 
 function siNo(
     valor:
-        boolean
+        boolean,
 ) {
     return valor
         ? "Sí"
@@ -132,7 +134,7 @@ function siNo(
 
 function textoPlano(
     html:
-        string
+        string,
 ) {
     if (
         !html
@@ -180,7 +182,7 @@ function resumenTexto(
         string,
 
     maximo =
-        180
+        180,
 ) {
     const texto =
         textoPlano(
@@ -194,10 +196,42 @@ function resumenTexto(
         return texto;
     }
 
-    return `${texto.slice(
-        0,
+    return `${texto
+        .slice(
+            0,
+            maximo
+        )
+        .trim()}…`;
+}
+
+function resumenRespuesta(
+    texto:
+        string,
+
+    maximo =
+        160,
+) {
+    const limpio =
+        texto
+            .replace(
+                /\s+/g,
+                " "
+            )
+            .trim();
+
+    if (
+        limpio.length <=
         maximo
-    ).trim()}…`;
+    ) {
+        return limpio;
+    }
+
+    return `${limpio
+        .slice(
+            0,
+            maximo
+        )
+        .trim()}…`;
 }
 
 // ============================================================
@@ -227,11 +261,24 @@ export default function PasoResumen({
     const informacion =
         configuracion.informacion;
 
+    const faq =
+        configuracion.faq;
+
     const tiposActivos =
-        voluntarios.tipos.filter(
-            tipo =>
-                tipo.activo
-        );
+        voluntarios
+            .tipos
+            .filter(
+                tipo =>
+                    tipo.activo
+            );
+
+    const preguntasActivas =
+        faq
+            .preguntas
+            .filter(
+                pregunta =>
+                    pregunta.activo
+            );
 
     return (
         <section
@@ -327,9 +374,11 @@ export default function PasoResumen({
                     "
                 >
                     Comprova la informació abans de
-                    {soloLectura
-                        ? " tancar la consulta."
-                        : " desar l'edició."}
+                    {
+                        soloLectura
+                            ? " tancar la consulta."
+                            : " desar l'edició."
+                    }
                 </p>
             </header>
 
@@ -376,8 +425,10 @@ export default function PasoResumen({
                                     tracking-wide
                                 "
                             >
-                                {torneo.nombre ||
-                                    "Torneig"}
+                                {
+                                    torneo.nombre ||
+                                    "Torneig"
+                                }
                             </p>
 
                             <h3
@@ -389,20 +440,26 @@ export default function PasoResumen({
                                     text-neutral-titulos
                                 "
                             >
-                                {general.nombre ||
-                                    "Edició sense nom"}
+                                {
+                                    general.nombre ||
+                                    "Edició sense nom"
+                                }
                             </h3>
 
-                            {torneo.deporte && (
-                                <p
-                                    className="
-                                        mt-1
-                                        text-sm
-                                    "
-                                >
-                                    {torneo.deporte}
-                                </p>
-                            )}
+                            {
+                                torneo.deporte && (
+                                    <p
+                                        className="
+                                            mt-1
+                                            text-sm
+                                        "
+                                    >
+                                        {
+                                            torneo.deporte
+                                        }
+                                    </p>
+                                )
+                            }
                         </div>
 
                         <span
@@ -419,9 +476,11 @@ export default function PasoResumen({
                                 text-secondary
                             "
                         >
-                            {nombreEstado(
-                                general.estado
-                            )}
+                            {
+                                nombreEstado(
+                                    general.estado
+                                )
+                            }
                         </span>
                     </div>
                 </div>
@@ -437,22 +496,28 @@ export default function PasoResumen({
                 >
                     <DatoPrincipal
                         titulo="Inici"
-                        valor={fechaVisible(
-                            general.fecha_inicio
-                        )}
+                        valor={
+                            fechaVisible(
+                                general.fecha_inicio
+                            )
+                        }
                     />
 
                     <DatoPrincipal
                         titulo="Final"
-                        valor={fechaVisible(
-                            general.fecha_fin
-                        )}
+                        valor={
+                            fechaVisible(
+                                general.fecha_fin
+                            )
+                        }
                     />
 
                     <DatoPrincipal
                         titulo="Seu"
                         valor={
-                            general.sede.trim() ||
+                            general
+                                .sede
+                                .trim() ||
                             "No definida"
                         }
                     />
@@ -503,184 +568,268 @@ export default function PasoResumen({
                         md:grid-cols-2
                     "
                 >
+                    {/* INSCRIPCIÓN */}
+
                     <GrupoResumen
                         titulo="Inscripció"
                     >
                         <FilaResumen
                             etiqueta="Obertura"
-                            valor={fechaVisible(
-                                equipos
-                                    .inscripcion
-                                    .apertura
-                            )}
+                            valor={
+                                fechaVisible(
+                                    equipos
+                                        .inscripcion
+                                        .apertura
+                                )
+                            }
                         />
 
                         <FilaResumen
                             etiqueta="Tancament"
-                            valor={fechaVisible(
-                                equipos
-                                    .inscripcion
-                                    .cierre
-                            )}
+                            valor={
+                                fechaVisible(
+                                    equipos
+                                        .inscripcion
+                                        .cierre
+                                )
+                            }
                         />
 
                         <FilaResumen
                             etiqueta="Màxim d'equips"
-                            valor={numeroONoDefinido(
-                                equipos
-                                    .cupo
-                                    .maximo
-                            )}
+                            valor={
+                                numeroONoDefinido(
+                                    equipos
+                                        .cupo
+                                        .maximo
+                                )
+                            }
                         />
 
                         <FilaResumen
                             etiqueta="En superar el màxim"
-                            valor={nombreComportamiento(
-                                equipos
-                                    .cupo
-                                    .al_superar
-                            )}
+                            valor={
+                                nombreComportamiento(
+                                    equipos
+                                        .cupo
+                                        .al_superar
+                                )
+                            }
                         />
                     </GrupoResumen>
+
+                    {/* JUGADORES */}
 
                     <GrupoResumen
                         titulo="Jugadors"
                     >
                         <FilaResumen
                             etiqueta="Mínim"
-                            valor={numeroONoDefinido(
-                                equipos
-                                    .jugadores
-                                    .minimo
-                            )}
+                            valor={
+                                numeroONoDefinido(
+                                    equipos
+                                        .jugadores
+                                        .minimo
+                                )
+                            }
                         />
 
                         <FilaResumen
                             etiqueta="Màxim"
-                            valor={numeroONoDefinido(
-                                equipos
-                                    .jugadores
-                                    .maximo
-                            )}
+                            valor={
+                                numeroONoDefinido(
+                                    equipos
+                                        .jugadores
+                                        .maximo
+                                )
+                            }
                         />
 
                         <FilaResumen
                             etiqueta="Composició per gènere"
-                            valor={equipos
-                                .genero
-                                .activo
-                                ? "Activada"
-                                : "No requerida"}
+                            valor={
+                                equipos
+                                    .genero
+                                    .activo
+                                    ? "Activada"
+                                    : "No requerida"
+                            }
                         />
 
-                        {equipos
-                            .genero
-                            .activo && (
-                            <>
-                                <FilaResumen
-                                    etiqueta="Mínim de nois"
-                                    valor={String(
-                                        equipos
-                                            .genero
-                                            .minimos
-                                            .masculino
-                                    )}
-                                />
+                        {
+                            equipos
+                                .genero
+                                .activo && (
+                                <>
+                                    <FilaResumen
+                                        etiqueta="Mínim de nois"
+                                        valor={
+                                            String(
+                                                equipos
+                                                    .genero
+                                                    .minimos
+                                                    .masculino
+                                            )
+                                        }
+                                    />
 
-                                <FilaResumen
-                                    etiqueta="Mínim de noies"
-                                    valor={String(
-                                        equipos
-                                            .genero
-                                            .minimos
-                                            .femenino
-                                    )}
-                                />
-                            </>
-                        )}
+                                    <FilaResumen
+                                        etiqueta="Mínim de noies"
+                                        valor={
+                                            String(
+                                                equipos
+                                                    .genero
+                                                    .minimos
+                                                    .femenino
+                                            )
+                                        }
+                                    />
+                                </>
+                            )
+                        }
                     </GrupoResumen>
+
+                    {/* PROFESORES */}
 
                     <GrupoResumen
                         titulo="Professorat"
                     >
                         <FilaResumen
                             etiqueta="Permès"
-                            valor={siNo(
-                                equipos
-                                    .profesores
-                                    .permitidos
-                            )}
+                            valor={
+                                siNo(
+                                    equipos
+                                        .profesores
+                                        .permitidos
+                                )
+                            }
                         />
 
-                        {equipos
-                            .profesores
-                            .permitidos && (
-                            <>
-                                <FilaResumen
-                                    etiqueta="Mínim"
-                                    valor={String(
-                                        equipos
-                                            .profesores
-                                            .minimo
-                                    )}
-                                />
+                        {
+                            equipos
+                                .profesores
+                                .permitidos && (
+                                <>
+                                    <FilaResumen
+                                        etiqueta="Mínim"
+                                        valor={
+                                            String(
+                                                equipos
+                                                    .profesores
+                                                    .minimo
+                                            )
+                                        }
+                                    />
 
-                                <FilaResumen
-                                    etiqueta="Màxim"
-                                    valor={String(
-                                        equipos
-                                            .profesores
-                                            .maximo
-                                    )}
-                                />
+                                    <FilaResumen
+                                        etiqueta="Màxim"
+                                        valor={
+                                            String(
+                                                equipos
+                                                    .profesores
+                                                    .maximo
+                                            )
+                                        }
+                                    />
 
-                                <FilaResumen
-                                    etiqueta="Compta com a jugador"
-                                    valor={siNo(
-                                        equipos
-                                            .profesores
-                                            .cuentan_como_jugador
-                                    )}
-                                />
-                            </>
-                        )}
+                                    <FilaResumen
+                                        etiqueta="Compta com a jugador"
+                                        valor={
+                                            siNo(
+                                                equipos
+                                                    .profesores
+                                                    .cuentan_como_jugador
+                                            )
+                                        }
+                                    />
+                                </>
+                            )
+                        }
                     </GrupoResumen>
+
+                    {/* ENTRENADOR */}
+
+                    <GrupoResumen
+                        titulo="Entrenador"
+                    >
+                        <FilaResumen
+                            etiqueta="Permès"
+                            valor={
+                                siNo(
+                                    equipos
+                                        .entrenador
+                                        .permitido
+                                )
+                            }
+                        />
+
+                        {
+                            equipos
+                                .entrenador
+                                .permitido && (
+                                <p
+                                    className="
+                                        rounded-lg
+                                        bg-primary/5
+                                        px-3
+                                        py-2.5
+                                        text-xs
+                                        leading-5
+                                        text-neutral
+                                    "
+                                >
+                                    Els equips podran indicar un entrenador
+                                    durant el procés d'inscripció.
+                                </p>
+                            )
+                        }
+                    </GrupoResumen>
+
+                    {/* STAFF */}
 
                     <GrupoResumen
                         titulo="Staff"
                     >
                         <FilaResumen
                             etiqueta="Permès"
-                            valor={siNo(
-                                equipos
-                                    .staff
-                                    .permitido
-                            )}
+                            valor={
+                                siNo(
+                                    equipos
+                                        .staff
+                                        .permitido
+                                )
+                            }
                         />
 
-                        {equipos
-                            .staff
-                            .permitido && (
-                            <>
-                                <FilaResumen
-                                    etiqueta="Mínim"
-                                    valor={String(
-                                        equipos
-                                            .staff
-                                            .minimo
-                                    )}
-                                />
+                        {
+                            equipos
+                                .staff
+                                .permitido && (
+                                <>
+                                    <FilaResumen
+                                        etiqueta="Mínim"
+                                        valor={
+                                            String(
+                                                equipos
+                                                    .staff
+                                                    .minimo
+                                            )
+                                        }
+                                    />
 
-                                <FilaResumen
-                                    etiqueta="Màxim"
-                                    valor={String(
-                                        equipos
-                                            .staff
-                                            .maximo
-                                    )}
-                                />
-                            </>
-                        )}
+                                    <FilaResumen
+                                        etiqueta="Màxim"
+                                        valor={
+                                            String(
+                                                equipos
+                                                    .staff
+                                                    .maximo
+                                            )
+                                        }
+                                    />
+                                </>
+                            )
+                        }
                     </GrupoResumen>
                 </div>
             </BloqueResumen>
@@ -730,38 +879,46 @@ export default function PasoResumen({
                     >
                         <FilaResumen
                             etiqueta="Obertura"
-                            valor={fechaVisible(
-                                voluntarios
-                                    .inscripcion
-                                    .apertura
-                            )}
+                            valor={
+                                fechaVisible(
+                                    voluntarios
+                                        .inscripcion
+                                        .apertura
+                                )
+                            }
                         />
 
                         <FilaResumen
                             etiqueta="Tancament"
-                            valor={fechaVisible(
-                                voluntarios
-                                    .inscripcion
-                                    .cierre
-                            )}
+                            valor={
+                                fechaVisible(
+                                    voluntarios
+                                        .inscripcion
+                                        .cierre
+                                )
+                            }
                         />
 
                         <FilaResumen
                             etiqueta="Màxim general"
-                            valor={numeroONoDefinido(
-                                voluntarios
-                                    .cupo
-                                    .maximo
-                            )}
+                            valor={
+                                numeroONoDefinido(
+                                    voluntarios
+                                        .cupo
+                                        .maximo
+                                )
+                            }
                         />
 
                         <FilaResumen
                             etiqueta="En superar el màxim"
-                            valor={nombreComportamiento(
-                                voluntarios
-                                    .cupo
-                                    .al_superar
-                            )}
+                            valor={
+                                nombreComportamiento(
+                                    voluntarios
+                                        .cupo
+                                        .al_superar
+                                )
+                            }
                         />
                     </GrupoResumen>
 
@@ -770,190 +927,210 @@ export default function PasoResumen({
                     >
                         <FilaResumen
                             etiqueta="Tipus creats"
-                            valor={String(
-                                voluntarios
-                                    .tipos
-                                    .length
-                            )}
+                            valor={
+                                String(
+                                    voluntarios
+                                        .tipos
+                                        .length
+                                )
+                            }
                         />
 
                         <FilaResumen
                             etiqueta="Tipus actius"
-                            valor={String(
-                                tiposActivos
-                                    .length
-                            )}
+                            valor={
+                                String(
+                                    tiposActivos
+                                        .length
+                                )
+                            }
                         />
                     </GrupoResumen>
                 </div>
 
-                {voluntarios
-                    .tipos
-                    .length >
-                    0 && (
-                    <div
-                        className="
-                            mt-5
-                            border-t
-                            border-border
-                            pt-5
-                        "
-                    >
-                        <p
-                            className="
-                                text-sm
-                                font-semibold
-                                text-neutral-titulos
-                            "
-                        >
-                            Tipus de voluntariat
-                        </p>
-
+                {
+                    voluntarios
+                        .tipos
+                        .length >
+                        0 && (
                         <div
                             className="
-                                mt-3
-                                grid
-                                grid-cols-1
-                                gap-3
-                                sm:grid-cols-2
-                                lg:grid-cols-3
+                                mt-5
+                                border-t
+                                border-border
+                                pt-5
                             "
                         >
-                            {voluntarios
-                                .tipos
-                                .map(
-                                    tipo => (
-                                        <div
-                                            key={
-                                                tipo.id
-                                            }
-                                            className="
-                                                rounded-xl
-                                                border
-                                                border-border
-                                                bg-card/40
-                                                p-4
-                                            "
-                                        >
-                                            <div
-                                                className="
-                                                    flex
-                                                    items-start
-                                                    justify-between
-                                                    gap-3
-                                                "
-                                            >
+                            <p
+                                className="
+                                    text-sm
+                                    font-semibold
+                                    text-neutral-titulos
+                                "
+                            >
+                                Tipus de voluntariat
+                            </p>
+
+                            <div
+                                className="
+                                    mt-3
+                                    grid
+                                    grid-cols-1
+                                    gap-3
+                                    sm:grid-cols-2
+                                    lg:grid-cols-3
+                                "
+                            >
+                                {
+                                    voluntarios
+                                        .tipos
+                                        .map(
+                                            tipo => (
                                                 <div
+                                                    key={
+                                                        tipo.id
+                                                    }
                                                     className="
-                                                        min-w-0
+                                                        rounded-xl
+                                                        border
+                                                        border-border
+                                                        bg-card/40
+                                                        p-4
                                                     "
                                                 >
-                                                    <p
+                                                    <div
                                                         className="
-                                                            truncate
-                                                            text-sm
-                                                            font-semibold
-                                                            text-neutral-titulos
+                                                            flex
+                                                            items-start
+                                                            justify-between
+                                                            gap-3
                                                         "
                                                     >
-                                                        {tipo.nombre ||
-                                                            "Sense nom"}
-                                                    </p>
+                                                        <div
+                                                            className="
+                                                                min-w-0
+                                                            "
+                                                        >
+                                                            <p
+                                                                className="
+                                                                    truncate
+                                                                    text-sm
+                                                                    font-semibold
+                                                                    text-neutral-titulos
+                                                                "
+                                                            >
+                                                                {
+                                                                    tipo.nombre ||
+                                                                    "Sense nom"
+                                                                }
+                                                            </p>
 
-                                                    <p
+                                                            <p
+                                                                className="
+                                                                    mt-1
+                                                                    text-xs
+                                                                "
+                                                            >
+                                                                {
+                                                                    tipo.activo
+                                                                        ? "Disponible"
+                                                                        : "Desactivat"
+                                                                }
+                                                            </p>
+                                                        </div>
+
+                                                        <span
+                                                            className={`
+                                                                h-2.5
+                                                                w-2.5
+                                                                shrink-0
+                                                                rounded-full
+
+                                                                ${
+                                                                    tipo.activo
+                                                                        ? "bg-secondary"
+                                                                        : "bg-muted"
+                                                                }
+                                                            `}
+                                                        />
+                                                    </div>
+
+                                                    {
+                                                        tipo.descripcion && (
+                                                            <p
+                                                                className="
+                                                                    mt-3
+                                                                    line-clamp-3
+                                                                    text-xs
+                                                                    leading-5
+                                                                "
+                                                            >
+                                                                {
+                                                                    tipo.descripcion
+                                                                }
+                                                            </p>
+                                                        )
+                                                    }
+
+                                                    <div
                                                         className="
-                                                            mt-1
+                                                            mt-3
+                                                            border-t
+                                                            border-border
+                                                            pt-3
                                                             text-xs
                                                         "
                                                     >
-                                                        {tipo.activo
-                                                            ? "Disponible"
-                                                            : "Desactivat"}
-                                                    </p>
+                                                        <p>
+                                                            Màxim:{" "}
+
+                                                            <span
+                                                                className="
+                                                                    font-medium
+                                                                    text-neutral-titulos
+                                                                "
+                                                            >
+                                                                {
+                                                                    numeroONoDefinido(
+                                                                        tipo
+                                                                            .cupo
+                                                                            .maximo
+                                                                    )
+                                                                }
+                                                            </span>
+                                                        </p>
+
+                                                        <p
+                                                            className="
+                                                                mt-1
+                                                            "
+                                                        >
+                                                            En superar-lo:{" "}
+
+                                                            <span
+                                                                className="
+                                                                    font-medium
+                                                                    text-neutral-titulos
+                                                                "
+                                                            >
+                                                                {
+                                                                    nombreComportamiento(
+                                                                        tipo
+                                                                            .cupo
+                                                                            .al_superar
+                                                                    )
+                                                                }
+                                                            </span>
+                                                        </p>
+                                                    </div>
                                                 </div>
-
-                                                <span
-                                                    className={`
-                                                        h-2.5
-                                                        w-2.5
-                                                        shrink-0
-                                                        rounded-full
-
-                                                        ${
-                                                            tipo.activo
-                                                                ? "bg-secondary"
-                                                                : "bg-muted"
-                                                        }
-                                                    `}
-                                                />
-                                            </div>
-
-                                            {tipo.descripcion && (
-                                                <p
-                                                    className="
-                                                        mt-3
-                                                        line-clamp-3
-                                                        text-xs
-                                                        leading-5
-                                                    "
-                                                >
-                                                    {
-                                                        tipo.descripcion
-                                                    }
-                                                </p>
-                                            )}
-
-                                            <div
-                                                className="
-                                                    mt-3
-                                                    border-t
-                                                    border-border
-                                                    pt-3
-                                                    text-xs
-                                                "
-                                            >
-                                                <p>
-                                                    Màxim:{" "}
-                                                    <span
-                                                        className="
-                                                            font-medium
-                                                            text-neutral-titulos
-                                                        "
-                                                    >
-                                                        {numeroONoDefinido(
-                                                            tipo
-                                                                .cupo
-                                                                .maximo
-                                                        )}
-                                                    </span>
-                                                </p>
-
-                                                <p
-                                                    className="
-                                                        mt-1
-                                                    "
-                                                >
-                                                    En superar-lo:{" "}
-                                                    <span
-                                                        className="
-                                                            font-medium
-                                                            text-neutral-titulos
-                                                        "
-                                                    >
-                                                        {nombreComportamiento(
-                                                            tipo
-                                                                .cupo
-                                                                .al_superar
-                                                        )}
-                                                    </span>
-                                                </p>
-                                            </div>
-                                        </div>
-                                    )
-                                )}
+                                            )
+                                        )
+                                }
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )
+                }
             </BloqueResumen>
 
             {/* =================================================
@@ -984,148 +1161,148 @@ export default function PasoResumen({
                     </svg>
                 }
             >
-                {informacion
-                    .bloques
-                    .length ===
-                0 ? (
-                    <div
-                        className="
-                            rounded-xl
-                            border
-                            border-dashed
-                            border-border
-                            bg-card/30
-                            p-5
-                            text-center
-                        "
-                    >
-                        <p
+                {
+                    informacion
+                        .bloques
+                        .length ===
+                    0 ? (
+                        <div
                             className="
-                                text-sm
-                                font-medium
-                                text-neutral-titulos
+                                rounded-xl
+                                border
+                                border-dashed
+                                border-border
+                                bg-card/30
+                                p-5
+                                text-center
                             "
                         >
-                            No s'ha afegit cap apartat
-                        </p>
+                            <p
+                                className="
+                                    text-sm
+                                    font-medium
+                                    text-neutral-titulos
+                                "
+                            >
+                                No s'ha afegit cap apartat
+                            </p>
 
-                        <p
+                            <p
+                                className="
+                                    mt-1
+                                    text-xs
+                                "
+                            >
+                                L'edició no tindrà informació pública addicional.
+                            </p>
+                        </div>
+                    ) : (
+                        <div
                             className="
-                                mt-1
-                                text-xs
+                                space-y-3
                             "
                         >
-                            L'edició no tindrà informació
-                            pública addicional.
-                        </p>
-                    </div>
-                ) : (
-                    <div
-                        className="
-                            space-y-3
-                        "
-                    >
-                        {informacion
-                            .bloques
-                            .map(
-                                (
-                                    bloque,
-                                    indice
-                                ) => (
-                                    <div
-                                        key={
-                                            bloque.id
-                                        }
-                                        className="
-                                            rounded-xl
-                                            border
-                                            border-border
-                                            bg-card/35
-                                            p-4
-                                        "
-                                    >
-                                        <div
-                                            className="
-                                                flex
-                                                items-start
-                                                gap-3
-                                            "
-                                        >
-                                            <span
-                                                aria-hidden="true"
+                            {
+                                informacion
+                                    .bloques
+                                    .map(
+                                        (
+                                            bloque,
+                                            indice,
+                                        ) => (
+                                            <div
+                                                key={
+                                                    bloque.id
+                                                }
                                                 className="
-                                                    flex
-                                                    h-7
-                                                    w-7
-                                                    shrink-0
-                                                    items-center
-                                                    justify-center
-                                                    rounded-lg
+                                                    rounded-xl
                                                     border
                                                     border-border
-                                                    bg-background
-                                                    text-xs
-                                                    font-semibold
+                                                    bg-card/35
+                                                    p-4
                                                 "
                                             >
-                                                {indice +
-                                                    1}
-                                            </span>
-
-                                            <div
-                                                className="
-                                                    min-w-0
-                                                    flex-1
-                                                "
-                                            >
-                                                <p
+                                                <div
                                                     className="
-                                                        font-semibold
-                                                        text-neutral-titulos
+                                                        flex
+                                                        items-start
+                                                        gap-3
                                                     "
                                                 >
-                                                    {bloque.title ||
-                                                        "Apartat sense títol"}
-                                                </p>
+                                                    <span
+                                                        aria-hidden="true"
+                                                        className="
+                                                            flex
+                                                            h-7
+                                                            w-7
+                                                            shrink-0
+                                                            items-center
+                                                            justify-center
+                                                            rounded-lg
+                                                            border
+                                                            border-border
+                                                            bg-background
+                                                            text-xs
+                                                            font-semibold
+                                                        "
+                                                    >
+                                                        {
+                                                            indice +
+                                                            1
+                                                        }
+                                                    </span>
 
-                                                <p
-                                                    className="
-                                                        mt-2
-                                                        text-sm
-                                                        leading-6
-                                                    "
-                                                >
-                                                    {resumenTexto(
-                                                        bloque.body
-                                                    ) ||
-                                                        "Sense contingut"}
-                                                </p>
+                                                    <div
+                                                        className="
+                                                            min-w-0
+                                                            flex-1
+                                                        "
+                                                    >
+                                                        <p
+                                                            className="
+                                                                font-semibold
+                                                                text-neutral-titulos
+                                                            "
+                                                        >
+                                                            {
+                                                                bloque.title ||
+                                                                "Apartat sense títol"
+                                                            }
+                                                        </p>
+
+                                                        <p
+                                                            className="
+                                                                mt-2
+                                                                text-sm
+                                                                leading-6
+                                                            "
+                                                        >
+                                                            {
+                                                                resumenTexto(
+                                                                    bloque.body
+                                                                ) ||
+                                                                "Sense contingut"
+                                                            }
+                                                        </p>
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </div>
-                                )
-                            )}
-                    </div>
-                )}
+                                        )
+                                    )
+                            }
+                        </div>
+                    )
+                }
             </BloqueResumen>
 
             {/* =================================================
-                AVISO FINAL
+                FAQ
             ================================================= */}
 
-            {!soloLectura && (
-                <div
-                    className="
-                        flex
-                        items-start
-                        gap-3
-                        rounded-xl
-                        border
-                        border-primary/20
-                        bg-primary/5
-                        p-4
-                    "
-                >
+            <BloqueResumen
+                titulo="Preguntes freqüents"
+                descripcion="Preguntes i respostes que es mostraran a la pàgina pública."
+                icono={
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
                         viewBox="0 0 24 24"
@@ -1134,14 +1311,7 @@ export default function PasoResumen({
                         strokeWidth="1.7"
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        className="
-                            mt-0.5
-                            h-5
-                            w-5
-                            shrink-0
-                            text-primary
-                        "
-                        aria-hidden="true"
+                        className="h-4 w-4"
                     >
                         <circle
                             cx="12"
@@ -1149,45 +1319,337 @@ export default function PasoResumen({
                             r="9"
                         />
 
-                        <path d="M12 11v5" />
+                        <path d="M9.8 9a2.4 2.4 0 1 1 3.6 2.08c-.9.52-1.4 1.02-1.4 1.92" />
 
-                        <path d="M12 8h.01" />
+                        <path d="M12 17h.01" />
                     </svg>
-
-                    <div>
+                }
+            >
+                <div
+                    className="
+                        mb-4
+                        grid
+                        grid-cols-1
+                        gap-3
+                        sm:grid-cols-2
+                    "
+                >
+                    <div
+                        className="
+                            rounded-xl
+                            border
+                            border-border
+                            bg-card/35
+                            p-4
+                        "
+                    >
                         <p
                             className="
-                                text-sm
-                                font-semibold
-                                text-neutral-titulos
+                                text-xs
+                                text-neutral
                             "
                         >
-                            Tot preparat
+                            Preguntes creades
                         </p>
 
                         <p
                             className="
                                 mt-1
-                                text-sm
-                                leading-6
+                                text-xl
+                                font-semibold
+                                text-neutral-titulos
                             "
                         >
-                            Pots tornar als passos
-                            anteriors si vols modificar
-                            alguna dada. Quan estigui
-                            correcte, utilitza el botó
-                            inferior per desar
-                            l'edició.
+                            {
+                                faq
+                                    .preguntas
+                                    .length
+                            }
+                        </p>
+                    </div>
+
+                    <div
+                        className="
+                            rounded-xl
+                            border
+                            border-border
+                            bg-card/35
+                            p-4
+                        "
+                    >
+                        <p
+                            className="
+                                text-xs
+                                text-neutral
+                            "
+                        >
+                            Visibles públicament
+                        </p>
+
+                        <p
+                            className="
+                                mt-1
+                                text-xl
+                                font-semibold
+                                text-neutral-titulos
+                            "
+                        >
+                            {
+                                preguntasActivas
+                                    .length
+                            }
                         </p>
                     </div>
                 </div>
-            )}
+
+                {
+                    faq
+                        .preguntas
+                        .length ===
+                    0 ? (
+                        <div
+                            className="
+                                rounded-xl
+                                border
+                                border-dashed
+                                border-border
+                                bg-card/30
+                                p-5
+                                text-center
+                            "
+                        >
+                            <p
+                                className="
+                                    text-sm
+                                    font-medium
+                                    text-neutral-titulos
+                                "
+                            >
+                                No s'ha afegit cap pregunta freqüent
+                            </p>
+
+                            <p
+                                className="
+                                    mt-1
+                                    text-xs
+                                "
+                            >
+                                La pàgina pública no mostrarà l'apartat de preguntes freqüents.
+                            </p>
+                        </div>
+                    ) : (
+                        <div
+                            className="
+                                space-y-3
+                            "
+                        >
+                            {
+                                faq
+                                    .preguntas
+                                    .map(
+                                        (
+                                            pregunta,
+                                            indice,
+                                        ) => (
+                                            <div
+                                                key={
+                                                    pregunta.id
+                                                }
+                                                className="
+                                                    rounded-xl
+                                                    border
+                                                    border-border
+                                                    bg-card/35
+                                                    p-4
+                                                "
+                                            >
+                                                <div
+                                                    className="
+                                                        flex
+                                                        items-start
+                                                        gap-3
+                                                    "
+                                                >
+                                                    <span
+                                                        className="
+                                                            flex
+                                                            h-7
+                                                            w-7
+                                                            shrink-0
+                                                            items-center
+                                                            justify-center
+                                                            rounded-lg
+                                                            border
+                                                            border-border
+                                                            bg-background
+                                                            text-xs
+                                                            font-semibold
+                                                        "
+                                                    >
+                                                        {
+                                                            indice +
+                                                            1
+                                                        }
+                                                    </span>
+
+                                                    <div
+                                                        className="
+                                                            min-w-0
+                                                            flex-1
+                                                        "
+                                                    >
+                                                        <div
+                                                            className="
+                                                                flex
+                                                                flex-col
+                                                                gap-2
+                                                                sm:flex-row
+                                                                sm:items-start
+                                                                sm:justify-between
+                                                            "
+                                                        >
+                                                            <p
+                                                                className="
+                                                                    font-semibold
+                                                                    text-neutral-titulos
+                                                                "
+                                                            >
+                                                                {
+                                                                    pregunta.pregunta ||
+                                                                    "Pregunta sense text"
+                                                                }
+                                                            </p>
+
+                                                            <span
+                                                                className={`
+                                                                    w-max
+                                                                    shrink-0
+                                                                    rounded-full
+                                                                    px-2.5
+                                                                    py-1
+                                                                    text-[10px]
+                                                                    font-semibold
+                                                                    uppercase
+
+                                                                    ${
+                                                                        pregunta.activo
+                                                                            ? "bg-primary/10 text-primary"
+                                                                            : "bg-muted/30 text-neutral"
+                                                                    }
+                                                                `}
+                                                            >
+                                                                {
+                                                                    pregunta.activo
+                                                                        ? "Visible"
+                                                                        : "Oculta"
+                                                                }
+                                                            </span>
+                                                        </div>
+
+                                                        <p
+                                                            className="
+                                                                mt-2
+                                                                text-sm
+                                                                leading-6
+                                                                text-neutral
+                                                            "
+                                                        >
+                                                            {
+                                                                resumenRespuesta(
+                                                                    pregunta.respuesta
+                                                                ) ||
+                                                                "Sense resposta"
+                                                            }
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )
+                                    )
+                            }
+                        </div>
+                    )
+                }
+            </BloqueResumen>
+
+            {/* =================================================
+                AVISO FINAL
+            ================================================= */}
+
+            {
+                !soloLectura && (
+                    <div
+                        className="
+                            flex
+                            items-start
+                            gap-3
+                            rounded-xl
+                            border
+                            border-primary/20
+                            bg-primary/5
+                            p-4
+                        "
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.7"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="
+                                mt-0.5
+                                h-5
+                                w-5
+                                shrink-0
+                                text-primary
+                            "
+                            aria-hidden="true"
+                        >
+                            <circle
+                                cx="12"
+                                cy="12"
+                                r="9"
+                            />
+
+                            <path d="M12 11v5" />
+
+                            <path d="M12 8h.01" />
+                        </svg>
+
+                        <div>
+                            <p
+                                className="
+                                    text-sm
+                                    font-semibold
+                                    text-neutral-titulos
+                                "
+                            >
+                                Tot preparat
+                            </p>
+
+                            <p
+                                className="
+                                    mt-1
+                                    text-sm
+                                    leading-6
+                                "
+                            >
+                                Pots tornar als passos anteriors si vols
+                                modificar alguna dada. Quan estigui correcte,
+                                utilitza el botó inferior per desar l'edició.
+                            </p>
+                        </div>
+                    </div>
+                )
+            }
         </section>
     );
 }
 
 // ============================================================
-// BLOQUE DE RESUMEN
+// BLOQUE RESUMEN
 // ============================================================
 
 function BloqueResumen({

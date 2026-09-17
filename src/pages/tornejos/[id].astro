@@ -1,0 +1,1117 @@
+---
+import Layout from "@layouts/Layout.astro";
+
+import Resum from "@components/tornejos/seccions/Resum.astro";
+import Inscripcio from "@components/tornejos/seccions/Inscripcio.astro";
+
+import {
+    supabaseAdmin,
+} from "@utils/supabase";
+
+export const prerender =
+    false;
+
+// ============================================================
+// TIPOS
+// ============================================================
+
+type Torneo = {
+    id:
+        string;
+
+    nombre:
+        string;
+
+    banner:
+        string;
+
+    deporte:
+        string;
+
+    descripcion:
+        string;
+
+    normativa_base:
+        string | null;
+};
+
+type Edicion = {
+    id:
+        string;
+
+    torneo_id:
+        string;
+
+    nombre:
+        string;
+
+    fecha_inicio:
+        string | null;
+
+    fecha_fin:
+        string | null;
+
+    estado:
+        string;
+
+    sede:
+        string;
+};
+
+type ConfiguracionEdicion = {
+    equipos:
+        unknown;
+
+    voluntarios:
+        unknown;
+
+    informacion:
+        unknown;
+
+    faq:
+        unknown;
+
+    competicion:
+        unknown;
+};
+
+type SeccionID =
+    | "resum"
+    | "inscripcio";
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function esRegistro(
+    valor:
+        unknown,
+): valor is Record<
+    string,
+    unknown
+> {
+    return (
+        valor !==
+            null &&
+        typeof valor ===
+            "object" &&
+        !Array.isArray(
+            valor
+        )
+    );
+}
+
+function tieneConfiguracionInscripcion(
+    valor:
+        unknown,
+) {
+    if (
+        !esRegistro(
+            valor
+        )
+    ) {
+        return false;
+    }
+
+    const inscripcion =
+        esRegistro(
+            valor.inscripcion
+        )
+            ? valor.inscripcion
+            : null;
+
+    const cupo =
+        esRegistro(
+            valor.cupo
+        )
+            ? valor.cupo
+            : null;
+
+    const jugadores =
+        esRegistro(
+            valor.jugadores
+        )
+            ? valor.jugadores
+            : null;
+
+    const genero =
+        esRegistro(
+            valor.genero
+        )
+            ? valor.genero
+            : null;
+
+    const profesores =
+        esRegistro(
+            valor.profesores
+        )
+            ? valor.profesores
+            : null;
+
+    const entrenador =
+        esRegistro(
+            valor.entrenador
+        )
+            ? valor.entrenador
+            : null;
+
+    const staff =
+        esRegistro(
+            valor.staff
+        )
+            ? valor.staff
+            : null;
+
+    return Boolean(
+        inscripcion ||
+        cupo ||
+        jugadores ||
+        genero ||
+        profesores ||
+        entrenador ||
+        staff
+    );
+}
+
+function estadoPublico(
+    estado:
+        string | null,
+) {
+    const valor =
+        estado
+            ?.trim()
+            .toLowerCase() ??
+        "";
+
+    return (
+        valor ===
+            "activa" ||
+        valor ===
+            "activo" ||
+        valor ===
+            "actiu" ||
+        valor ===
+            "finalizada" ||
+        valor ===
+            "finalitzada" ||
+        valor ===
+            "finalitzat"
+    );
+}
+
+function prioridadEstado(
+    estado:
+        string | null,
+) {
+    const valor =
+        estado
+            ?.trim()
+            .toLowerCase() ??
+        "";
+
+    if (
+        valor ===
+            "activa" ||
+        valor ===
+            "activo" ||
+        valor ===
+            "actiu"
+    ) {
+        return 0;
+    }
+
+    if (
+        valor ===
+            "finalizada" ||
+        valor ===
+            "finalitzada" ||
+        valor ===
+            "finalitzat"
+    ) {
+        return 1;
+    }
+
+    return 2;
+}
+
+function tiempoFecha(
+    valor:
+        string | null,
+) {
+    if (
+        !valor
+    ) {
+        return 0;
+    }
+
+    const tiempo =
+        new Date(
+            valor
+        ).getTime();
+
+    return Number.isFinite(
+        tiempo
+    )
+        ? tiempo
+        : 0;
+}
+
+// ============================================================
+// ID
+// ============================================================
+
+const torneoID =
+    Astro.params.id;
+
+if (
+    !torneoID
+) {
+    return Astro.redirect(
+        "/tornejos"
+    );
+}
+
+// ============================================================
+// TORNEO
+// ============================================================
+
+const {
+    data:
+        torneoData,
+    error:
+        errorTorneo,
+} =
+    await supabaseAdmin
+        .from(
+            "torneos"
+        )
+        .select(
+            `
+                id,
+                nombre,
+                banner,
+                deporte,
+                descripcion,
+                normativa_base
+            `
+        )
+        .eq(
+            "id",
+            torneoID
+        )
+        .eq(
+            "activo",
+            true
+        )
+        .maybeSingle();
+
+if (
+    errorTorneo
+) {
+    console.error(
+        "Error carregant el torneig:",
+        errorTorneo
+    );
+}
+
+if (
+    errorTorneo ||
+    !torneoData
+) {
+    return new Response(
+        null,
+        {
+            status:
+                404,
+        }
+    );
+}
+
+const torneo:
+    Torneo = {
+    id:
+        torneoData.id,
+
+    nombre:
+        torneoData.nombre ??
+        "Torneig",
+
+    banner:
+        torneoData.banner ??
+        "",
+
+    deporte:
+        torneoData.deporte ??
+        "",
+
+    descripcion:
+        torneoData.descripcion ??
+        "",
+
+    normativa_base:
+        torneoData.normativa_base ??
+        null,
+};
+
+// ============================================================
+// EDICIONES
+// ============================================================
+
+const {
+    data:
+        edicionesData,
+    error:
+        errorEdiciones,
+} =
+    await supabaseAdmin
+        .from(
+            "ediciones"
+        )
+        .select(
+            `
+                id,
+                torneo_id,
+                nombre,
+                fecha_inicio,
+                fecha_fin,
+                estado,
+                sede
+            `
+        )
+        .eq(
+            "torneo_id",
+            torneoID
+        );
+
+if (
+    errorEdiciones
+) {
+    console.error(
+        "Error carregant les edicions:",
+        errorEdiciones
+    );
+}
+
+const edicionesPublicas =
+    (
+        edicionesData ??
+        []
+    )
+        .filter(
+            edicion =>
+                estadoPublico(
+                    edicion.estado
+                )
+        )
+        .sort(
+            (
+                a,
+                b
+            ) => {
+                const prioridad =
+                    prioridadEstado(
+                        a.estado
+                    ) -
+                    prioridadEstado(
+                        b.estado
+                    );
+
+                if (
+                    prioridad !==
+                    0
+                ) {
+                    return prioridad;
+                }
+
+                return (
+                    tiempoFecha(
+                        b.fecha_inicio
+                    ) -
+                    tiempoFecha(
+                        a.fecha_inicio
+                    )
+                );
+            }
+        );
+
+const edicionData =
+    edicionesPublicas[
+        0
+    ] ??
+    null;
+
+const edicion:
+    Edicion | null =
+    edicionData
+        ? {
+              id:
+                  edicionData.id,
+
+              torneo_id:
+                  edicionData.torneo_id,
+
+              nombre:
+                  edicionData.nombre ??
+                  "",
+
+              fecha_inicio:
+                  edicionData.fecha_inicio ??
+                  null,
+
+              fecha_fin:
+                  edicionData.fecha_fin ??
+                  null,
+
+              estado:
+                  edicionData.estado ??
+                  "",
+
+              sede:
+                  edicionData.sede ??
+                  "",
+          }
+        : null;
+
+// ============================================================
+// CONFIGURACIÓN
+// ============================================================
+
+let configuracion:
+    ConfiguracionEdicion | null =
+    null;
+
+if (
+    edicion
+) {
+    const {
+        data:
+            configuracionData,
+        error:
+            errorConfiguracion,
+    } =
+        await supabaseAdmin
+            .from(
+                "configuracion_ediciones"
+            )
+            .select(
+                `
+                    equipos,
+                    voluntarios,
+                    informacion,
+                    faq,
+                    competicion
+                `
+            )
+            .eq(
+                "edicion_id",
+                edicion.id
+            )
+            .maybeSingle();
+
+    if (
+        errorConfiguracion
+    ) {
+        console.error(
+            "Error carregant la configuració de l'edició:",
+            errorConfiguracion
+        );
+    }
+
+    if (
+        configuracionData
+    ) {
+        configuracion = {
+            equipos:
+                configuracionData.equipos,
+
+            voluntarios:
+                configuracionData.voluntarios,
+
+            informacion:
+                configuracionData.informacion,
+
+            faq:
+                configuracionData.faq,
+
+            competicion:
+                configuracionData.competicion,
+        };
+    }
+}
+
+// ============================================================
+// SECCIONES
+// ============================================================
+
+const mostrarInscripcion =
+    Boolean(
+        edicion
+    ) &&
+    tieneConfiguracionInscripcion(
+        configuracion
+            ?.equipos
+    );
+
+const parametroSeccion =
+    Astro.url
+        .searchParams
+        .get(
+            "seccio"
+        );
+
+let seccionActiva:
+    SeccionID =
+    "resum";
+
+if (
+    parametroSeccion ===
+        "inscripcio" &&
+    mostrarInscripcion
+) {
+    seccionActiva =
+        "inscripcio";
+}
+
+// ============================================================
+// SEO
+// ============================================================
+
+const tituloPagina =
+    edicion
+        ?.nombre
+        ?.trim()
+        ? `${torneo.nombre} · ${edicion.nombre}`
+        : torneo.nombre;
+
+const descripcionPagina =
+    torneo.descripcion
+        .trim() ||
+    `Informació del torneig ${torneo.nombre}.`;
+---
+
+<Layout
+    title={tituloPagina}
+    description={descripcionPagina}
+>
+    <main
+        class="
+            min-h-screen
+            bg-background
+        "
+    >
+        <!-- =================================================
+            HERO
+        ================================================== -->
+
+        <section
+            class="
+                relative
+                min-h-screen
+                w-full
+                overflow-hidden
+                bg-card
+            "
+        >
+            {
+                torneo.banner ? (
+                    <img
+                        src={torneo.banner}
+                        alt=""
+                        aria-hidden="true"
+                        class="
+                            absolute
+                            inset-0
+                            h-full
+                            w-full
+                            object-cover
+                        "
+                    />
+                ) : (
+                    <div
+                        class="
+                            absolute
+                            inset-0
+                            bg-primary/10
+                        "
+                    ></div>
+                )
+            }
+
+            <div
+                class="
+                    absolute
+                    inset-0
+                    bg-black/15
+                "
+            ></div>
+
+            <div
+                class="
+                    absolute
+                    inset-0
+                    bg-gradient-to-t
+                    from-black/95
+                    via-black/25
+                    to-transparent
+                "
+            ></div>
+
+            <div
+                class="
+                    absolute
+                    inset-x-0
+                    bottom-0
+                    h-64
+                    bg-gradient-to-t
+                    from-black/60
+                    to-transparent
+                "
+            ></div>
+
+            <div
+                class="
+                    relative
+                    mx-auto
+                    flex
+                    min-h-screen
+                    w-full
+                    max-w-6xl
+                    flex-col
+                    justify-end
+                    px-4
+                    pb-14
+                    sm:px-6
+                    sm:pb-16
+                    lg:px-8
+                    lg:pb-20
+                "
+            >
+                <div
+                    class="
+                        max-w-4xl
+                    "
+                >
+                    {
+                        torneo.deporte && (
+                            <p
+                                class="
+                                    mb-3
+                                    text-sm
+                                    font-semibold
+                                    uppercase
+                                    tracking-[0.2em]
+                                    text-white/75
+                                "
+                            >
+                                {torneo.deporte}
+                            </p>
+                        )
+                    }
+
+                    <h1
+                        class="
+                            text-4xl
+                            font-bold
+                            leading-tight
+                            tracking-tight
+                            text-white
+                            sm:text-5xl
+                            lg:text-6xl
+                        "
+                    >
+                        {torneo.nombre}
+                    </h1>
+
+                    {
+                        edicion
+                            ?.nombre && (
+                            <p
+                                class="
+                                    mt-3
+                                    text-lg
+                                    font-medium
+                                    text-white/90
+                                    sm:text-xl
+                                "
+                            >
+                                {edicion.nombre}
+                            </p>
+                        )
+                    }
+
+                    {
+                        torneo.descripcion && (
+                            <p
+                                class="
+                                    mt-5
+                                    max-w-3xl
+                                    text-base
+                                    leading-7
+                                    text-white/80
+                                    sm:text-lg
+                                "
+                            >
+                                {torneo.descripcion}
+                            </p>
+                        )
+                    }
+
+                    {
+                        edicion && (
+                            <div
+                                class="
+                                    mt-7
+                                    flex
+                                    flex-wrap
+                                    gap-x-6
+                                    gap-y-3
+                                    text-sm
+                                    text-white/80
+                                "
+                            >
+                                {
+                                    edicion.sede && (
+                                        <span
+                                            class="
+                                                inline-flex
+                                                items-center
+                                                gap-2
+                                            "
+                                        >
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="1.8"
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                class="
+                                                    h-4
+                                                    w-4
+                                                    shrink-0
+                                                "
+                                                aria-hidden="true"
+                                            >
+                                                <path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"></path>
+
+                                                <circle
+                                                    cx="12"
+                                                    cy="10"
+                                                    r="2.5"
+                                                ></circle>
+                                            </svg>
+
+                                            {edicion.sede}
+                                        </span>
+                                    )
+                                }
+
+                                {
+                                    edicion.fecha_inicio && (
+                                        <span
+                                            class="
+                                                inline-flex
+                                                items-center
+                                                gap-2
+                                            "
+                                        >
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="1.8"
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                class="
+                                                    h-4
+                                                    w-4
+                                                    shrink-0
+                                                "
+                                                aria-hidden="true"
+                                            >
+                                                <rect
+                                                    x="3"
+                                                    y="5"
+                                                    width="18"
+                                                    height="16"
+                                                    rx="2"
+                                                ></rect>
+
+                                                <path d="M16 3v4"></path>
+
+                                                <path d="M8 3v4"></path>
+
+                                                <path d="M3 10h18"></path>
+                                            </svg>
+
+                                            {
+                                                new Intl.DateTimeFormat(
+                                                    "ca-ES",
+                                                    {
+                                                        dateStyle:
+                                                            "long",
+
+                                                        timeZone:
+                                                            "Europe/Madrid",
+                                                    }
+                                                ).format(
+                                                    new Date(
+                                                        edicion.fecha_inicio
+                                                    )
+                                                )
+                                            }
+                                        </span>
+                                    )
+                                }
+                            </div>
+                        )
+                    }
+                </div>
+            </div>
+        </section>
+
+        <!-- =================================================
+            MENÚ
+        ================================================== -->
+
+        {
+            edicion && (
+                <nav
+                    aria-label="Seccions del torneig"
+                    class="
+                        sticky
+                        top-0
+                        z-30
+                        w-full
+                        border-b
+                        border-border
+                        bg-background/95
+                        backdrop-blur-md
+                    "
+                >
+                    <div
+                        class="
+                            mx-auto
+                            flex
+                            w-full
+                            max-w-6xl
+                            overflow-x-auto
+                            px-4
+                            sm:px-6
+                            lg:px-8
+                        "
+                    >
+                        {
+                            seccionActiva ===
+                            "resum" ? (
+                                <a
+                                    href={`/tornejos/${torneo.id}`}
+                                    aria-current="page"
+                                    class="
+                                        relative
+                                        flex
+                                        min-h-14
+                                        shrink-0
+                                        items-center
+                                        px-4
+                                        text-sm
+                                        font-semibold
+                                        text-primary
+                                    "
+                                >
+                                    Resum
+
+                                    <span
+                                        class="
+                                            absolute
+                                            inset-x-4
+                                            bottom-0
+                                            h-0.5
+                                            rounded-full
+                                            bg-primary
+                                        "
+                                    ></span>
+                                </a>
+                            ) : (
+                                <a
+                                    href={`/tornejos/${torneo.id}`}
+                                    class="
+                                        relative
+                                        flex
+                                        min-h-14
+                                        shrink-0
+                                        items-center
+                                        px-4
+                                        text-sm
+                                        font-medium
+                                        text-neutral
+                                        transition
+                                        hover:text-neutral-titulos
+                                    "
+                                >
+                                    Resum
+                                </a>
+                            )
+                        }
+
+                        {
+                            mostrarInscripcion &&
+                            (
+                                seccionActiva ===
+                                "inscripcio" ? (
+                                    <a
+                                        href={`/tornejos/${torneo.id}?seccio=inscripcio`}
+                                        aria-current="page"
+                                        class="
+                                            relative
+                                            flex
+                                            min-h-14
+                                            shrink-0
+                                            items-center
+                                            px-4
+                                            text-sm
+                                            font-semibold
+                                            text-primary
+                                        "
+                                    >
+                                        Inscripció
+
+                                        <span
+                                            class="
+                                                absolute
+                                                inset-x-4
+                                                bottom-0
+                                                h-0.5
+                                                rounded-full
+                                                bg-primary
+                                            "
+                                        ></span>
+                                    </a>
+                                ) : (
+                                    <a
+                                        href={`/tornejos/${torneo.id}?seccio=inscripcio`}
+                                        class="
+                                            relative
+                                            flex
+                                            min-h-14
+                                            shrink-0
+                                            items-center
+                                            px-4
+                                            text-sm
+                                            font-medium
+                                            text-neutral
+                                            transition
+                                            hover:text-neutral-titulos
+                                        "
+                                    >
+                                        Inscripció
+                                    </a>
+                                )
+                            )
+                        }
+                    </div>
+                </nav>
+            )
+        }
+
+        <!-- =================================================
+            CONTENIDO
+        ================================================== -->
+
+        <section
+            class="
+                min-h-[520px]
+                bg-background
+            "
+        >
+            {
+                !edicion ? (
+                    <div
+                        class="
+                            mx-auto
+                            w-full
+                            max-w-6xl
+                            px-4
+                            py-16
+                            sm:px-6
+                            lg:px-8
+                        "
+                    >
+                        <div
+                            class="
+                                rounded-2xl
+                                border
+                                border-border
+                                bg-card/40
+                                px-6
+                                py-12
+                                text-center
+                            "
+                        >
+                            <h2
+                                class="
+                                    text-xl
+                                    font-semibold
+                                    text-neutral-titulos
+                                "
+                            >
+                                Encara no hi ha cap edició disponible
+                            </h2>
+
+                            <p
+                                class="
+                                    mx-auto
+                                    mt-2
+                                    max-w-xl
+                                    text-sm
+                                    leading-6
+                                    text-neutral
+                                "
+                            >
+                                Quan hi hagi una edició activa del torneig,
+                                la seva informació apareixerà aquí.
+                            </p>
+                        </div>
+                    </div>
+                ) : (
+                    <>
+                        {
+                            seccionActiva ===
+                                "resum" && (
+                                <Resum
+                                    torneo={torneo}
+                                    edicion={edicion}
+                                    configuracion={configuracion}
+                                />
+                            )
+                        }
+
+                        {
+                            seccionActiva ===
+                                "inscripcio" &&
+                            mostrarInscripcion && (
+                                <Inscripcio
+                                    configuracion={
+                                        configuracion
+                                            ?.equipos ??
+                                        null
+                                    }
+                                    faq={
+                                        configuracion
+                                            ?.faq ??
+                                        null
+                                    }
+                                    banner={
+                                        torneo.banner
+                                    }
+                                />
+                            )
+                        }
+                    </>
+                )
+            }
+        </section>
+    </main>
+</Layout>

@@ -1,0 +1,1605 @@
+---
+type Props = {
+    configuracion:
+        unknown;
+
+    faq:
+        unknown;
+
+    banner:
+        string;
+};
+
+type EstadoInscripcion =
+    | "oberta"
+    | "proximament"
+    | "tancada"
+    | "sense_dates";
+
+type ComportamientoCupo =
+    | "permitir"
+    | "lista_espera"
+    | "bloquear";
+
+type PreguntaFAQ = {
+    id:
+        string;
+
+    order:
+        number;
+
+    pregunta:
+        string;
+
+    respuesta:
+        string;
+
+    activo:
+        boolean;
+};
+
+const {
+    configuracion,
+    faq,
+    banner,
+} =
+    Astro.props as Props;
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function esRegistro(
+    valor:
+        unknown,
+): valor is Record<
+    string,
+    unknown
+> {
+    return (
+        valor !==
+            null &&
+        typeof valor ===
+            "object" &&
+        !Array.isArray(
+            valor
+        )
+    );
+}
+
+function numeroNullable(
+    valor:
+        unknown,
+): number | null {
+    return (
+        typeof valor ===
+            "number" &&
+        Number.isFinite(
+            valor
+        )
+    )
+        ? valor
+        : null;
+}
+
+function numero(
+    valor:
+        unknown,
+
+    defecto =
+        0,
+): number {
+    return (
+        typeof valor ===
+            "number" &&
+        Number.isFinite(
+            valor
+        )
+    )
+        ? valor
+        : defecto;
+}
+
+function textoNullable(
+    valor:
+        unknown,
+): string | null {
+    return typeof valor ===
+        "string"
+        ? valor
+        : null;
+}
+
+function fechaValida(
+    valor:
+        string | null,
+) {
+    if (
+        !valor
+    ) {
+        return null;
+    }
+
+    const fecha =
+        new Date(
+            valor
+        );
+
+    return Number.isNaN(
+        fecha.getTime()
+    )
+        ? null
+        : fecha;
+}
+
+function fechaVisible(
+    valor:
+        string | null,
+) {
+    const fecha =
+        fechaValida(
+            valor
+        );
+
+    if (
+        !fecha
+    ) {
+        return "No definida";
+    }
+
+    return new Intl.DateTimeFormat(
+        "ca-ES",
+        {
+            dateStyle:
+                "long",
+
+            timeStyle:
+                "short",
+
+            timeZone:
+                "Europe/Madrid",
+        }
+    ).format(
+        fecha
+    );
+}
+
+function rango(
+    minimo:
+        number | null,
+
+    maximo:
+        number | null,
+
+    singular:
+        string,
+
+    plural:
+        string,
+) {
+    if (
+        minimo ===
+            null &&
+        maximo ===
+            null
+    ) {
+        return "No definit";
+    }
+
+    if (
+        minimo !==
+            null &&
+        maximo !==
+            null
+    ) {
+        if (
+            minimo ===
+            maximo
+        ) {
+            return `${minimo} ${
+                minimo ===
+                1
+                    ? singular
+                    : plural
+            }`;
+        }
+
+        return `${minimo}–${maximo} ${plural}`;
+    }
+
+    if (
+        minimo !==
+        null
+    ) {
+        return `Mínim ${minimo} ${
+            minimo ===
+            1
+                ? singular
+                : plural
+        }`;
+    }
+
+    return `Màxim ${maximo} ${
+        maximo ===
+        1
+            ? singular
+            : plural
+    }`;
+}
+
+// ============================================================
+// CONFIGURACIÓN
+// ============================================================
+
+const equipos =
+    esRegistro(
+        configuracion
+    )
+        ? configuracion
+        : {};
+
+const inscripcion =
+    esRegistro(
+        equipos.inscripcion
+    )
+        ? equipos.inscripcion
+        : {};
+
+const cupo =
+    esRegistro(
+        equipos.cupo
+    )
+        ? equipos.cupo
+        : {};
+
+const jugadores =
+    esRegistro(
+        equipos.jugadores
+    )
+        ? equipos.jugadores
+        : {};
+
+const genero =
+    esRegistro(
+        equipos.genero
+    )
+        ? equipos.genero
+        : {};
+
+const minimosGenero =
+    esRegistro(
+        genero.minimos
+    )
+        ? genero.minimos
+        : {};
+
+const profesores =
+    esRegistro(
+        equipos.profesores
+    )
+        ? equipos.profesores
+        : {};
+
+const entrenador =
+    esRegistro(
+        equipos.entrenador
+    )
+        ? equipos.entrenador
+        : {};
+
+const staff =
+    esRegistro(
+        equipos.staff
+    )
+        ? equipos.staff
+        : {};
+
+// ============================================================
+// FECHAS
+// ============================================================
+
+const apertura =
+    textoNullable(
+        inscripcion.apertura
+    );
+
+const cierre =
+    textoNullable(
+        inscripcion.cierre
+    );
+
+const fechaApertura =
+    fechaValida(
+        apertura
+    );
+
+const fechaCierre =
+    fechaValida(
+        cierre
+    );
+
+const ahora =
+    Date.now();
+
+let estado:
+    EstadoInscripcion =
+    "sense_dates";
+
+if (
+    fechaApertura &&
+    fechaCierre
+) {
+    if (
+        ahora <
+        fechaApertura.getTime()
+    ) {
+        estado =
+            "proximament";
+    } else if (
+        ahora >
+        fechaCierre.getTime()
+    ) {
+        estado =
+            "tancada";
+    } else {
+        estado =
+            "oberta";
+    }
+}
+
+// ============================================================
+// CUPO
+// ============================================================
+
+const maximoEquipos =
+    numeroNullable(
+        cupo.maximo
+    );
+
+const comportamiento:
+    ComportamientoCupo =
+    cupo.al_superar ===
+        "lista_espera" ||
+    cupo.al_superar ===
+        "bloquear"
+        ? cupo.al_superar
+        : "permitir";
+
+// ============================================================
+// JUGADORES
+// ============================================================
+
+const minimoJugadores =
+    numeroNullable(
+        jugadores.minimo
+    );
+
+const maximoJugadores =
+    numeroNullable(
+        jugadores.maximo
+    );
+
+const textoJugadores =
+    rango(
+        minimoJugadores,
+        maximoJugadores,
+        "jugador",
+        "jugadors"
+    );
+
+// ============================================================
+// GÉNERO
+// ============================================================
+
+const generoActivo =
+    genero.activo ===
+    true;
+
+const minimoMasculino =
+    numero(
+        minimosGenero.masculino
+    );
+
+const minimoFemenino =
+    numero(
+        minimosGenero.femenino
+    );
+
+// ============================================================
+// PROFESORADO
+// ============================================================
+
+const profesoresPermitidos =
+    profesores.permitidos ===
+    true;
+
+const profesoresMinimo =
+    numero(
+        profesores.minimo
+    );
+
+const profesoresMaximo =
+    numero(
+        profesores.maximo
+    );
+
+const profesoresCuentan =
+    profesores
+        .cuentan_como_jugador !==
+    false;
+
+const textoProfesores =
+    profesoresPermitidos
+        ? rango(
+              profesoresMinimo,
+              profesoresMaximo,
+              "professor",
+              "professors"
+          )
+        : "No permès";
+
+// ============================================================
+// ENTRENADOR
+// ============================================================
+
+const entrenadorPermitido =
+    entrenador.permitido ===
+    true;
+
+// ============================================================
+// STAFF
+// ============================================================
+
+const staffPermitido =
+    staff.permitido ===
+    true;
+
+const staffMinimo =
+    numero(
+        staff.minimo
+    );
+
+const staffMaximo =
+    numero(
+        staff.maximo
+    );
+
+const textoStaff =
+    staffPermitido
+        ? rango(
+              staffMinimo,
+              staffMaximo,
+              "membre",
+              "membres"
+          )
+        : "No permès";
+
+// ============================================================
+// FAQ
+// ============================================================
+
+const configuracionFAQ =
+    esRegistro(
+        faq
+    )
+        ? faq
+        : {};
+
+const preguntasFAQ:
+    PreguntaFAQ[] =
+    Array.isArray(
+        configuracionFAQ.preguntas
+    )
+        ? configuracionFAQ
+              .preguntas
+              .filter(
+                  esRegistro
+              )
+              .map(
+                  (
+                      entrada,
+                      indice,
+                  ): PreguntaFAQ => ({
+                      id:
+                          typeof entrada.id ===
+                              "string"
+                              ? entrada.id
+                              : `faq-${indice + 1}`,
+
+                      order:
+                          numero(
+                              entrada.order,
+                              indice + 1
+                          ),
+
+                      pregunta:
+                          typeof entrada.pregunta ===
+                              "string"
+                              ? entrada.pregunta.trim()
+                              : "",
+
+                      respuesta:
+                          typeof entrada.respuesta ===
+                              "string"
+                              ? entrada.respuesta.trim()
+                              : "",
+
+                      activo:
+                          entrada.activo ===
+                          true,
+                  })
+              )
+              .filter(
+                  entrada =>
+                      entrada.activo &&
+                      Boolean(
+                          entrada.pregunta
+                      ) &&
+                      Boolean(
+                          entrada.respuesta
+                      )
+              )
+              .sort(
+                  (
+                      a,
+                      b,
+                  ) =>
+                      a.order -
+                      b.order
+              )
+        : [];
+---
+
+<section class="bg-background py-10 sm:py-12 lg:py-16">
+    <div class="mx-auto w-full max-w-6xl space-y-12 px-4 sm:px-6 lg:px-8">
+
+        <!-- =================================================
+            HERO
+        ================================================== -->
+
+        <section class="relative overflow-hidden rounded-2xl bg-primary">
+    <div class="relative grid min-h-72 items-end gap-8 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_340px] lg:p-10">
+        <div>
+            {
+                estado ===
+                    "oberta" && (
+                    <span class="inline-flex rounded-full bg-emerald-500/90 px-3 py-1.5 text-xs font-semibold text-white">
+                        Obert
+                    </span>
+                )
+            }
+
+            {
+                estado ===
+                    "proximament" && (
+                    <span class="inline-flex rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white">
+                        Pròximament
+                    </span>
+                )
+            }
+
+            {
+                estado ===
+                    "tancada" && (
+                    <span class="inline-flex rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white">
+                        Tancat
+                    </span>
+                )
+            }
+
+            {
+                estado ===
+                    "sense_dates" && (
+                    <span class="inline-flex rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white">
+                        Inscripció
+                    </span>
+                )
+            }
+
+            <h2 class="mt-5 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                {
+                    estado ===
+                        "oberta"
+                        ? "Inscripcions Obertes"
+                        : estado ===
+                            "proximament"
+                          ? "Inscripcions pròximament"
+                          : estado ===
+                                "tancada"
+                            ? "Inscripcions tancades"
+                            : "Inscripció d'equips"
+                }
+            </h2>
+
+            <p class="mt-3 max-w-2xl text-sm leading-6 text-white/80 sm:text-base sm:leading-7">
+                Prepara el teu equip i participa en aquesta edició del torneig.
+            </p>
+
+            {
+                estado ===
+                    "oberta" && (
+                    <a
+                        href="#formulari-inscripcio"
+                        class="mt-6 inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-primary transition hover:bg-white/90"
+                    >
+                        Inscriure el meu equip
+
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.8"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="h-4 w-4"
+                            aria-hidden="true"
+                        >
+                            <path d="M5 12h14"></path>
+                            <path d="m13 6 6 6-6 6"></path>
+                        </svg>
+                    </a>
+                )
+            }
+        </div>
+
+        <div class="hidden justify-end lg:flex">
+    {
+        estado === "oberta" && fechaCierre ? (
+            <div
+                data-countdown
+                data-target={fechaCierre.toISOString()}
+                class="w-full max-w-sm rounded-2xl border border-white/15 bg-white/10 p-5 text-white backdrop-blur-sm"
+            >
+                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-white/60">
+                    Temps restant
+                </p>
+
+                <p class="mt-1 text-sm font-medium text-white/80">
+                    Fins al tancament de les inscripcions
+                </p>
+
+                <div class="mt-5 grid grid-cols-4 gap-2">
+                    <div class="rounded-xl bg-black/15 px-2 py-3 text-center">
+                        <span
+                            data-days
+                            class="block text-2xl font-bold tracking-tight text-white"
+                        >
+                            00
+                        </span>
+
+                        <span class="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-white/55">
+                            Dies
+                        </span>
+                    </div>
+
+                    <div class="rounded-xl bg-black/15 px-2 py-3 text-center">
+                        <span
+                            data-hours
+                            class="block text-2xl font-bold tracking-tight text-white"
+                        >
+                            00
+                        </span>
+
+                        <span class="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-white/55">
+                            Hores
+                        </span>
+                    </div>
+
+                    <div class="rounded-xl bg-black/15 px-2 py-3 text-center">
+                        <span
+                            data-minutes
+                            class="block text-2xl font-bold tracking-tight text-white"
+                        >
+                            00
+                        </span>
+
+                        <span class="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-white/55">
+                            Min
+                        </span>
+                    </div>
+
+                    <div class="rounded-xl bg-black/15 px-2 py-3 text-center">
+                        <span
+                            data-seconds
+                            class="block text-2xl font-bold tracking-tight text-white"
+                        >
+                            00
+                        </span>
+
+                        <span class="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-white/55">
+                            Seg
+                        </span>
+                    </div>
+                </div>
+            </div>
+        ) : estado === "proximament" && fechaApertura ? (
+            <div
+                data-countdown
+                data-target={fechaApertura.toISOString()}
+                class="w-full max-w-sm rounded-2xl border border-white/15 bg-white/10 p-5 text-white backdrop-blur-sm"
+            >
+                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-white/60">
+                    Comença en
+                </p>
+
+                <p class="mt-1 text-sm font-medium text-white/80">
+                    Temps fins a l'obertura de les inscripcions
+                </p>
+
+                <div class="mt-5 grid grid-cols-4 gap-2">
+                    <div class="rounded-xl bg-black/15 px-2 py-3 text-center">
+                        <span
+                            data-days
+                            class="block text-2xl font-bold tracking-tight text-white"
+                        >
+                            00
+                        </span>
+
+                        <span class="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-white/55">
+                            Dies
+                        </span>
+                    </div>
+
+                    <div class="rounded-xl bg-black/15 px-2 py-3 text-center">
+                        <span
+                            data-hours
+                            class="block text-2xl font-bold tracking-tight text-white"
+                        >
+                            00
+                        </span>
+
+                        <span class="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-white/55">
+                            Hores
+                        </span>
+                    </div>
+
+                    <div class="rounded-xl bg-black/15 px-2 py-3 text-center">
+                        <span
+                            data-minutes
+                            class="block text-2xl font-bold tracking-tight text-white"
+                        >
+                            00
+                        </span>
+
+                        <span class="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-white/55">
+                            Min
+                        </span>
+                    </div>
+
+                    <div class="rounded-xl bg-black/15 px-2 py-3 text-center">
+                        <span
+                            data-seconds
+                            class="block text-2xl font-bold tracking-tight text-white"
+                        >
+                            00
+                        </span>
+
+                        <span class="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-white/55">
+                            Seg
+                        </span>
+                    </div>
+                </div>
+            </div>
+        ) : estado === "tancada" ? (
+            <div class="w-full max-w-sm rounded-2xl border border-white/15 bg-white/10 p-5 text-white backdrop-blur-sm">
+                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-white/60">
+                    Inscripció
+                </p>
+
+                <p class="mt-3 text-2xl font-bold tracking-tight text-white">
+                    Termini finalitzat
+                </p>
+
+                <p class="mt-2 text-sm leading-6 text-white/70">
+                    El període d'inscripció d'aquesta edició ja ha finalitzat.
+                </p>
+            </div>
+        ) : null
+    }
+</div>
+    </div>
+</section>
+
+        <!-- =================================================
+            REQUISITOS
+        ================================================== -->
+
+        <section
+            id="requisits"
+            class="grid scroll-mt-24 grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]"
+        >
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+                    Participació
+                </p>
+
+                <h2 class="mt-2 text-2xl font-bold tracking-tight text-neutral-titulos sm:text-3xl">
+                    Requisits i detalls
+                </h2>
+
+                <p class="mt-2 max-w-2xl text-sm leading-6 text-neutral">
+                    Aquestes són les condicions configurades per
+                    participar en aquesta edició.
+                </p>
+
+                <div class="mt-6 overflow-hidden rounded-2xl border border-border bg-background">
+
+                    <!-- JUGADORES -->
+
+                    <div class="flex items-start gap-4 border-b border-border p-5">
+                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.7"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                class="h-5 w-5"
+                                aria-hidden="true"
+                            >
+                                <circle cx="9" cy="8" r="3"></circle>
+                                <circle cx="17" cy="9" r="2.5"></circle>
+                                <path d="M3.5 20v-1a5.5 5.5 0 0 1 11 0v1"></path>
+                                <path d="M16 14.5a5 5 0 0 1 4.5 5V20"></path>
+                            </svg>
+                        </span>
+
+                        <div>
+                            <p class="font-semibold text-neutral-titulos">
+                                Jugadors per equip
+                            </p>
+
+                            <p class="mt-1 text-sm leading-6 text-neutral">
+                                {textoJugadores}
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- GÉNERO -->
+
+                    <div class="flex items-start gap-4 border-b border-border p-5">
+                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.7"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                class="h-5 w-5"
+                                aria-hidden="true"
+                            >
+                                <circle cx="8.5" cy="8.5" r="3.5"></circle>
+                                <circle cx="15.5" cy="15.5" r="3.5"></circle>
+                                <path d="m11 11 2 2"></path>
+                            </svg>
+                        </span>
+
+                        <div>
+                            <p class="font-semibold text-neutral-titulos">
+                                Composició de l'equip
+                            </p>
+
+                            {
+                                generoActivo ? (
+                                    <p class="mt-1 text-sm leading-6 text-neutral">
+                                        Mínim de {minimoMasculino} nois i{" "}
+                                        {minimoFemenino} noies.
+                                    </p>
+                                ) : (
+                                    <p class="mt-1 text-sm leading-6 text-neutral">
+                                        Sense requisits mínims de composició per gènere.
+                                    </p>
+                                )
+                            }
+                        </div>
+                    </div>
+
+                    <!-- PROFESORES -->
+
+                    <div class="flex items-start gap-4 border-b border-border p-5">
+                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.7"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                class="h-5 w-5"
+                                aria-hidden="true"
+                            >
+                                <path d="M3 4h18v12H3z"></path>
+                                <path d="M8 20h8"></path>
+                                <path d="M12 16v4"></path>
+                            </svg>
+                        </span>
+
+                        <div>
+                            <p class="font-semibold text-neutral-titulos">
+                                Professorat
+                            </p>
+
+                            <p class="mt-1 text-sm leading-6 text-neutral">
+                                {textoProfesores}
+                            </p>
+
+                            {
+                                profesoresPermitidos &&
+                                profesoresCuentan && (
+                                    <p class="mt-1 text-xs leading-5 text-neutral/70">
+                                        Els professors compten dins el nombre
+                                        total de jugadors de l'equip.
+                                    </p>
+                                )
+                            }
+
+                            {
+                                profesoresPermitidos &&
+                                !profesoresCuentan && (
+                                    <p class="mt-1 text-xs leading-5 text-neutral/70">
+                                        Els professors no compten dins el
+                                        nombre total de jugadors.
+                                    </p>
+                                )
+                            }
+                        </div>
+                    </div>
+
+                    <!-- ENTRENADOR -->
+
+                    <div class="flex items-start gap-4 border-b border-border p-5">
+                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.7"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                class="h-5 w-5"
+                                aria-hidden="true"
+                            >
+                                <circle cx="9" cy="7" r="3"></circle>
+                                <path d="M3 20v-1a6 6 0 0 1 12 0v1"></path>
+                                <path d="M17 6h4"></path>
+                                <path d="M19 4v4"></path>
+                            </svg>
+                        </span>
+
+                        <div>
+                            <p class="font-semibold text-neutral-titulos">
+                                Entrenador
+                            </p>
+
+                            {
+                                entrenadorPermitido ? (
+                                    <p class="mt-1 text-sm leading-6 text-neutral">
+                                        Es permet registrar un entrenador per equip.
+                                    </p>
+                                ) : (
+                                    <p class="mt-1 text-sm leading-6 text-neutral">
+                                        No es permet registrar entrenador.
+                                    </p>
+                                )
+                            }
+                        </div>
+                    </div>
+
+                    <!-- STAFF -->
+
+                    <div class="flex items-start gap-4 p-5">
+                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.7"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                class="h-5 w-5"
+                                aria-hidden="true"
+                            >
+                                <circle cx="8" cy="8" r="3"></circle>
+                                <path d="M3 20v-1a5 5 0 0 1 10 0v1"></path>
+                                <path d="M16 8h5"></path>
+                                <path d="M18.5 5.5v5"></path>
+                            </svg>
+                        </span>
+
+                        <div>
+                            <p class="font-semibold text-neutral-titulos">
+                                Staff
+                            </p>
+
+                            <p class="mt-1 text-sm leading-6 text-neutral">
+                                {textoStaff}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- =================================================
+                FECHAS
+            ================================================== -->
+
+            <aside class="h-max rounded-2xl border border-border bg-card/50 p-5 lg:sticky lg:top-24">
+                <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.7"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="h-5 w-5"
+                        aria-hidden="true"
+                    >
+                        <rect x="3" y="5" width="18" height="16" rx="2"></rect>
+                        <path d="M16 3v4"></path>
+                        <path d="M8 3v4"></path>
+                        <path d="M3 10h18"></path>
+                    </svg>
+                </div>
+
+                <h3 class="mt-4 text-lg font-semibold text-neutral-titulos">
+                    Període d'inscripció
+                </h3>
+
+                {
+                    fechaApertura &&
+                    fechaCierre ? (
+                        <div class="mt-5 space-y-4">
+                            <div>
+                                <p class="text-xs font-semibold uppercase tracking-wide text-neutral/70">
+                                    Obertura
+                                </p>
+
+                                <p class="mt-1 text-sm font-medium leading-6 text-neutral-titulos">
+                                    {fechaVisible(apertura)}
+                                </p>
+                            </div>
+
+                            <div class="border-t border-border pt-4">
+                                <p class="text-xs font-semibold uppercase tracking-wide text-neutral/70">
+                                    Tancament
+                                </p>
+
+                                <p class="mt-1 text-sm font-medium leading-6 text-neutral-titulos">
+                                    {fechaVisible(cierre)}
+                                </p>
+                            </div>
+                        </div>
+                    ) : (
+                        <p class="mt-4 text-sm leading-6 text-neutral">
+                            Encara no s'ha definit el període
+                            d'inscripció.
+                        </p>
+                    )
+                }
+
+                {
+                    estado ===
+                        "oberta" && (
+                        <div class="mt-5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+                            <p class="text-sm font-semibold text-emerald-700">
+                                Inscripcions obertes
+                            </p>
+
+                            <p class="mt-1 text-xs leading-5 text-neutral">
+                                Actualment et trobes dins el període
+                                habilitat per inscriure equips.
+                            </p>
+                        </div>
+                    )
+                }
+
+                {
+                    estado ===
+                        "proximament" && (
+                        <div class="mt-5 rounded-xl border border-primary/20 bg-primary/5 p-4">
+                            <p class="text-sm font-semibold text-primary">
+                                Encara no han començat
+                            </p>
+
+                            <p class="mt-1 text-xs leading-5 text-neutral">
+                                La inscripció s'activarà automàticament
+                                quan arribi la data d'obertura.
+                            </p>
+                        </div>
+                    )
+                }
+
+                {
+                    estado ===
+                        "tancada" && (
+                        <div class="mt-5 rounded-xl border border-border bg-background p-4">
+                            <p class="text-sm font-semibold text-neutral-titulos">
+                                Període finalitzat
+                            </p>
+
+                            <p class="mt-1 text-xs leading-5 text-neutral">
+                                Ja no es poden registrar nous equips.
+                            </p>
+                        </div>
+                    )
+                }
+            </aside>
+        </section>
+
+        <!-- =================================================
+            CONDICIONES
+        ================================================== -->
+
+        <section>
+            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+                Condicions
+            </p>
+
+            <h2 class="mt-2 text-2xl font-bold tracking-tight text-neutral-titulos sm:text-3xl">
+                Abans de fer la inscripció
+            </h2>
+
+            <div class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+
+                <article class="rounded-2xl border border-border bg-card/40 p-5">
+                    <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.7"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="h-5 w-5"
+                        >
+                            <circle cx="12" cy="12" r="9"></circle>
+                            <path d="m8 12 2.5 2.5L16 9"></path>
+                        </svg>
+                    </span>
+
+                    <h3 class="mt-4 font-semibold text-neutral-titulos">
+                        Equip complet
+                    </h3>
+
+                    <p class="mt-2 text-sm leading-6 text-neutral">
+                        Assegura't que l'equip compleix el mínim i
+                        màxim de participants abans d'enviar la inscripció.
+                    </p>
+                </article>
+
+                <article class="rounded-2xl border border-border bg-card/40 p-5">
+                    <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.7"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="h-5 w-5"
+                        >
+                            <path d="M8 3h8"></path>
+                            <path d="M9 3v3"></path>
+                            <path d="M15 3v3"></path>
+                            <rect x="5" y="6" width="14" height="15" rx="2"></rect>
+                            <path d="M8 11h8"></path>
+                            <path d="M8 15h5"></path>
+                        </svg>
+                    </span>
+
+                    <h3 class="mt-4 font-semibold text-neutral-titulos">
+                        Dades dels participants
+                    </h3>
+
+                    <p class="mt-2 text-sm leading-6 text-neutral">
+                        Tingues preparades les dades de totes les
+                        persones que formaran part de l'equip.
+                    </p>
+                </article>
+
+                <article class="rounded-2xl border border-border bg-card/40 p-5">
+                    <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.7"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="h-5 w-5"
+                        >
+                            <circle cx="12" cy="12" r="9"></circle>
+                            <path d="M12 7v5l3 2"></path>
+                        </svg>
+                    </span>
+
+                    <h3 class="mt-4 font-semibold text-neutral-titulos">
+                        Respecta el termini
+                    </h3>
+
+                    <p class="mt-2 text-sm leading-6 text-neutral">
+                        La inscripció només estarà disponible dins
+                        les dates establertes per l'organització.
+                    </p>
+                </article>
+            </div>
+        </section>
+
+        <!-- =================================================
+            CUPO
+        ================================================== -->
+
+        {
+            maximoEquipos !==
+                null && (
+                <section class="rounded-3xl border border-primary/20 bg-primary/5 p-6 sm:p-8">
+                    <div class="flex flex-col gap-5 sm:flex-row sm:items-start">
+                        <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary text-white">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.8"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                class="h-6 w-6"
+                            >
+                                <circle cx="8" cy="8" r="3"></circle>
+                                <circle cx="16" cy="8" r="3"></circle>
+                                <path d="M2.5 20a5.5 5.5 0 0 1 11 0"></path>
+                                <path d="M12.5 20a5.5 5.5 0 0 1 9 0"></path>
+                            </svg>
+                        </span>
+
+                        <div>
+                            <p class="text-sm font-semibold uppercase tracking-wide text-primary">
+                                Places disponibles
+                            </p>
+
+                            <h2 class="mt-1 text-2xl font-bold tracking-tight text-neutral-titulos">
+                                Màxim de {maximoEquipos} equips
+                            </h2>
+
+                            {
+                                comportamiento ===
+                                    "permitir" && (
+                                    <p class="mt-2 max-w-3xl text-sm leading-6 text-neutral">
+                                        El nombre indicat és orientatiu.
+                                        Es podran continuar registrant equips
+                                        encara que se superi aquesta quantitat.
+                                    </p>
+                                )
+                            }
+
+                            {
+                                comportamiento ===
+                                    "lista_espera" && (
+                                    <p class="mt-2 max-w-3xl text-sm leading-6 text-neutral">
+                                        Quan s'arribi al màxim, els nous equips
+                                        quedaran registrats en llista d'espera.
+                                    </p>
+                                )
+                            }
+
+                            {
+                                comportamiento ===
+                                    "bloquear" && (
+                                    <p class="mt-2 max-w-3xl text-sm leading-6 text-neutral">
+                                        Quan s'arribi al màxim d'equips no
+                                        s'acceptaran més inscripcions.
+                                    </p>
+                                )
+                            }
+                        </div>
+                    </div>
+                </section>
+            )
+        }
+
+        <!-- =================================================
+            RESUMEN DE PERSONAS ADICIONALES
+        ================================================== -->
+
+        {
+            (
+                profesoresPermitidos ||
+                entrenadorPermitido ||
+                staffPermitido
+            ) && (
+                <section>
+                    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+                        Equip tècnic
+                    </p>
+
+                    <h2 class="mt-2 text-2xl font-bold tracking-tight text-neutral-titulos sm:text-3xl">
+                        Persones addicionals
+                    </h2>
+
+                    <div class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+
+                        {
+                            profesoresPermitidos && (
+                                <article class="rounded-2xl border border-border bg-background p-5">
+                                    <p class="text-sm font-semibold text-neutral-titulos">
+                                        Professorat
+                                    </p>
+
+                                    <p class="mt-2 text-sm leading-6 text-neutral">
+                                        {textoProfesores}
+                                    </p>
+                                </article>
+                            )
+                        }
+
+                        {
+                            entrenadorPermitido && (
+                                <article class="rounded-2xl border border-border bg-background p-5">
+                                    <p class="text-sm font-semibold text-neutral-titulos">
+                                        Entrenador
+                                    </p>
+
+                                    <p class="mt-2 text-sm leading-6 text-neutral">
+                                        Es pot registrar un entrenador associat
+                                        a l'equip.
+                                    </p>
+                                </article>
+                            )
+                        }
+
+                        {
+                            staffPermitido && (
+                                <article class="rounded-2xl border border-border bg-background p-5">
+                                    <p class="text-sm font-semibold text-neutral-titulos">
+                                        Staff
+                                    </p>
+
+                                    <p class="mt-2 text-sm leading-6 text-neutral">
+                                        {textoStaff}
+                                    </p>
+                                </article>
+                            )
+                        }
+                    </div>
+                </section>
+            )
+        }
+
+        <!-- =================================================
+            FAQ
+        ================================================== -->
+
+        {
+            preguntasFAQ.length >
+                0 && (
+                <section class="border-t border-border pt-10">
+                    <div class="max-w-3xl">
+                        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+                            Ajuda
+                        </p>
+
+                        <h2 class="mt-2 text-2xl font-bold tracking-tight text-neutral-titulos sm:text-3xl">
+                            Preguntes freqüents
+                        </h2>
+
+                        <p class="mt-2 text-sm leading-6 text-neutral">
+                            Resol els dubtes més habituals abans de
+                            començar la inscripció.
+                        </p>
+                    </div>
+
+                    <div class="mt-6 space-y-3">
+                        {
+                            preguntasFAQ.map(
+                                pregunta => (
+                                    <details class="group overflow-hidden rounded-2xl border border-border bg-background">
+                                        <summary class="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 font-semibold text-neutral-titulos marker:hidden">
+                                            <span>
+                                                {pregunta.pregunta}
+                                            </span>
+
+                                            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-card text-neutral transition group-open:rotate-180">
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="1.8"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    class="h-4 w-4"
+                                                >
+                                                    <path d="m6 9 6 6 6-6"></path>
+                                                </svg>
+                                            </span>
+                                        </summary>
+
+                                        <div class="border-t border-border px-5 py-4">
+                                            <p class="whitespace-pre-line text-sm leading-7 text-neutral">
+                                                {pregunta.respuesta}
+                                            </p>
+                                        </div>
+                                    </details>
+                                )
+                            )
+                        }
+                    </div>
+                </section>
+            )
+        }
+    </div>
+</section>
+
+<script>
+    function iniciarContadors() {
+        const contadors =
+            document.querySelectorAll<HTMLElement>(
+                "[data-countdown]"
+            );
+
+        contadors.forEach(
+            contador => {
+                const objectiu =
+                    contador.dataset.target;
+
+                if (
+                    !objectiu
+                ) {
+                    return;
+                }
+
+                const dataObjectiu =
+                    new Date(
+                        objectiu
+                    ).getTime();
+
+                const dies =
+                    contador.querySelector<HTMLElement>(
+                        "[data-days]"
+                    );
+
+                const hores =
+                    contador.querySelector<HTMLElement>(
+                        "[data-hours]"
+                    );
+
+                const minuts =
+                    contador.querySelector<HTMLElement>(
+                        "[data-minutes]"
+                    );
+
+                const segons =
+                    contador.querySelector<HTMLElement>(
+                        "[data-seconds]"
+                    );
+
+                function actualitzar() {
+                    const diferencia =
+                        Math.max(
+                            0,
+                            dataObjectiu -
+                                Date.now()
+                        );
+
+                    const totalSegons =
+                        Math.floor(
+                            diferencia /
+                                1000
+                        );
+
+                    const diesRestants =
+                        Math.floor(
+                            totalSegons /
+                                86400
+                        );
+
+                    const horesRestants =
+                        Math.floor(
+                            (
+                                totalSegons %
+                                86400
+                            ) /
+                                3600
+                        );
+
+                    const minutsRestants =
+                        Math.floor(
+                            (
+                                totalSegons %
+                                3600
+                            ) /
+                                60
+                        );
+
+                    const segonsRestants =
+                        totalSegons %
+                        60;
+
+                    if (
+                        dies
+                    ) {
+                        dies.textContent =
+                            String(
+                                diesRestants
+                            ).padStart(
+                                2,
+                                "0"
+                            );
+                    }
+
+                    if (
+                        hores
+                    ) {
+                        hores.textContent =
+                            String(
+                                horesRestants
+                            ).padStart(
+                                2,
+                                "0"
+                            );
+                    }
+
+                    if (
+                        minuts
+                    ) {
+                        minuts.textContent =
+                            String(
+                                minutsRestants
+                            ).padStart(
+                                2,
+                                "0"
+                            );
+                    }
+
+                    if (
+                        segons
+                    ) {
+                        segons.textContent =
+                            String(
+                                segonsRestants
+                            ).padStart(
+                                2,
+                                "0"
+                            );
+                    }
+                }
+
+                actualitzar();
+
+                const intervalo =
+                    window.setInterval(
+                        () => {
+                            actualitzar();
+
+                            if (
+                                Date.now() >=
+                                dataObjectiu
+                            ) {
+                                window.clearInterval(
+                                    intervalo
+                                );
+
+                                window.location.reload();
+                            }
+                        },
+                        1000
+                    );
+            }
+        );
+    }
+
+    iniciarContadors();
+</script>
