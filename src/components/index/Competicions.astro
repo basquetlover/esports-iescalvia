@@ -1,48 +1,438 @@
+---
+import { supabaseAdmin } from "@utils/supabase";
+
+// ============================================================
+// TIPOS
+// ============================================================
+
+type TorneoDB = {
+    id: string;
+    nombre: string | null;
+    banner: string | null;
+    deporte: string | null;
+    descripcion: string | null;
+    activo: boolean | null;
+    created_at: string | null;
+};
+
+type EdicionDB = {
+    torneo_id: string;
+    estado: string | null;
+};
+
+type TorneoPortada = {
+    id: string;
+    nombre: string;
+    banner: string;
+    deporte: string;
+    descripcion: string;
+    estado: string;
+    prioridad: number;
+};
+
+// ============================================================
+// CARGAR TORNEOS
+// ============================================================
+
+let errorCarga = false;
+
+const torneosPortada: TorneoPortada[] = [];
+
+try {
+    const [
+        {
+            data: torneos,
+            error: errorTorneos,
+        },
+        {
+            data: ediciones,
+            error: errorEdiciones,
+        },
+    ] = await Promise.all([
+        supabaseAdmin
+            .from("torneos")
+            .select(
+                "id,nombre,banner,deporte,descripcion,activo,created_at"
+            )
+            .eq(
+                "activo",
+                true
+            )
+            .order(
+                "created_at",
+                {
+                    ascending: false,
+                    nullsFirst: false,
+                }
+            ),
+
+        supabaseAdmin
+            .from("ediciones")
+            .select(
+                "torneo_id,estado"
+            ),
+    ]);
+
+    if (
+        errorTorneos ||
+        errorEdiciones
+    ) {
+        throw (
+            errorTorneos ??
+            errorEdiciones
+        );
+    }
+
+    // ========================================================
+    // AGRUPAR ESTADOS DE EDICIONES
+    // ========================================================
+
+    const estadosPorTorneo =
+        new Map<string, string[]>();
+
+    for (
+        const edicion of
+        (ediciones ?? []) as EdicionDB[]
+    ) {
+        if (
+            !estadosPorTorneo.has(
+                edicion.torneo_id
+            )
+        ) {
+            estadosPorTorneo.set(
+                edicion.torneo_id,
+                []
+            );
+        }
+
+        if (
+            edicion.estado
+        ) {
+            estadosPorTorneo
+                .get(
+                    edicion.torneo_id
+                )!
+                .push(
+                    edicion.estado
+                );
+        }
+    }
+
+    // ========================================================
+    // PREPARAR TORNEOS
+    // ========================================================
+
+    for (
+        const torneo of
+        (torneos ?? []) as TorneoDB[]
+    ) {
+        const estados =
+            estadosPorTorneo.get(
+                torneo.id
+            ) ?? [];
+
+        let estado =
+            "Disponible";
+
+        let prioridad =
+            2;
+
+        if (
+            estados.includes(
+                "activa"
+            )
+        ) {
+            estado =
+                "En curs";
+
+            prioridad =
+                0;
+        } else if (
+            estados.includes(
+                "en_preparacio"
+            )
+        ) {
+            estado =
+                "Pròximament";
+
+            prioridad =
+                1;
+        }
+
+        torneosPortada.push({
+            id:
+                torneo.id,
+
+            nombre:
+                torneo.nombre ??
+                "Torneig",
+
+            banner:
+                torneo.banner ??
+                "",
+
+            deporte:
+                torneo.deporte ??
+                "",
+
+            descripcion:
+                torneo.descripcion ??
+                "",
+
+            estado,
+
+            prioridad,
+        });
+    }
+
+    // ========================================================
+    // PRIORIZAR
+    // ========================================================
+
+    torneosPortada.sort(
+        (a, b) =>
+            a.prioridad -
+            b.prioridad
+    );
+
+    /*
+     * El diseño de portada muestra
+     * un máximo de dos competiciones.
+     */
+    torneosPortada.splice(2);
+} catch (error) {
+    console.error(
+        "Error carregant les competicions destacades:",
+        error
+    );
+
+    errorCarga = true;
+}
+
+// ============================================================
+// PRINCIPAL Y SECUNDARIO
+// ============================================================
+
+const torneigPrincipal =
+    torneosPortada[0] ??
+    null;
+
+const torneigSecundari =
+    torneosPortada[1] ??
+    null;
+---
+
 <div class="max-w-6xl mx-auto w-full p-4">
+
     <div class="w-full grid grid-cols-[1fr_auto] gap-5">
+
         <div>
-            <h3 class="text-neutral-titulos text-3xl font-semibold">Competicions Destacades</h3>
-            <p>Explora els tornejos més destacats del centre.</p>
+            <h3 class="text-neutral-titulos text-3xl font-semibold">
+                Competicions Destacades
+            </h3>
+
+            <p>
+                Explora els tornejos més destacats del centre.
+            </p>
         </div>
-        <!-- <a href="/tornejos" class="flex flex-row items-center text-secondary fill-secondary hover:text-primary hover:fill-primary duration-300">
-            Veure-ho tot
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 -960 960 960">
-                <path d="m560-240-56-58 142-142H160v-80h486L504-662l56-58 240 240z"/>
-            </svg>
-        </a> -->
-    </div>
-    
-    <div class="w-full md:h-100  max-md:h-full max-md:flex flex-col md:grid grid-cols-[3fr_2fr] grid-rows-2 gap-5 mt-5">
-        <a class="row-span-2 w-full h-full max-md:h-100  rounded-lg relative overflow-hidden group cursor-pointer">
-            
-                <img src="/img/torneo_voley.webp" class="w-full h-full object-cover degradado-img group-hover:scale-105 duration-300" />
-            
-            <div class="absolute w-[70%] h-max bottom-5 left-5 flex flex-col gap-y-2">
-                <span class="w-max h-max p-2 rounded bg-primary text-white">En curs</span>
-                <h3 class="text-xl text-neutral-titulos font-semibold">IES Calvia Volei Tournament</h3>
-                <p>Més que un torneig, una experiència per a tots els amants del voleibol.</p>
-                <span class="text-background bg-on-background  p-2 rounded w-max">Seguir Competició</span>
-            </div>
-        </a>
 
-        <a class="w-full h-full max-md:h-50 degradado-card rounded-lg overflow-hidden relative group cursor-pointer">
-            <img src="/img/torneo_futbol.webp" class="w-full h-full object-cover degradado-img group-hover:scale-105 duration-300" />
-            
-            <div class="absolute w-[70%] h-max bottom-5 left-5 flex flex-col gap-y-2">
-                
-                <h3 class="text-neutral-titulos font-semibold">Torneig de Futbol</h3>
-                <p class="text-sm">Tornej de futbol amb intensitat i passió a cada partit.</p>
-                
-            </div>
-        </a>
-
-        <a href="/tornejos" class="col-start-2 w-full h-full max-md:h-50 text-center bg-card rounded-lg relative border border-dashed border-border flex flex-col items-center place-content-center gap-y-2 hover:border-secondary duration-300">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 fill-secondary" viewBox="0 -960 960 960">
-                <path d="M280-120v-80h160v-124q-49-11-87.5-41.5T296-442q-75-9-125.5-65.5T120-640v-40q0-33 23.5-56.5T200-760h80v-80h400v80h80q33 0 56.5 23.5T840-680v40q0 76-50.5 132.5T664-442q-18 46-56.5 76.5T520-324v124h160v80zm0-408v-152h-80v40q0 38 22 68.5t58 43.5m285 93q35-35 35-85v-240H360v240q0 50 35 85t85 35 85-35m115-93q36-13 58-43.5t22-68.5v-40h-80zm-200-52"/>
-            </svg>
-            <span class="text-neutral-titulos text-xl font-semibold">Veure totes les competicions</span>
-            <span>Explora el llistat complet de tornejos i lligues disponibles.</span>
-            <span class="text-white px-4 py-2 bg-secondary rounded-lg">Explorar tot</span>
-        </a>
     </div>
+
+    {
+        errorCarga && (
+            <div class="w-full mt-5 p-6 rounded-lg border border-border bg-card text-center">
+
+                <p class="text-neutral-titulos font-semibold">
+                    No s'han pogut carregar les competicions.
+                </p>
+
+                <p class="text-sm mt-1">
+                    Torna-ho a provar més tard.
+                </p>
+
+            </div>
+        )
+    }
+
+    {
+        !errorCarga &&
+        torneosPortada.length === 0 && (
+            <div class="w-full mt-5 p-8 rounded-lg border border-dashed border-border bg-card text-center">
+
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="w-10 h-10 fill-secondary mx-auto"
+                    viewBox="0 -960 960 960"
+                    aria-hidden="true"
+                >
+                    <path d="M280-120v-80h160v-124q-49-11-87.5-41.5T296-442q-75-9-125.5-65.5T120-640v-40q0-33 23.5-56.5T200-760h80v-80h400v80h80q33 0 56.5 23.5T840-680v40q0 76-50.5 132.5T664-442q-18 46-56.5 76.5T520-324v124h160v80z" />
+                </svg>
+
+                <p class="mt-3 text-neutral-titulos font-semibold">
+                    No hi ha competicions disponibles
+                </p>
+
+                <p class="mt-1 text-sm">
+                    Encara no hi ha cap torneig actiu.
+                </p>
+
+            </div>
+        )
+    }
+
+    {
+        !errorCarga &&
+        torneigPrincipal && (
+            <div class="w-full md:h-100 max-md:h-full max-md:flex flex-col md:grid grid-cols-[3fr_2fr] grid-rows-2 gap-5 mt-5">
+
+                <!-- ==================================================
+                     TORNEO PRINCIPAL
+                =================================================== -->
+
+                <a
+                    href={`/tornejos/${torneigPrincipal.id}`}
+                    class="row-span-2 w-full h-full max-md:h-100 rounded-lg relative overflow-hidden group cursor-pointer"
+                >
+
+                    {
+                        torneigPrincipal.banner ? (
+                            <img
+                                src={torneigPrincipal.banner}
+                                alt={torneigPrincipal.nombre}
+                                class="w-full h-full object-cover degradado-img group-hover:scale-105 duration-300"
+                            />
+                        ) : (
+                            <div class="absolute inset-0 bg-card"></div>
+                        )
+                    }
+
+                    <div class="absolute inset-0 bg-gradient-to-t from-background/95 via-background/30 to-transparent"></div>
+
+                    <div class="absolute w-[75%] h-max bottom-5 left-5 flex flex-col gap-y-2">
+
+                        <span class="w-max h-max px-3 py-1.5 rounded bg-primary text-white text-sm font-medium">
+                            {torneigPrincipal.estado}
+                        </span>
+
+                        <h3 class="text-xl text-neutral-titulos font-semibold">
+                            {torneigPrincipal.nombre}
+                        </h3>
+
+                        {
+                            torneigPrincipal.descripcion && (
+                                <p class="line-clamp-3">
+                                    {torneigPrincipal.descripcion}
+                                </p>
+                            )
+                        }
+
+                        {
+                            torneigPrincipal.deporte && (
+                                <span class="text-sm w-max rounded bg-card/80 px-2 py-1">
+                                    {torneigPrincipal.deporte}
+                                </span>
+                            )
+                        }
+
+                        <span class="text-background bg-on-background p-2 rounded w-max">
+                            Seguir Competició
+                        </span>
+
+                    </div>
+
+                </a>
+
+                <!-- ==================================================
+                     TORNEO SECUNDARIO
+                =================================================== -->
+
+                {
+                    torneigSecundari ? (
+                        <a
+                            href={`/tornejos/${torneigSecundari.id}`}
+                            class="w-full h-full max-md:h-50 rounded-lg overflow-hidden relative group cursor-pointer"
+                        >
+
+                            {
+                                torneigSecundari.banner ? (
+                                    <img
+                                        src={torneigSecundari.banner}
+                                        alt={torneigSecundari.nombre}
+                                        class="w-full h-full object-cover degradado-img group-hover:scale-105 duration-300"
+                                    />
+                                ) : (
+                                    <div class="absolute inset-0 bg-card"></div>
+                                )
+                            }
+
+                            <div class="absolute inset-0 bg-linear-to-t from-background/95 via-background/20 to-transparent"></div>
+
+                            <div class="absolute w-[80%] h-max bottom-5 left-5 flex flex-col gap-y-2">
+
+                                <span class="w-max h-max px-2 py-1 rounded bg-primary text-white text-xs">
+                                    {torneigSecundari.estado}
+                                </span>
+
+                                <h3 class="text-neutral-titulos font-semibold">
+                                    {torneigSecundari.nombre}
+                                </h3>
+
+                                {
+                                    torneigSecundari.descripcion && (
+                                        <p class="text-sm line-clamp-2">
+                                            {torneigSecundari.descripcion}
+                                        </p>
+                                    )
+                                }
+
+                            </div>
+
+                        </a>
+                    ) : (
+                        <div class="w-full h-full max-md:h-50 bg-card rounded-lg border border-dashed border-border flex items-center justify-center text-center p-5">
+
+                            <p class="text-sm">
+                                No hi ha una segona competició disponible.
+                            </p>
+
+                        </div>
+                    )
+                }
+
+                <!-- ==================================================
+                     VER TODAS
+                =================================================== -->
+
+                <a
+                    href="/tornejos"
+                    class="col-start-2 w-full h-full max-md:h-50 text-center bg-card rounded-lg relative border border-dashed border-border flex flex-col items-center place-content-center gap-y-2 hover:border-secondary duration-300"
+                >
+
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="w-8 h-8 fill-secondary"
+                        viewBox="0 -960 960 960"
+                        aria-hidden="true"
+                    >
+                        <path d="M280-120v-80h160v-124q-49-11-87.5-41.5T296-442q-75-9-125.5-65.5T120-640v-40q0-33 23.5-56.5T200-760h80v-80h400v80h80q33 0 56.5 23.5T840-680v40q0 76-50.5 132.5T664-442q-18 46-56.5 76.5T520-324v124h160v80zm0-408v-152h-80v40q0 38 22 68.5t58 43.5m285 93q35-35 35-85v-240H360v240q0 50 35 85t85 35 85-35m115-93q36-13 58-43.5t22-68.5v-40h-80zm-200-52" />
+                    </svg>
+
+                    <span class="text-neutral-titulos text-xl font-semibold">
+                        Veure totes les competicions
+                    </span>
+
+                    <span>
+                        Explora el llistat complet de tornejos i lligues disponibles.
+                    </span>
+
+                    <span class="text-white px-4 py-2 bg-secondary rounded-lg">
+                        Explorar tot
+                    </span>
+
+                </a>
+
+            </div>
+        )
+    }
+
 </div>

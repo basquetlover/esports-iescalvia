@@ -9,23 +9,23 @@ const PORTAL = [
         enlace: '/'
     },
     {
-        nombre: 'Informació',
-        enlace: '/'
+        nombre: 'Contacte',
+        enlace: '/contacte'
     }
 ]
 
-const CONTACTO = [
+const LEGAL = [
     {
-        nombre: 'FAQ',
-        enlace: '/'
+        nombre: 'Política de Privacitat',
+        enlace: '/politica-de-privacitat'
     },
     {
-        nombre: 'Contacte',
-        enlace: '/'
+        nombre: 'Política de Cookies',
+        enlace: '/politica-de-cookies'
     },
     {
-        nombre: 'Legal',
-        enlace: '/'
+        nombre: 'Avís Legal',
+        enlace: '/aviso-legal'
     }
 ]
 
@@ -59,11 +59,11 @@ const anoActual = new Date().getFullYear();
                 </div>
             </div>
 
-            <div class="flex flex-col items-center mx-auto w-max">
-                <h4 class="font-semibold text-lg text-primary">Contacte</h4>
+            <div class="flex flex-col  mx-auto w-max">
+                <h4 class="font-semibold text-lg text-primary">Legal</h4>
                 <div class="flex flex-col gap-y-1 text-neutral text-sm">
                     {
-                        PORTAL.map((ruta) =>(
+                        LEGAL.map((ruta) =>(
                             <a href={ruta.enlace}>{ruta.nombre}</a>
                         ))
                     }
