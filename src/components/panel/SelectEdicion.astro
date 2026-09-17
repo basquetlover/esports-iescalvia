@@ -1,110 +1,225 @@
 ---
 import { supabaseAdmin } from "src/utils/supabase";
 import { tienePermiso } from "@const/Permisos";
+
 const { usuario } = Astro.props;
 
 const url = new URL(Astro.request.url);
 const torneoSeleccionadoID = url.searchParams.get("torneoID");
 const edicionSeleccionadoID = url.searchParams.get("edicionID");
-const puedeVerEdiciones = Boolean(torneoSeleccionadoID &&
+
+const puedeVerEdiciones = Boolean(
+    torneoSeleccionadoID &&
     tienePermiso(usuario, "panell") &&
     tienePermiso(usuario, "panell", "ver", torneoSeleccionadoID) &&
-    tienePermiso(usuario, "edicions", "ver", torneoSeleccionadoID));
+    tienePermiso(usuario, "edicions", "ver", torneoSeleccionadoID)
+);
 
 const { data: ediciones } = puedeVerEdiciones
-    ? await supabaseAdmin.from("ediciones").select("*").eq("torneo_id", torneoSeleccionadoID!)
+    ? await supabaseAdmin
+          .from("ediciones")
+          .select("id, torneo_id, nombre, estado")
+          .eq("torneo_id", torneoSeleccionadoID!)
+          .order("fecha_inicio", { ascending: false })
     : { data: [] };
-const edicionesAny: any[] = (ediciones ?? []).filter(edicion =>
-    edicion.torneo_id === torneoSeleccionadoID &&
-    tienePermiso(usuario, "edicions", "ver", edicion.torneo_id));
-// Separar seleccionado y resto
 
- const edicionSeleccionada = edicionesAny.find((p: any) => p.id === edicionSeleccionadoID) ?? null;
- const otrasEdiciones = edicionesAny.filter((p: any) => p.id !== edicionSeleccionadoID);
+const edicionesAny: any[] = (ediciones ?? []).filter(
+    edicion =>
+        edicion.torneo_id === torneoSeleccionadoID &&
+        tienePermiso(usuario, "edicions", "ver", edicion.torneo_id)
+);
 
----
-{puedeVerEdiciones && <>
-{
-    torneoSeleccionadoID ? (
-        <div class="w-max relative" id="edicionDropdown">
-            <div class="bg-background border border-border p-1.5 rounded-md cursor-pointer flex items-center justify-between w-56 hover:bg-background/30 duration-300">
-                <div class="flex items-center gap-x-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-neutral" viewBox="0 -960 960 960">
-                        <path d="M509-269q-29-29-29-71t29-71 71-29 71 29 29 71-29 71-71 29-71-29M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-80h80v80h320v-80h80v80h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80zm0-80h560v-400H200zm0-480h560v-80H200zm0 0v-80z"/>
-                    </svg>
-                    {edicionSeleccionada ? (<>
-                            <img src={edicionSeleccionada.logo} alt={`${edicionSeleccionada.nombre} favicon`} class="inline-block w-5 h-5  align-middle"/>
-                            <p class="w-40 text-sm salto-de-linea">{edicionSeleccionada.nombre} </p>
-                            {/* <p class={`text-xs w-20 py-0.5 flex items-center place-content-center capitalize px-2 border rounded-full ${edicionSeleccionada.rolUsuario === 'propietario' ? 'bg-rol-propietario/30 border-rol-propietario text-rol-propietario' : edicionSeleccionada.rolUsuario === 'admin' ? 'bg-rol-administracion/30 border-rol-administracion text-rol-administracion' : edicionSeleccionada.rolUsuario === 'visitante' ? 'bg-rol-visitante/30 border-rol-visitante text-rol-visitante' : 'bg-rol-colaborador/30 text-rol-colaborador border-rol-colaborador'}`}>{edicionSeleccionada.rolUsuario?.trim()}</p> */}
-                    </>):(<>
-                        <p>Selecciona una edició</p>
-                    </>)}
-                </div>
-                
-                
-                
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-neutral" viewBox="0 -960 960 960">
-                    <path d="M480-120 300-300l58-58 122 122 122-122 58 58-180 180ZM358-598l-58-58 180-180 180 180-58 58-122-122-122 122Z"/>
-                </svg>
-            </div>
-            <div id="edicionesContDropdown" class="absolute left-0 mt-1 w-56 bg-background border border-magenta rounded-md shadow-lg max-h-60 z-60  overflow-y-auto hidden">
-                {otrasEdiciones.length > 0
-                ? otrasEdiciones.map(p => (
-                    <a
-                        href={`/panell?torneoID=${torneoSeleccionadoID}&edicionID=${p.id}`}
-                        class="flex flex-row items-center w-full h-auto p-2 text-blanco hover:bg-rosa/40 hover:text-blanco duration-200"
-                    >
-                        <img src={p.logo} alt={`${p.nombre} favicon`} class="inline-block w-4 h-4 mr-2 align-middle"/>
-                        <p class="w-46 salto-de-linea">{p.nombre} </p>
-                        {/* <p class={`text-xs w-20 py-0.5 flex items-center place-content-center capitalize px-2 border rounded-full ${p.rolUsuario === 'propietario' ? 'bg-rol-propietario/30 border-rol-propietario text-rol-propietario' : p.rolUsuario === 'admin' ? 'bg-rol-administracion/30 border-rol-administracion text-rol-administracion' : p.rolUsuario === 'visitante' ? 'bg-rol-visitante/30 border-rol-visitante text-rol-visitante' : 'bg-rol-colaborador/30 text-rol-colaborador border-rol-colaborador'}`}>{p.rolUsuario?.trim()}</p> */}
-                    </a>
-                    ))
-                : <div class="px-4 py-2 text-gray-500">No hi ha altres edicions</div>}
-            </div>
-            </div>
+const edicionSeleccionada = edicionesAny.find(
+    edicion => edicion.id === edicionSeleccionadoID
+) ?? null;
 
-            
-    ):(
-        <div class="bg-background text-muted border border-border p-1.5 rounded-md cursor-pointer flex items-center justify-between w-56 hover:bg-background/30 duration-300">
-            <div class="flex items-center gap-x-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-muted" viewBox="0 -960 960 960">
-                    <path d="M509-269q-29-29-29-71t29-71 71-29 71 29 29 71-29 71-71 29-71-29M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-80h80v80h320v-80h80v80h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80zm0-80h560v-400H200zm0-480h560v-80H200zm0 0v-80z"/>
-                </svg>
-                    <p>Selecciona una edició</p>
-            </div>
-            
-            
-            
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 fill-muted" viewBox="0 -960 960 960">
-                <path d="M480-120 300-300l58-58 122 122 122-122 58 58-180 180ZM358-598l-58-58 180-180 180 180-58 58-122-122-122 122Z"/>
-            </svg>
-        </div>
-    )
+const otrasEdiciones = edicionesAny.filter(
+    edicion => edicion.id !== edicionSeleccionadoID
+);
+
+type TipoEstado = "activa" | "finalizada" | "borrador" | "desconocido";
+
+function normalizarEstado(valor: string | null | undefined): TipoEstado {
+    const estado = valor?.trim().toLowerCase() ?? "";
+
+    if (["activa", "activo", "actual"].includes(estado)) {
+        return "activa";
+    }
+
+    if (["finalizada", "finalitzat", "finalitzada", "finalizado"].includes(estado)) {
+        return "finalizada";
+    }
+
+    if (["borrador", "esborrany", "en_preparacio", "en preparació", "en preparacion"].includes(estado)) {
+        return "borrador";
+    }
+
+    return "desconocido";
 }
 
-</>}
+function datosEstado(valor: string | null | undefined) {
+    const estado = normalizarEstado(valor);
+
+    switch (estado) {
+        case "activa":
+            return {
+                nombre: "Activa",
+                claseIcono: "text-secondary",
+                claseContenedor: "border-secondary/30 bg-secondary/10",
+                path: "M480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm-80-240 240-160-240-160v320Z",
+            };
+
+        case "finalizada":
+            return {
+                nombre: "Finalitzada",
+                claseIcono: "text-neutral",
+                claseContenedor: "border-border bg-card",
+                path: "m382-240-170-170 56-57 114 114 310-310 57 57-367 366ZM480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q68 0 130 21t113 59l-58 58q-40-29-87-43.5T480-800q-134 0-227 93t-93 227q0 134 93 227t227 93q134 0 227-93t93-227q0-24-3-46.5t-10-44.5l65-65q14 37 21 76t7 80q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Z",
+            };
+
+        case "borrador":
+            return {
+                nombre: "En preparació",
+                claseIcono: "text-primary",
+                claseContenedor: "border-primary/30 bg-primary/10",
+                path: "M160-200v-80h400v80H160Zm0-160v-80h280v80H160Zm0-160v-80h400v80H160Zm0-160v-80h400v80H160Zm480 480v-120l184-184q9-9 20.5-13t23.5-4q12 0 23.5 4t20.5 13l44 44q9 9 13 20.5t4 23.5q0 12-4 23.5T956-452L772-268H640Zm60-60h47l112-112-47-47-112 112v47Z",
+            };
+
+        default:
+            return {
+                nombre: "Sense estat",
+                claseIcono: "text-neutral",
+                claseContenedor: "border-border bg-card",
+                path: "M440-240h80v-80h-80v80Zm40-640q-83 0-156 31.5T197-763q-54 54-85.5 127T80-480q0 83 31.5 156T197-197q54 54 127 85.5T480-80q83 0 156-31.5T763-197q54-54 85.5-127T880-480q0-83-31.5-156T763-763q-54-54-127-85.5T480-880Zm0 720q-134 0-227-93t-93-227q0-134 93-227t227-93q134 0 227 93t93 227q0 134-93 227t-227 93Zm-40-240h80q0-29 8-42.5t34-37.5q30-28 44-51t14-55q0-54-38-87t-102-33q-52 0-87 27t-49 71l72 28q8-24 24-37t40-13q29 0 44.5 15.5T540-588q0 19-11 35t-39 41q-31 28-40.5 52.5T440-400Z",
+            };
+    }
+}
+
+const estadoSeleccionado = edicionSeleccionada
+    ? datosEstado(edicionSeleccionada.estado)
+    : null;
+---
+
+{puedeVerEdiciones && (
+    <>
+        {torneoSeleccionadoID ? (
+            <div class="relative w-max" id="edicionDropdown">
+                <button
+                    type="button"
+                    id="edicionDropdownButton"
+                    aria-haspopup="listbox"
+                    aria-expanded="false"
+                    class="flex w-56 items-center justify-between gap-2 rounded-md border border-border bg-background p-1.5 text-left text-neutral transition hover:bg-card"
+                >
+                    <div class="flex min-w-0 items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 fill-neutral" viewBox="0 -960 960 960" aria-hidden="true">
+                            <path d="M509-269q-29-29-29-71t29-71 71-29 71 29 29 71-29 71-71 29-71-29M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-80h80v80h320v-80h80v80h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80zm0-80h560v-400H200zm0-480h560v-80H200z" />
+                        </svg>
+
+                        {edicionSeleccionada && estadoSeleccionado ? (
+                            <>
+                                <span class:list={["flex h-6 w-6 shrink-0 items-center justify-center rounded-md border", estadoSeleccionado.claseContenedor]} title={estadoSeleccionado.nombre}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" aria-hidden="true" class:list={["h-4 w-4 fill-current", estadoSeleccionado.claseIcono]}>
+                                        <path d={estadoSeleccionado.path} />
+                                    </svg>
+                                </span>
+
+                                <p class="salto-de-linea min-w-0 flex-1 text-sm text-neutral-titulos">
+                                    {edicionSeleccionada.nombre}
+                                </p>
+                            </>
+                        ) : (
+                            <p class="truncate text-sm">Selecciona una edició</p>
+                        )}
+                    </div>
+
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 fill-neutral" viewBox="0 -960 960 960" aria-hidden="true">
+                        <path d="M480-120 300-300l58-58 122 122 122-122 58 58-180 180ZM358-598l-58-58 180-180 180 180-58 58-122-122-122 122Z" />
+                    </svg>
+                </button>
+
+                <div id="edicionesContDropdown" role="listbox" class="absolute left-0 z-60 mt-1 hidden max-h-72 w-56 overflow-y-auto rounded-md border border-border bg-background py-1 shadow-lg">
+                    {otrasEdiciones.length > 0 ? (
+                        otrasEdiciones.map(edicion => {
+                            const estado = datosEstado(edicion.estado);
+
+                            return (
+                                <a
+                                    href={`/panell?torneoID=${torneoSeleccionadoID}&edicionID=${edicion.id}`}
+                                    role="option"
+                                    class="flex w-full items-center gap-2 px-2 py-2 text-neutral transition hover:bg-card"
+                                >
+                                    <span class:list={["flex h-7 w-7 shrink-0 items-center justify-center rounded-md border", estado.claseContenedor]} title={estado.nombre}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" aria-hidden="true" class:list={["h-4 w-4 fill-current", estado.claseIcono]}>
+                                            <path d={estado.path} />
+                                        </svg>
+                                    </span>
+
+                                    <div class="min-w-0 flex-1">
+                                        <p class="salto-de-linea text-sm font-medium text-neutral-titulos">
+                                            {edicion.nombre}
+                                        </p>
+
+                                        <p class="mt-0.5 text-[11px] text-neutral">
+                                            {estado.nombre}
+                                        </p>
+                                    </div>
+                                </a>
+                            );
+                        })
+                    ) : (
+                        <div class="px-3 py-3 text-sm text-neutral">
+                            No hi ha altres edicions
+                        </div>
+                    )}
+                </div>
+            </div>
+        ) : (
+            <div class="flex w-56 items-center justify-between rounded-md border border-border bg-background p-1.5 text-muted">
+                <div class="flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 fill-muted" viewBox="0 -960 960 960" aria-hidden="true">
+                        <path d="M509-269q-29-29-29-71t29-71 71-29 71 29 29 71-29 71-71 29-71-29M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-80h80v80h320v-80h80v80h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80zm0-80h560v-400H200zm0-480h560v-80H200z" />
+                    </svg>
+
+                    <p class="text-sm">Selecciona una edició</p>
+                </div>
+
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 fill-muted" viewBox="0 -960 960 960" aria-hidden="true">
+                    <path d="M480-120 300-300l58-58 122 122 122-122 58 58-180 180ZM358-598l-58-58 180-180 180 180-58 58-122-122-122 122Z" />
+                </svg>
+            </div>
+        )}
+    </>
+)}
 
 <script type="module">
-            const dropdown = document.getElementById("edicionDropdown");
-            const contenido = document.getElementById("edicionesContDropdown");
+    const dropdown = document.getElementById("edicionDropdown");
+    const boton = document.getElementById("edicionDropdownButton");
+    const contenido = document.getElementById("edicionesContDropdown");
 
-            dropdown?.addEventListener("click", () => {
-                contenido?.classList.toggle("hidden");
-            });
+    boton?.addEventListener("click", evento => {
+        evento.stopPropagation();
 
-            // Cerrar al hacer clic fuera
-            document.addEventListener("click", (e) => {
-                if (dropdown && !dropdown.contains(e.target)) {
-                contenido?.classList.add("hidden");
-                }
-            });
-            </script>
+        contenido?.classList.toggle("hidden");
+
+        const abierto = !contenido?.classList.contains("hidden");
+        boton?.setAttribute("aria-expanded", abierto ? "true" : "false");
+    });
+
+    document.addEventListener("click", evento => {
+        const objetivo = evento.target;
+
+        if (dropdown && objetivo instanceof Node && !dropdown.contains(objetivo)) {
+            contenido?.classList.add("hidden");
+            boton?.setAttribute("aria-expanded", "false");
+        }
+    });
+</script>
 
 <style>
     .salto-de-linea {
-        white-space: nowrap;       /* No permite saltos de línea */
-        overflow: hidden;          /* Oculta el texto que se desborda */
-        text-overflow: ellipsis;   /* Muestra los puntos suspensivos */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
-    
 </style>
