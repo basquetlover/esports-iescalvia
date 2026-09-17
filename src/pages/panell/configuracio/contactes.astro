@@ -1,0 +1,37 @@
+---
+import LayoutPanel from "@layouts/LayoutPanel.astro";
+import ContactosSoporte from "@components/panel/configuracion/ContactosSoporte";
+
+export const prerender = false;
+
+Astro.response.headers.set(
+    "Cache-Control",
+    "private, no-store",
+);
+---
+
+<LayoutPanel
+    title="Contactes de suport"
+    seccion="configuracio"
+    accion="ver"
+>
+    <div class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <ContactosSoporte client:load />
+
+        <noscript>
+            <section
+                class="rounded-2xl border border-border bg-background p-6 text-neutral"
+                role="alert"
+            >
+                <h1 class="text-xl font-semibold text-neutral-titulos">
+                    Contactes de suport
+                </h1>
+
+                <p class="mt-3 text-sm leading-6">
+                    Necessites activar JavaScript per gestionar
+                    els contactes de suport.
+                </p>
+            </section>
+        </noscript>
+    </div>
+</LayoutPanel>
