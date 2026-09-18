@@ -1,0 +1,48 @@
+---
+import LayoutSinMenu from "@layouts/LayoutSinMenu.astro";
+import FormularioEquipo from "@components/formularios/FormularioEquipo";
+
+export const prerender = false;
+
+// ============================================================
+// EDICIÓN
+// ============================================================
+//
+// La edición SIEMPRE se selecciona mediante:
+//
+// /inscripcio?edicionID=<uuid>
+//
+// Si:
+// - no existe edicionID
+// - la edición no existe
+// - todavía no está abierta
+// - ya está cerrada
+//
+// NO redirigimos.
+//
+// FormularioEquipo mostrará el estado correspondiente y
+// cargará las ediciones actualmente disponibles para que
+// el usuario pueda seleccionar otra.
+//
+// ============================================================
+
+const edicionID =
+    Astro.url.searchParams.get(
+        "edicionID",
+    );
+
+// ============================================================
+// TÍTULO
+// ============================================================
+
+const titulo =
+    edicionID
+        ? "Inscripció d'equip"
+        : "Selecciona una edició";
+---
+
+<LayoutSinMenu title={titulo}>
+    <main class="min-h-screen bg-background">
+        <FormularioEquipo edicionID={edicionID} client:load />
+    </main>
+</LayoutSinMenu>
