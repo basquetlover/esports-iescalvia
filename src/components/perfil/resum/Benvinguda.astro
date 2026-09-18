@@ -1,0 +1,261 @@
+---
+type Props = {
+    usuario: {
+        nombre: string | null;
+        apellido1: string | null;
+        apellido2: string | null;
+        email: string | null;
+        curso: string | null;
+        ano_academico: string | null;
+        rol?: string | null;
+    };
+};
+
+const {
+    usuario,
+} = Astro.props as Props;
+
+// ============================================================
+// DATOS
+// ============================================================
+
+const nombre =
+    usuario.nombre
+        ?.trim() ||
+    "Usuari";
+
+const nombreCompleto = [
+    usuario.nombre,
+    usuario.apellido1,
+    usuario.apellido2,
+]
+    .map(
+        valor =>
+            valor
+                ?.trim(),
+    )
+    .filter(
+        (
+            valor,
+        ): valor is string =>
+            Boolean(
+                valor,
+            ),
+    )
+    .join(
+        " ",
+    );
+
+const iniciales = [
+    usuario.nombre,
+    usuario.apellido1,
+]
+    .map(
+        valor =>
+            valor
+                ?.trim(),
+    )
+    .filter(
+        (
+            valor,
+        ): valor is string =>
+            Boolean(
+                valor,
+            ),
+    )
+    .slice(
+        0,
+        2,
+    )
+    .map(
+        valor =>
+            Array.from(
+                valor,
+            )[0],
+    )
+    .join(
+        "",
+    )
+    .toLocaleUpperCase(
+        "ca-ES",
+    ) ||
+    "?";
+
+const curso =
+    usuario.curso
+        ?.trim() ||
+    null;
+
+const anoAcademico =
+    usuario.ano_academico
+        ?.trim() ||
+    null;
+
+const email =
+    usuario.email
+        ?.trim() ||
+    null;
+
+// ============================================================
+// SALUDO
+// ============================================================
+
+const hora =
+    new Date()
+        .toLocaleString(
+            "en-US",
+            {
+                timeZone:
+                    "Europe/Madrid",
+
+                hour:
+                    "numeric",
+
+                hour12:
+                    false,
+            },
+        );
+
+const horaNumero =
+    Number(
+        hora,
+    );
+
+const saludo =
+    horaNumero <
+        13
+        ? "Bon dia"
+        : horaNumero <
+              20
+          ? "Bona tarda"
+          : "Bona nit";
+---
+
+<section class="relative overflow-hidden rounded-2xl border border-border bg-card">
+    <div class="absolute -right-16 -top-20 h-64 w-64 rounded-full bg-primary/5"></div>
+    <div class="absolute -bottom-24 right-32 h-52 w-52 rounded-full bg-secondary/5"></div>
+
+    <div class="relative flex flex-col gap-6 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between lg:p-7">
+
+        <!-- =================================================
+            USUARIO
+        ================================================== -->
+
+        <div class="flex min-w-0 items-center gap-4 sm:gap-5">
+            <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary text-lg font-bold text-white shadow-sm sm:h-16 sm:w-16 sm:text-xl">
+                {iniciales}
+            </div>
+
+            <div class="min-w-0">
+                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+                    El meu resum
+                </p>
+
+                <h1 class="mt-1 text-2xl font-bold tracking-tight text-neutral-titulos sm:text-3xl">
+                    {saludo}, {nombre}! 👋
+                </h1>
+
+                <p class="mt-2 max-w-2xl text-sm leading-6 text-neutral">
+                    Consulta les teves inscripcions, els tornejos disponibles i l'activitat del teu compte.
+                </p>
+            </div>
+        </div>
+
+        <!-- =================================================
+            DATOS ACADÉMICOS
+        ================================================== -->
+
+        <div class="grid shrink-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:min-w-90">
+            {
+                curso && (
+                    <div class="flex items-center gap-3 rounded-xl border border-border bg-background/80 px-4 py-3">
+                        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-4.5 w-4.5 fill-current" aria-hidden="true">
+                                <path d="m160-160-80-80 80-80 57 57-23 23h526v-526l-23 23-57-57 80-80 80 80-80 80v-23 563H217l23 23-80 80Z"></path>
+                            </svg>
+                        </span>
+
+                        <div class="min-w-0">
+                            <p class="text-[10px] font-semibold uppercase tracking-wide text-neutral/60">
+                                Curs
+                            </p>
+
+                            <p class="truncate text-sm font-semibold text-neutral-titulos">
+                                {curso}
+                            </p>
+                        </div>
+                    </div>
+                )
+            }
+
+            {
+                anoAcademico && (
+                    <div class="flex items-center gap-3 rounded-xl border border-border bg-background/80 px-4 py-3">
+                        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary/10 text-secondary">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-4.5 w-4.5 fill-current" aria-hidden="true">
+                                <path d="M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-80h80v80h320v-80h80v80h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80H200Zm0-80h560v-400H200v400Zm0-480h560v-80H200v80Z"></path>
+                            </svg>
+                        </span>
+
+                        <div class="min-w-0">
+                            <p class="text-[10px] font-semibold uppercase tracking-wide text-neutral/60">
+                                Curs acadèmic
+                            </p>
+
+                            <p class="truncate text-sm font-semibold text-neutral-titulos">
+                                {anoAcademico}
+                            </p>
+                        </div>
+                    </div>
+                )
+            }
+        </div>
+    </div>
+
+    <!-- =====================================================
+        INFORMACIÓN SECUNDARIA
+    ====================================================== -->
+
+    {
+        (
+            nombreCompleto ||
+            email
+        ) && (
+            <div class="relative border-t border-border px-5 py-3 sm:px-6 lg:px-7">
+                <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-neutral">
+                    {
+                        nombreCompleto && (
+                            <span class="inline-flex min-w-0 items-center gap-1.5">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-4 w-4 shrink-0 fill-neutral/70" aria-hidden="true">
+                                    <path d="M480-480q-66 0-113-47t-47-113 47-113 113-47 113 47 47 113-47 113-113 47ZM160-160v-112q0-34 17-63t47-45q62-31 126-45.5T480-440q66 0 130 14.5T736-380q30 16 47 45t17 63v112H160Z"></path>
+                                </svg>
+
+                                <span class="truncate">
+                                    {nombreCompleto}
+                                </span>
+                            </span>
+                        )
+                    }
+
+                    {
+                        email && (
+                            <span class="inline-flex min-w-0 items-center gap-1.5">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-4 w-4 shrink-0 fill-neutral/70" aria-hidden="true">
+                                    <path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v480q0 33-23.5 56.5T800-160H160Zm320-280 320-200v-80L480-520 160-720v80l320 200Z"></path>
+                                </svg>
+
+                                <span class="truncate">
+                                    {email}
+                                </span>
+                            </span>
+                        )
+                    }
+
+                    <span class="ml-auto hidden text-[11px] text-neutral/60 sm:block">
+                        Les dades personals només poden ser modificades per un administrador.
+                    </span>
+                </div>
+            </div>
+        )
+    }
+</section>

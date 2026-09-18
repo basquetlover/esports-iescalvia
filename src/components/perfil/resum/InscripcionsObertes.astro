@@ -1,0 +1,471 @@
+---
+export type EstatFormulari =
+    | "BORRADOR"
+    | "EN_REVISION"
+    | "APROBADO"
+    | "DENEGADO";
+
+export type InscripcioOberta = {
+    edicion: {
+        id: string;
+        nombre: string;
+        sede: string | null;
+        fecha_inicio: string | null;
+        fecha_fin: string | null;
+    };
+
+    torneo: {
+        id: string;
+        nombre: string;
+        deporte: string | null;
+        logo: string | null;
+        banner: string | null;
+    };
+
+    inscripcion: {
+        apertura: string;
+        cierre: string;
+    };
+
+    formulario: {
+        id: string;
+        estado: EstatFormulari;
+        tipoAcceso: "propietario" | "capitan";
+    } | null;
+
+    equipo: {
+        id: string;
+        nombre: string | null;
+        escudo: string | null;
+    } | null;
+};
+
+type Props = {
+    inscripciones: InscripcioOberta[];
+};
+
+const {
+    inscripciones,
+} = Astro.props as Props;
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function formatearFecha(
+    valor: string | null,
+) {
+    if (!valor) {
+        return null;
+    }
+
+    const fecha =
+        new Date(valor);
+
+    if (
+        Number.isNaN(
+            fecha.getTime(),
+        )
+    ) {
+        return null;
+    }
+
+    return new Intl.DateTimeFormat(
+        "ca-ES",
+        {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+            timeZone: "Europe/Madrid",
+        },
+    ).format(fecha);
+}
+
+function formatearFechaHora(
+    valor: string | null,
+) {
+    if (!valor) {
+        return null;
+    }
+
+    const fecha =
+        new Date(valor);
+
+    if (
+        Number.isNaN(
+            fecha.getTime(),
+        )
+    ) {
+        return null;
+    }
+
+    return new Intl.DateTimeFormat(
+        "ca-ES",
+        {
+            day: "numeric",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+            timeZone: "Europe/Madrid",
+        },
+    ).format(fecha);
+}
+
+function configuracionEstado(
+    estado:
+        EstatFormulari | null,
+) {
+    if (!estado) {
+        return {
+            texto: "Inscripció oberta",
+            clases: "border-primary/20 bg-primary/10 text-primary",
+        };
+    }
+
+    if (
+        estado ===
+        "EN_REVISION"
+    ) {
+        return {
+            texto: "En revisió",
+            clases: "border-secondary/25 bg-secondary/10 text-secondary",
+        };
+    }
+
+    if (
+        estado ===
+        "APROBADO"
+    ) {
+        return {
+            texto: "Aprovada",
+            clases: "border-primary/20 bg-primary/10 text-primary",
+        };
+    }
+
+    if (
+        estado ===
+        "DENEGADO"
+    ) {
+        return {
+            texto: "Requereix canvis",
+            clases: "border-error/20 bg-error/10 text-error",
+        };
+    }
+
+    return {
+        texto: "Esborrany",
+        clases: "border-border bg-background text-neutral",
+    };
+}
+
+function configuracionBoton(
+    estado:
+        EstatFormulari | null,
+) {
+    if (!estado) {
+        return {
+            texto: "Inscriure el meu equip",
+            clases: "bg-primary text-white hover:bg-primary/90",
+            icono: "crear" as const,
+        };
+    }
+
+    if (
+        estado ===
+        "EN_REVISION"
+    ) {
+        return {
+            texto: "En revisió",
+            clases: "border border-secondary/35 bg-secondary/10 text-secondary hover:bg-secondary/15",
+            icono: "revisio" as const,
+        };
+    }
+
+    return {
+        texto: "Modificar inscripció",
+        clases: "border border-primary bg-background text-primary hover:bg-primary/10",
+        icono: "editar" as const,
+    };
+}
+
+function nombreEquipo(
+    inscripcion:
+        InscripcioOberta,
+) {
+    const nombre =
+        inscripcion.equipo
+            ?.nombre
+            ?.trim();
+
+    return nombre ||
+        null;
+}
+---
+
+{
+    inscripciones.length > 0 && (
+        <section class="w-full">
+            <!-- =================================================
+                CABECERA
+            ================================================== -->
+
+            <div class="mb-5 flex flex-wrap items-end justify-between gap-4">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+                        Participa
+                    </p>
+
+                    <h2 class="mt-1 text-xl font-bold tracking-tight text-neutral-titulos sm:text-2xl">
+                        Inscripcions obertes
+                    </h2>
+
+                    <p class="mt-1 max-w-2xl text-sm leading-6 text-neutral">
+                        Tornejos en què actualment pots inscriure un equip o continuar una inscripció existent.
+                    </p>
+                </div>
+
+                <a href="/tornejos" class="inline-flex items-center gap-1.5 text-sm font-semibold text-primary transition hover:opacity-75">
+                    Veure tots els tornejos
+
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-4 w-4 fill-current" aria-hidden="true">
+                        <path d="m647-440-224 224 57 56 320-320-320-320-57 56 224 224H160v80h487Z"></path>
+                    </svg>
+                </a>
+            </div>
+
+            <!-- =================================================
+                TARJETAS
+            ================================================== -->
+
+            <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                {
+                    inscripciones.map(
+                        inscripcion => {
+                            const estado =
+                                configuracionEstado(
+                                    inscripcion.formulario
+                                        ?.estado ??
+                                        null,
+                                );
+
+                            const boton =
+                                configuracionBoton(
+                                    inscripcion.formulario
+                                        ?.estado ??
+                                        null,
+                                );
+
+                            const equipo =
+                                nombreEquipo(
+                                    inscripcion,
+                                );
+
+                            const cierre =
+                                formatearFechaHora(
+                                    inscripcion.inscripcion.cierre,
+                                );
+
+                            const fechaTorneo =
+                                formatearFecha(
+                                    inscripcion.edicion.fecha_inicio,
+                                );
+
+                            const urlFormulario =
+                                `/inscripcio?edicionID=${encodeURIComponent(inscripcion.edicion.id)}`;
+
+                            return (
+                                <article class="group overflow-hidden rounded-2xl border border-border bg-card transition duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-lg">
+                                    <!-- =====================================
+                                        BANNER
+                                    ====================================== -->
+
+                                    <div class="relative h-44 overflow-hidden bg-background">
+                                        {
+                                            inscripcion.torneo.banner ? (
+                                                <img src={inscripcion.torneo.banner} alt="" class="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]" />
+                                            ) : (
+                                                <div class="flex h-full w-full items-center justify-center bg-primary/5">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-16 w-16 fill-primary/20" aria-hidden="true">
+                                                        <path d="M280-120v-80h160v-124q-49-11-87.5-41.5T296-442q-75-9-125.5-65.5T120-640v-40q0-33 23.5-56.5T200-760h80v-80h400v80h80q33 0 56.5 23.5T840-680v40q0 76-50.5 132.5T664-442q-18 46-56.5 76.5T520-324v124h160v80H280Z"></path>
+                                                    </svg>
+                                                </div>
+                                            )
+                                        }
+
+                                        <div class="absolute inset-0 bg-linear-to-t from-black/75 via-black/5 to-black/10"></div>
+
+                                        <!-- LOGO -->
+
+                                        {
+                                            inscripcion.torneo.logo && (
+                                                <div class="absolute bottom-4 left-4 flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl border border-white/20 bg-white/95 p-1.5 shadow-md">
+                                                    <img src={inscripcion.torneo.logo} alt="" class="h-full w-full object-contain" />
+                                                </div>
+                                            )
+                                        }
+
+                                        <!-- ESTADO -->
+
+                                        <span class={`absolute right-3 top-3 rounded-lg border px-2.5 py-1 text-[11px] font-bold shadow-sm backdrop-blur-sm ${estado.clases}`}>
+                                            {estado.texto}
+                                        </span>
+                                    </div>
+
+                                    <!-- =====================================
+                                        INFORMACIÓN
+                                    ====================================== -->
+
+                                    <div class="p-5">
+                                        <div class="min-w-0">
+                                            {
+                                                inscripcion.torneo.deporte && (
+                                                    <p class="text-[11px] font-semibold uppercase tracking-[0.15em] text-primary">
+                                                        {inscripcion.torneo.deporte}
+                                                    </p>
+                                                )
+                                            }
+
+                                            <h3 class="mt-1 line-clamp-2 text-lg font-bold leading-snug text-neutral-titulos">
+                                                {inscripcion.torneo.nombre}
+                                            </h3>
+
+                                            <p class="mt-1 text-sm font-medium text-neutral">
+                                                {inscripcion.edicion.nombre}
+                                            </p>
+                                        </div>
+
+                                        <!-- EQUIPO EXISTENTE -->
+
+                                        {
+                                            equipo && (
+                                                <div class="mt-4 flex items-center gap-3 rounded-xl border border-border/70 bg-background p-3">
+                                                    {
+                                                        inscripcion.equipo?.escudo ? (
+                                                            <div class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-card p-1">
+                                                                <img src={inscripcion.equipo.escudo} alt="" class="h-full w-full object-contain" />
+                                                            </div>
+                                                        ) : (
+                                                            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-5 w-5 fill-current" aria-hidden="true">
+                                                                    <path d="M40-160v-112q0-34 17.5-62.5T104-378q62-31 126-46.5T360-440t130 15.5T616-378q29 15 46.5 43.5T680-272v112H40Zm720 0v-112q0-34-17.5-62.5T696-378q-15-8-30.5-14.5T634-404q38-18 82-27t84-9q66 0 123 17.5t113 44.5q29 15 46.5 43.5T1100-272v112H760ZM360-480q-66 0-113-47t-47-113 47-113 113-47 113 47 47 113-47 113-113 47Zm440 0q-66 0-113-47t-47-113 47-113 113-47 113 47 47 113-47 113-113 47Z"></path>
+                                                                </svg>
+                                                            </span>
+                                                        )
+                                                    }
+
+                                                    <div class="min-w-0">
+                                                        <p class="text-[10px] font-semibold uppercase tracking-wide text-neutral/70">
+                                                            El teu equip
+                                                        </p>
+
+                                                        <p class="truncate text-sm font-semibold text-neutral-titulos">
+                                                            {equipo}
+                                                        </p>
+
+                                                        {
+                                                            inscripcion.formulario?.tipoAcceso === "capitan" && (
+                                                                <p class="mt-0.5 text-[11px] text-neutral">
+                                                                    Accés com a capità
+                                                                </p>
+                                                            )
+                                                        }
+                                                    </div>
+                                                </div>
+                                            )
+                                        }
+
+                                        <!-- INFORMACIÓN -->
+
+                                        <div class="mt-4 grid gap-2 text-xs text-neutral">
+                                            {
+                                                cierre && (
+                                                    <div class="flex items-center gap-2">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-4 w-4 shrink-0 fill-primary" aria-hidden="true">
+                                                            <path d="M480-80q-83 0-156-31.5T197-197t-85.5-127T80-480t31.5-156T197-763t127-85.5T480-880t156 31.5T763-763t85.5 127T880-480t-31.5 156T763-197t-127 85.5T480-80Zm112-224 56-56-128-128v-192h-80v224l152 152Z"></path>
+                                                        </svg>
+
+                                                        <span>
+                                                            Inscripcions fins al <strong class="font-semibold text-neutral-titulos">{cierre}</strong>
+                                                        </span>
+                                                    </div>
+                                                )
+                                            }
+
+                                            {
+                                                fechaTorneo && (
+                                                    <div class="flex items-center gap-2">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-4 w-4 shrink-0 fill-primary" aria-hidden="true">
+                                                            <path d="M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-80h80v80h320v-80h80v80h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80H200Zm0-80h560v-400H200v400Z"></path>
+                                                        </svg>
+
+                                                        <span>
+                                                            Torneig: <strong class="font-semibold text-neutral-titulos">{fechaTorneo}</strong>
+                                                        </span>
+                                                    </div>
+                                                )
+                                            }
+
+                                            {
+                                                inscripcion.edicion.sede && (
+                                                    <div class="flex items-center gap-2">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-4 w-4 shrink-0 fill-primary" aria-hidden="true">
+                                                            <path d="M480-80q-15 0-30-5t-26-15Q274-231 197-343.5T120-560q0-150 105-255t255-105q150 0 255 105t105 255q0 104-77 216.5T536-100q-11 10-26 15t-30 5Zm0-400q33 0 56.5-23.5T560-560q0-33-23.5-56.5T480-640q-33 0-56.5 23.5T400-560q0 33 23.5 56.5T480-480Z"></path>
+                                                        </svg>
+
+                                                        <span class="truncate">
+                                                            {inscripcion.edicion.sede}
+                                                        </span>
+                                                    </div>
+                                                )
+                                            }
+                                        </div>
+
+                                        <!-- =====================================
+                                            BOTÓN
+                                        ====================================== -->
+
+                                        <a href={urlFormulario} class={`mt-5 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${boton.clases}`}>
+                                            {
+                                                boton.icono === "crear" && (
+                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-4 w-4 fill-current" aria-hidden="true">
+                                                        <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z"></path>
+                                                    </svg>
+                                                )
+                                            }
+
+                                            {
+                                                boton.icono === "editar" && (
+                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-4 w-4 fill-current" aria-hidden="true">
+                                                        <path d="M200-200h57l391-391-57-57-391 391v57Zm-80 80v-170l528-527q12-12 26.5-17.5T706-840q17 0 32 6t26 18l52 52q12 11 18 26t6 32q0 17-5.5 31.5T817-648L290-120H120Z"></path>
+                                                    </svg>
+                                                )
+                                            }
+
+                                            {
+                                                boton.icono === "revisio" && (
+                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-4 w-4 fill-current" aria-hidden="true">
+                                                        <path d="M480-120q-150 0-255-105T120-480q0-150 105-255t255-105q150 0 255 105t105 255q0 150-105 255T480-120Zm40-200h80v-200H480v-200h-80v280q0 17 11.5 28.5T440-400h80v80Z"></path>
+                                                    </svg>
+                                                )
+                                            }
+
+                                            {boton.texto}
+                                        </a>
+
+                                        {
+                                            inscripcion.formulario?.estado === "EN_REVISION" && (
+                                                <p class="mt-2 text-center text-[11px] leading-5 text-neutral">
+                                                    Pots consultar la inscripció, però no modificar-la mentre està en revisió.
+                                                </p>
+                                            )
+                                        }
+                                    </div>
+                                </article>
+                            );
+                        },
+                    )
+                }
+            </div>
+        </section>
+    )
+}

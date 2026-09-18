@@ -1,6 +1,1414 @@
 ---
 import LayoutPerfil from "@layouts/LayoutPerfil.astro";
+
+import Benvinguda from "@components/perfil/resum/Benvinguda.astro";
+import ResumInscripcions from "@components/perfil/resum/ResumInscripcions.astro";
+import InscripcionsObertes from "@components/perfil/resum/InscripcionsObertes.astro";
+import ActivitatRecent from "@components/perfil/resum/ActivitatRecent.astro";
+
+import { obtenerUsuarioPorToken } from "@pages/api/sesiones/sesiones";
+import { supabaseAdmin } from "@utils/supabase";
+
+export const prerender = false;
+
+// ============================================================
+// TIPOS
+// ============================================================
+
+type Registro = Record<string, unknown>;
+
+type EstadoFormulario =
+    | "BORRADOR"
+    | "EN_REVISION"
+    | "APROBADO"
+    | "DENEGADO";
+
+type TipoAcceso =
+    | "propietario"
+    | "capitan";
+
+type TipoActividad =
+    | "CREADA"
+    | "MODIFICADA"
+    | "ENVIADA"
+    | "APROBADA"
+    | "DENEGADA";
+
+type FormularioPerfil = {
+    id: string;
+    edicion_id: string;
+    estado: EstadoFormulario;
+    usuario_id: string | null;
+    acceso_capitan: boolean;
+    iniciado_at: string | null;
+    enviado_at: string | null;
+    completado_at: string | null;
+    created_at: string | null;
+    updated_at: string | null;
+    tipoAcceso: TipoAcceso;
+};
+
+type EquipoPerfil = {
+    id: string;
+    formulario_id: string;
+    nombre: string | null;
+    escudo: string | null;
+    capitan_id: string | null;
+};
+
+type EdicionPerfil = {
+    id: string;
+    torneo_id: string;
+    nombre: string;
+    estado: string;
+    sede: string | null;
+    fecha_inicio: string | null;
+    fecha_fin: string | null;
+};
+
+type TorneoPerfil = {
+    id: string;
+    nombre: string;
+    deporte: string | null;
+    logo: string | null;
+    banner: string | null;
+    activo: boolean;
+};
+
+type ConfiguracionInscripcion = {
+    apertura: string;
+    cierre: string;
+};
+
+type InscripcionAbiertaPerfil = {
+    edicion: {
+        id: string;
+        nombre: string;
+        sede: string | null;
+        fecha_inicio: string | null;
+        fecha_fin: string | null;
+    };
+
+    torneo: {
+        id: string;
+        nombre: string;
+        deporte: string | null;
+        logo: string | null;
+        banner: string | null;
+    };
+
+    inscripcion: {
+        apertura: string;
+        cierre: string;
+    };
+
+    formulario: {
+        id: string;
+        estado: EstadoFormulario;
+        tipoAcceso: TipoAcceso;
+    } | null;
+
+    equipo: {
+        id: string;
+        nombre: string | null;
+        escudo: string | null;
+    } | null;
+};
+
+type ActividadPerfil = {
+    id: string;
+    tipo: TipoActividad;
+    titulo: string;
+    descripcion: string | null;
+    fecha: string | null;
+    enlace: string | null;
+    torneo: string | null;
+    edicion: string | null;
+};
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function esRegistro(
+    valor: unknown,
+): valor is Registro {
+    return (
+        valor !== null &&
+        typeof valor === "object" &&
+        !Array.isArray(valor)
+    );
+}
+
+function normalizarEstadoFormulario(
+    valor: unknown,
+): EstadoFormulario {
+    const estado =
+        typeof valor === "string"
+            ? valor
+                  .trim()
+                  .toUpperCase()
+            : "";
+
+    if (
+        estado === "EN_REVISION" ||
+        estado === "APROBADO" ||
+        estado === "DENEGADO"
+    ) {
+        return estado;
+    }
+
+    return "BORRADOR";
+}
+
+function edicionActiva(
+    estado: unknown,
+) {
+    if (
+        typeof estado !==
+        "string"
+    ) {
+        return false;
+    }
+
+    const valor =
+        estado
+            .trim()
+            .toUpperCase();
+
+    return (
+        valor === "ACTIVA" ||
+        valor === "ACTIVO" ||
+        valor === "ACTIU"
+    );
+}
+
+function fechaValida(
+    valor: unknown,
+) {
+    if (
+        typeof valor !==
+            "string" ||
+        !valor
+    ) {
+        return null;
+    }
+
+    const resultado =
+        new Date(valor);
+
+    return Number.isNaN(
+        resultado.getTime(),
+    )
+        ? null
+        : resultado;
+}
+
+function obtenerConfiguracionInscripcion(
+    valor: unknown,
+): ConfiguracionInscripcion | null {
+    if (
+        !esRegistro(valor)
+    ) {
+        return null;
+    }
+
+    const inscripcion =
+        esRegistro(
+            valor.inscripcion,
+        )
+            ? valor.inscripcion
+            : null;
+
+    if (
+        !inscripcion
+    ) {
+        return null;
+    }
+
+    const apertura =
+        typeof inscripcion.apertura ===
+        "string"
+            ? inscripcion.apertura
+            : null;
+
+    const cierre =
+        typeof inscripcion.cierre ===
+        "string"
+            ? inscripcion.cierre
+            : null;
+
+    if (
+        !apertura ||
+        !cierre
+    ) {
+        return null;
+    }
+
+    if (
+        !fechaValida(apertura) ||
+        !fechaValida(cierre)
+    ) {
+        return null;
+    }
+
+    return {
+        apertura,
+        cierre,
+    };
+}
+
+function periodoAbierto(
+    configuracion: ConfiguracionInscripcion,
+) {
+    const apertura =
+        fechaValida(
+            configuracion.apertura,
+        );
+
+    const cierre =
+        fechaValida(
+            configuracion.cierre,
+        );
+
+    if (
+        !apertura ||
+        !cierre
+    ) {
+        return false;
+    }
+
+    const ahora =
+        Date.now();
+
+    return (
+        ahora >=
+            apertura.getTime() &&
+        ahora <=
+            cierre.getTime()
+    );
+}
+
+function tiempo(
+    valor: string | null,
+) {
+    if (
+        !valor
+    ) {
+        return 0;
+    }
+
+    const fecha =
+        new Date(valor);
+
+    return Number.isNaN(
+        fecha.getTime(),
+    )
+        ? 0
+        : fecha.getTime();
+}
+
+function actividadFormulario(
+    formulario: FormularioPerfil,
+    equipo: EquipoPerfil | null,
+    edicion: EdicionPerfil | null,
+    torneo: TorneoPerfil | null,
+): ActividadPerfil {
+    let tipo: TipoActividad =
+        "CREADA";
+
+    let titulo =
+        "Inscripció creada";
+
+    let fecha =
+        formulario.iniciado_at ??
+        formulario.created_at ??
+        formulario.updated_at;
+
+    if (
+        formulario.estado ===
+        "EN_REVISION"
+    ) {
+        tipo =
+            "ENVIADA";
+
+        titulo =
+            "Inscripció enviada a revisió";
+
+        fecha =
+            formulario.enviado_at ??
+            formulario.updated_at ??
+            formulario.iniciado_at;
+    } else if (
+        formulario.estado ===
+        "APROBADO"
+    ) {
+        tipo =
+            "APROBADA";
+
+        titulo =
+            "Inscripció aprovada";
+
+        fecha =
+            formulario.completado_at ??
+            formulario.updated_at ??
+            formulario.enviado_at;
+    } else if (
+        formulario.estado ===
+        "DENEGADO"
+    ) {
+        tipo =
+            "DENEGADA";
+
+        titulo =
+            "La inscripció requereix canvis";
+
+        fecha =
+            formulario.completado_at ??
+            formulario.updated_at ??
+            formulario.enviado_at;
+    } else {
+        const inicio =
+            tiempo(
+                formulario.iniciado_at ??
+                formulario.created_at,
+            );
+
+        const actualizacion =
+            tiempo(
+                formulario.updated_at,
+            );
+
+        if (
+            inicio > 0 &&
+            actualizacion >
+                inicio +
+                    5000
+        ) {
+            tipo =
+                "MODIFICADA";
+
+            titulo =
+                "Inscripció actualitzada";
+
+            fecha =
+                formulario.updated_at;
+        }
+    }
+
+    const nombreEquipo =
+        equipo
+            ?.nombre
+            ?.trim();
+
+    let descripcion:
+        string | null =
+        null;
+
+    if (
+        nombreEquipo
+    ) {
+        if (
+            formulario.tipoAcceso ===
+            "capitan"
+        ) {
+            descripcion =
+                `${nombreEquipo} · Accés com a capità`;
+        } else {
+            descripcion =
+                nombreEquipo;
+        }
+    } else if (
+        formulario.tipoAcceso ===
+        "capitan"
+    ) {
+        descripcion =
+            "Accés com a capità";
+    }
+
+    return {
+        id:
+            formulario.id,
+
+        tipo,
+
+        titulo,
+
+        descripcion,
+
+        fecha,
+
+        enlace:
+            edicion
+                ? `/inscripcio?edicionID=${encodeURIComponent(edicion.id)}`
+                : null,
+
+        torneo:
+            torneo?.nombre ??
+            null,
+
+        edicion:
+            edicion?.nombre ??
+            null,
+    };
+}
+
+// ============================================================
+// SESIÓN
+// ============================================================
+
+const token =
+    Astro.cookies.get(
+        "token_sesion",
+    )?.value;
+
+const usuario =
+    token
+        ? await obtenerUsuarioPorToken(
+              token,
+          )
+        : null;
+
+// ============================================================
+// DATOS POR DEFECTO
+// ============================================================
+
+let formularios:
+    FormularioPerfil[] =
+    [];
+
+let equipos:
+    EquipoPerfil[] =
+    [];
+
+let ediciones:
+    EdicionPerfil[] =
+    [];
+
+let torneos:
+    TorneoPerfil[] =
+    [];
+
+let inscripcionesAbiertas:
+    InscripcionAbiertaPerfil[] =
+    [];
+
+let actividades:
+    ActividadPerfil[] =
+    [];
+
+// ============================================================
+// CARGAR DATOS DEL USUARIO
+// ============================================================
+
+if (
+    usuario
+) {
+    // ========================================================
+    // FORMULARIOS PROPIOS
+    // ========================================================
+
+    const {
+        data:
+            formulariosPropiosData,
+
+        error:
+            errorFormulariosPropios,
+    } =
+        await supabaseAdmin
+            .from("formularios")
+            .select("id,edicion_id,estado,usuario_id,acceso_capitan,iniciado_at,enviado_at,completado_at,created_at,updated_at")
+            .eq(
+                "usuario_id",
+                usuario.id,
+            )
+            .eq(
+                "tipo",
+                "EQUIPO",
+            );
+
+    if (
+        errorFormulariosPropios
+    ) {
+        console.error(
+            "Error carregant les inscripcions pròpies:",
+            errorFormulariosPropios,
+        );
+    }
+
+    formularios =
+        (
+            formulariosPropiosData ??
+            []
+        ).map(
+            formulario => ({
+                id:
+                    formulario.id,
+
+                edicion_id:
+                    formulario.edicion_id,
+
+                estado:
+                    normalizarEstadoFormulario(
+                        formulario.estado,
+                    ),
+
+                usuario_id:
+                    formulario.usuario_id ??
+                    null,
+
+                acceso_capitan:
+                    formulario.acceso_capitan ===
+                    true,
+
+                iniciado_at:
+                    formulario.iniciado_at ??
+                    null,
+
+                enviado_at:
+                    formulario.enviado_at ??
+                    null,
+
+                completado_at:
+                    formulario.completado_at ??
+                    null,
+
+                created_at:
+                    formulario.created_at ??
+                    null,
+
+                updated_at:
+                    formulario.updated_at ??
+                    null,
+
+                tipoAcceso:
+                    "propietario" as const,
+            }),
+        );
+
+    // ========================================================
+    // POSIBLES FORMULARIOS COMO CAPITÁN
+    // ========================================================
+
+    const emailUsuario =
+        usuario.email
+            ?.trim()
+            .toLowerCase() ??
+        "";
+
+    if (
+        emailUsuario
+    ) {
+        const {
+            data:
+                participantesCapitanData,
+
+            error:
+                errorParticipantesCapitan,
+        } =
+            await supabaseAdmin
+                .from("participantes_equipo")
+                .select("id,equipo_id,email,activo")
+                .eq(
+                    "email",
+                    emailUsuario,
+                )
+                .eq(
+                    "activo",
+                    true,
+                );
+
+        if (
+            errorParticipantesCapitan
+        ) {
+            console.error(
+                "Error carregant les vinculacions com a capità:",
+                errorParticipantesCapitan,
+            );
+        }
+
+        const idsParticipantesCapitan =
+            (
+                participantesCapitanData ??
+                []
+            ).map(
+                participante =>
+                    participante.id,
+            );
+
+        if (
+            idsParticipantesCapitan.length >
+            0
+        ) {
+            const {
+                data:
+                    equiposCapitanData,
+
+                error:
+                    errorEquiposCapitan,
+            } =
+                await supabaseAdmin
+                    .from("equipos")
+                    .select("id,formulario_id,capitan_id")
+                    .in(
+                        "capitan_id",
+                        idsParticipantesCapitan,
+                    );
+
+            if (
+                errorEquiposCapitan
+            ) {
+                console.error(
+                    "Error carregant els equips on l'usuari és capità:",
+                    errorEquiposCapitan,
+                );
+            }
+
+            const idsFormulariosCapitan = [
+                ...new Set(
+                    (
+                        equiposCapitanData ??
+                        []
+                    )
+                        .map(
+                            equipo =>
+                                equipo.formulario_id,
+                        )
+                        .filter(
+                            (
+                                id,
+                            ): id is string =>
+                                typeof id ===
+                                    "string" &&
+                                Boolean(id),
+                        ),
+                ),
+            ];
+
+            if (
+                idsFormulariosCapitan.length >
+                0
+            ) {
+                const {
+                    data:
+                        formulariosCapitanData,
+
+                    error:
+                        errorFormulariosCapitan,
+                } =
+                    await supabaseAdmin
+                        .from("formularios")
+                        .select("id,edicion_id,estado,usuario_id,acceso_capitan,iniciado_at,enviado_at,completado_at,created_at,updated_at")
+                        .in(
+                            "id",
+                            idsFormulariosCapitan,
+                        )
+                        .eq(
+                            "tipo",
+                            "EQUIPO",
+                        )
+                        .eq(
+                            "acceso_capitan",
+                            true,
+                        );
+
+                if (
+                    errorFormulariosCapitan
+                ) {
+                    console.error(
+                        "Error carregant els formularis amb accés de capità:",
+                        errorFormulariosCapitan,
+                    );
+                }
+
+                const idsExistentes =
+                    new Set(
+                        formularios.map(
+                            formulario =>
+                                formulario.id,
+                        ),
+                    );
+
+                for (
+                    const formulario
+                    of formulariosCapitanData ??
+                        []
+                ) {
+                    if (
+                        idsExistentes.has(
+                            formulario.id,
+                        )
+                    ) {
+                        continue;
+                    }
+
+                    formularios.push({
+                        id:
+                            formulario.id,
+
+                        edicion_id:
+                            formulario.edicion_id,
+
+                        estado:
+                            normalizarEstadoFormulario(
+                                formulario.estado,
+                            ),
+
+                        usuario_id:
+                            formulario.usuario_id ??
+                            null,
+
+                        acceso_capitan:
+                            formulario.acceso_capitan ===
+                            true,
+
+                        iniciado_at:
+                            formulario.iniciado_at ??
+                            null,
+
+                        enviado_at:
+                            formulario.enviado_at ??
+                            null,
+
+                        completado_at:
+                            formulario.completado_at ??
+                            null,
+
+                        created_at:
+                            formulario.created_at ??
+                            null,
+
+                        updated_at:
+                            formulario.updated_at ??
+                            null,
+
+                        tipoAcceso:
+                            "capitan",
+                    });
+
+                    idsExistentes.add(
+                        formulario.id,
+                    );
+                }
+            }
+        }
+    }
+
+    // ========================================================
+    // EQUIPOS DE LOS FORMULARIOS DEL USUARIO
+    // ========================================================
+
+    const idsFormularios =
+        formularios.map(
+            formulario =>
+                formulario.id,
+        );
+
+    if (
+        idsFormularios.length >
+        0
+    ) {
+        const {
+            data:
+                equiposData,
+
+            error:
+                errorEquipos,
+        } =
+            await supabaseAdmin
+                .from("equipos")
+                .select("id,formulario_id,nombre,escudo,capitan_id")
+                .in(
+                    "formulario_id",
+                    idsFormularios,
+                );
+
+        if (
+            errorEquipos
+        ) {
+            console.error(
+                "Error carregant els equips del perfil:",
+                errorEquipos,
+            );
+        }
+
+        equipos =
+            (
+                equiposData ??
+                []
+            ).map(
+                equipo => ({
+                    id:
+                        equipo.id,
+
+                    formulario_id:
+                        equipo.formulario_id,
+
+                    nombre:
+                        equipo.nombre ??
+                        null,
+
+                    escudo:
+                        equipo.escudo ??
+                        null,
+
+                    capitan_id:
+                        equipo.capitan_id ??
+                        null,
+                }),
+            );
+    }
+
+    // ========================================================
+    // TODAS LAS EDICIONES
+    // ========================================================
+
+    const {
+        data:
+            edicionesData,
+
+        error:
+            errorEdiciones,
+    } =
+        await supabaseAdmin
+            .from("ediciones")
+            .select("id,torneo_id,nombre,estado,sede,fecha_inicio,fecha_fin");
+
+    if (
+        errorEdiciones
+    ) {
+        console.error(
+            "Error carregant les edicions del perfil:",
+            errorEdiciones,
+        );
+    }
+
+    ediciones =
+        (
+            edicionesData ??
+            []
+        ).map(
+            edicion => ({
+                id:
+                    edicion.id,
+
+                torneo_id:
+                    edicion.torneo_id,
+
+                nombre:
+                    edicion.nombre ??
+                    "Edició",
+
+                estado:
+                    edicion.estado ??
+                    "",
+
+                sede:
+                    edicion.sede ??
+                    null,
+
+                fecha_inicio:
+                    edicion.fecha_inicio ??
+                    null,
+
+                fecha_fin:
+                    edicion.fecha_fin ??
+                    null,
+            }),
+        );
+
+    // ========================================================
+    // TORNEOS NECESARIOS
+    // ========================================================
+
+    const idsTorneos = [
+        ...new Set(
+            ediciones
+                .map(
+                    edicion =>
+                        edicion.torneo_id,
+                )
+                .filter(
+                    Boolean,
+                ),
+        ),
+    ];
+
+    if (
+        idsTorneos.length >
+        0
+    ) {
+        const {
+            data:
+                torneosData,
+
+            error:
+                errorTorneos,
+        } =
+            await supabaseAdmin
+                .from("torneos")
+                .select("id,nombre,deporte,logo,banner,activo")
+                .in(
+                    "id",
+                    idsTorneos,
+                );
+
+        if (
+            errorTorneos
+        ) {
+            console.error(
+                "Error carregant els tornejos del perfil:",
+                errorTorneos,
+            );
+        }
+
+        torneos =
+            (
+                torneosData ??
+                []
+            ).map(
+                torneo => ({
+                    id:
+                        torneo.id,
+
+                    nombre:
+                        torneo.nombre ??
+                        "Torneig",
+
+                    deporte:
+                        torneo.deporte ??
+                        null,
+
+                    logo:
+                        torneo.logo ??
+                        null,
+
+                    banner:
+                        torneo.banner ??
+                        null,
+
+                    activo:
+                        torneo.activo ===
+                        true,
+                }),
+            );
+    }
+
+    // ========================================================
+    // MAPAS
+    // ========================================================
+
+    const formularioPorEdicion =
+        new Map<
+            string,
+            FormularioPerfil
+        >();
+
+    for (
+        const formulario
+        of formularios
+    ) {
+        const existente =
+            formularioPorEdicion.get(
+                formulario.edicion_id,
+            );
+
+        /*
+         * Si existe más de una relación accidentalmente,
+         * priorizamos el formulario propio.
+         */
+        if (
+            !existente ||
+            (
+                existente.tipoAcceso ===
+                    "capitan" &&
+                formulario.tipoAcceso ===
+                    "propietario"
+            )
+        ) {
+            formularioPorEdicion.set(
+                formulario.edicion_id,
+                formulario,
+            );
+        }
+    }
+
+    const equipoPorFormulario =
+        new Map(
+            equipos.map(
+                equipo => [
+                    equipo.formulario_id,
+                    equipo,
+                ],
+            ),
+        );
+
+    const edicionPorID =
+        new Map(
+            ediciones.map(
+                edicion => [
+                    edicion.id,
+                    edicion,
+                ],
+            ),
+        );
+
+    const torneoPorID =
+        new Map(
+            torneos.map(
+                torneo => [
+                    torneo.id,
+                    torneo,
+                ],
+            ),
+        );
+
+    // ========================================================
+    // EDICIONES ACTIVAS
+    // ========================================================
+
+    const edicionesActivas =
+        ediciones.filter(
+            edicion =>
+                edicionActiva(
+                    edicion.estado,
+                ),
+        );
+
+    const idsEdicionesActivas =
+        edicionesActivas.map(
+            edicion =>
+                edicion.id,
+        );
+
+    // ========================================================
+    // CONFIGURACIÓN DE INSCRIPCIONES
+    // ========================================================
+
+    if (
+        idsEdicionesActivas.length >
+        0
+    ) {
+        const {
+            data:
+                configuracionesData,
+
+            error:
+                errorConfiguraciones,
+        } =
+            await supabaseAdmin
+                .from("configuracion_ediciones")
+                .select("edicion_id,equipos")
+                .in(
+                    "edicion_id",
+                    idsEdicionesActivas,
+                );
+
+        if (
+            errorConfiguraciones
+        ) {
+            console.error(
+                "Error carregant les configuracions d'inscripció:",
+                errorConfiguraciones,
+            );
+        }
+
+        const configuracionPorEdicion =
+            new Map<
+                string,
+                ConfiguracionInscripcion
+            >();
+
+        for (
+            const configuracion
+            of configuracionesData ??
+                []
+        ) {
+            const inscripcion =
+                obtenerConfiguracionInscripcion(
+                    configuracion.equipos,
+                );
+
+            if (
+                !inscripcion ||
+                !periodoAbierto(
+                    inscripcion,
+                )
+            ) {
+                continue;
+            }
+
+            configuracionPorEdicion.set(
+                configuracion.edicion_id,
+                inscripcion,
+            );
+        }
+
+        // ====================================================
+        // INSCRIPCIONES ABIERTAS
+        // ====================================================
+
+        inscripcionesAbiertas =
+            edicionesActivas
+                .map(
+                    edicion => {
+                        const configuracion =
+                            configuracionPorEdicion.get(
+                                edicion.id,
+                            );
+
+                        if (
+                            !configuracion
+                        ) {
+                            return null;
+                        }
+
+                        const torneo =
+                            torneoPorID.get(
+                                edicion.torneo_id,
+                            );
+
+                        if (
+                            !torneo ||
+                            !torneo.activo
+                        ) {
+                            return null;
+                        }
+
+                        const formulario =
+                            formularioPorEdicion.get(
+                                edicion.id,
+                            ) ??
+                            null;
+
+                        const equipo =
+                            formulario
+                                ? equipoPorFormulario.get(
+                                      formulario.id,
+                                  ) ??
+                                  null
+                                : null;
+
+                        return {
+                            edicion: {
+                                id:
+                                    edicion.id,
+
+                                nombre:
+                                    edicion.nombre,
+
+                                sede:
+                                    edicion.sede,
+
+                                fecha_inicio:
+                                    edicion.fecha_inicio,
+
+                                fecha_fin:
+                                    edicion.fecha_fin,
+                            },
+
+                            torneo: {
+                                id:
+                                    torneo.id,
+
+                                nombre:
+                                    torneo.nombre,
+
+                                deporte:
+                                    torneo.deporte,
+
+                                logo:
+                                    torneo.logo,
+
+                                banner:
+                                    torneo.banner,
+                            },
+
+                            inscripcion: {
+                                apertura:
+                                    configuracion.apertura,
+
+                                cierre:
+                                    configuracion.cierre,
+                            },
+
+                            formulario:
+                                formulario
+                                    ? {
+                                          id:
+                                              formulario.id,
+
+                                          estado:
+                                              formulario.estado,
+
+                                          tipoAcceso:
+                                              formulario.tipoAcceso,
+                                      }
+                                    : null,
+
+                            equipo:
+                                equipo
+                                    ? {
+                                          id:
+                                              equipo.id,
+
+                                          nombre:
+                                              equipo.nombre,
+
+                                          escudo:
+                                              equipo.escudo,
+                                      }
+                                    : null,
+                        } satisfies InscripcionAbiertaPerfil;
+                    },
+                )
+                .filter(
+                    (
+                        entrada,
+                    ): entrada is InscripcionAbiertaPerfil =>
+                        entrada !==
+                        null,
+                )
+                .sort(
+                    (
+                        a,
+                        b,
+                    ) =>
+                        tiempo(
+                            a.inscripcion.cierre,
+                        ) -
+                        tiempo(
+                            b.inscripcion.cierre,
+                        ),
+                );
+    }
+
+    // ========================================================
+    // ACTIVIDAD RECIENTE
+    // ========================================================
+
+    actividades =
+        formularios
+            .map(
+                formulario => {
+                    const equipo =
+                        equipoPorFormulario.get(
+                            formulario.id,
+                        ) ??
+                        null;
+
+                    const edicion =
+                        edicionPorID.get(
+                            formulario.edicion_id,
+                        ) ??
+                        null;
+
+                    const torneo =
+                        edicion
+                            ? torneoPorID.get(
+                                  edicion.torneo_id,
+                              ) ??
+                              null
+                            : null;
+
+                    return actividadFormulario(
+                        formulario,
+                        equipo,
+                        edicion,
+                        torneo,
+                    );
+                },
+            )
+            .sort(
+                (
+                    a,
+                    b,
+                ) =>
+                    tiempo(
+                        b.fecha,
+                    ) -
+                    tiempo(
+                        a.fecha,
+                    ),
+            );
+}
+
+// ============================================================
+// ESTADÍSTICAS
+// ============================================================
+
+const totalInscripciones =
+    formularios.length;
+
+const totalBorradores =
+    formularios.filter(
+        formulario =>
+            formulario.estado ===
+            "BORRADOR",
+    ).length;
+
+const totalEnRevision =
+    formularios.filter(
+        formulario =>
+            formulario.estado ===
+            "EN_REVISION",
+    ).length;
+
+const totalAprobadas =
+    formularios.filter(
+        formulario =>
+            formulario.estado ===
+            "APROBADO",
+    ).length;
 ---
-<LayoutPerfil title="Perfil">
-    <div>&nbsp;</div>
+
+<LayoutPerfil title="El meu resum">
+    {
+        usuario && (
+            <div class="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
+
+                <!-- =================================================
+                    BENVINGUDA
+                ================================================== -->
+
+                <Benvinguda
+                    usuario={{
+                        nombre: usuario.nombre,
+                        apellido1: usuario.apellido1,
+                        apellido2: usuario.apellido2,
+                        email: usuario.email,
+                        curso: usuario.curso,
+                        ano_academico: usuario.ano_academico,
+                        rol: usuario.rol,
+                    }}
+                />
+
+                <!-- =================================================
+                    RESUM D'INSCRIPCIONS
+                ================================================== -->
+
+                <ResumInscripcions
+                    total={totalInscripciones}
+                    borradores={totalBorradores}
+                    enRevision={totalEnRevision}
+                    aprobadas={totalAprobadas}
+                />
+
+                <!-- =================================================
+                    INSCRIPCIONS OBERTES
+                ================================================== -->
+
+                <InscripcionsObertes inscripciones={inscripcionesAbiertas} />
+
+                <!-- =================================================
+                    ACTIVITAT RECENT
+                ================================================== -->
+
+                <ActivitatRecent
+                    actividades={actividades}
+                    maximo={5}
+                />
+            </div>
+        )
+    }
 </LayoutPerfil>
