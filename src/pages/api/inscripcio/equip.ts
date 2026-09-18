@@ -11,17 +11,35 @@ export const prerender = false;
 // CONSTANTES
 // ============================================================
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const MAX_JSON_BYTES = 4_000_000;
-const MAX_PARTICIPANTES = 100;
-const MAX_NOMBRE_EQUIPO = 80;
-const MAX_NOMBRE_PERSONA = 100;
-const MAX_APELLIDO = 100;
-const MAX_EMAIL = 254;
-const MAX_CURSO = 100;
-const MAX_GRUPO = 100;
-const MAX_ESCUDO = 3_000_000;
+const MAX_JSON_BYTES =
+    4_000_000;
+
+const MAX_PARTICIPANTES =
+    100;
+
+const MAX_NOMBRE_EQUIPO =
+    80;
+
+const MAX_NOMBRE_PERSONA =
+    100;
+
+const MAX_APELLIDO =
+    100;
+
+const MAX_EMAIL =
+    254;
+
+const MAX_CURSO =
+    100;
+
+const MAX_GRUPO =
+    100;
+
+const MAX_ESCUDO =
+    3_000_000;
 
 const TIPOS_PARTICIPANTE = [
     "JUGADOR",
@@ -41,17 +59,21 @@ const ESTADOS_FORMULARIO = [
 // CAMPOS DB
 // ============================================================
 
-const CAMPOS_FORMULARIO = "id,edicion_id,tipo,estado,usuario_id,email_contacto,acceso_capitan,configuracion_snapshot,iniciado_at,enviado_at,completado_at,created_at,updated_at";
+const CAMPOS_FORMULARIO =
+    "id,edicion_id,tipo,estado,usuario_id,email_contacto,acceso_capitan,configuracion_snapshot,iniciado_at,enviado_at,completado_at,created_at,updated_at";
 
-const CAMPOS_EQUIPO = "id,formulario_id,nombre,escudo,capitan_id,validacion_estado,plaza_estado,posicion_lista_espera,nota_admin,created_at,updated_at";
+const CAMPOS_EQUIPO =
+    "id,formulario_id,nombre,escudo,capitan_id,validacion_estado,plaza_estado,posicion_lista_espera,nota_admin,created_at,updated_at";
 
-const CAMPOS_PARTICIPANTE = "id,equipo_id,nombre,apellido1,apellido2,email,curso,grupo,genero,tipo_participante,validacion_estado,orden,activo,created_at,updated_at";
+const CAMPOS_PARTICIPANTE =
+    "id,equipo_id,nombre,apellido1,apellido2,email,curso,grupo,genero,tipo_participante,validacion_estado,orden,activo,created_at,updated_at";
 
 // ============================================================
 // TIPOS
 // ============================================================
 
-type Registro = Record<string, unknown>;
+type Registro =
+    Record<string, unknown>;
 
 type TipoParticipante =
     typeof TIPOS_PARTICIPANTE[number];
@@ -63,182 +85,374 @@ type Genero =
     | "masculino"
     | "femenino";
 
-type Usuario = NonNullable<
-    Awaited<
-        ReturnType<
-            typeof obtenerUsuarioPorToken
+type Usuario =
+    NonNullable<
+        Awaited<
+            ReturnType<
+                typeof obtenerUsuarioPorToken
+            >
         >
-    >
->;
+    >;
 
 type CursoConfiguracion = {
-    curso: string;
-    grupos: string[];
+    curso:
+        string;
+
+    grupos:
+        string[];
 };
 
 type ConfiguracionEquipos = {
     inscripcion: {
-        apertura: string | null;
-        cierre: string | null;
+        apertura:
+            string | null;
+
+        cierre:
+            string | null;
     };
 
     cupo: {
-        maximo: number | null;
-        al_superar: "permitir" | "lista_espera" | "bloquear";
+        maximo:
+            number | null;
+
+        al_superar:
+            | "permitir"
+            | "lista_espera"
+            | "bloquear";
     };
 
-    cursos: CursoConfiguracion[];
+    cursos:
+        CursoConfiguracion[];
 
     jugadores: {
-        minimo: number | null;
-        maximo: number | null;
+        minimo:
+            number | null;
+
+        maximo:
+            number | null;
     };
 
     genero: {
-        activo: boolean;
+        activo:
+            boolean;
 
         minimos: {
-            masculino: number;
-            femenino: number;
+            masculino:
+                number;
+
+            femenino:
+                number;
         };
     };
 
     profesores: {
-        permitidos: boolean;
-        minimo: number;
-        maximo: number;
-        cuentan_como_jugador: boolean;
+        permitidos:
+            boolean;
+
+        minimo:
+            number;
+
+        maximo:
+            number;
+
+        cuentan_como_jugador:
+            boolean;
     };
 
     entrenador: {
-        permitido: boolean;
+        permitido:
+            boolean;
     };
 
     staff: {
-        permitido: boolean;
-        minimo: number;
-        maximo: number;
+        permitido:
+            boolean;
+
+        minimo:
+            number;
+
+        maximo:
+            number;
     };
 };
 
 type ConfiguracionPlataforma = {
-    admin_mode: boolean;
-    emails: string[];
-    dominios: string[];
+    admin_mode:
+        boolean;
+
+    emails:
+        string[];
+
+    dominios:
+        string[];
+};
+
+type TorneoFormulario = {
+    id:
+        string;
+
+    nombre:
+        string;
+
+    deporte:
+        string | null;
+
+    logo:
+        string | null;
+
+    banner:
+        string | null;
 };
 
 type ParticipanteEntrada = {
-    id: string | null;
-    tipo_participante: TipoParticipante;
-    nombre: string;
-    apellido1: string;
-    apellido2: string;
-    email: string;
-    curso: string;
-    grupo: string;
-    genero: Genero | null;
-    orden: number;
+    id:
+        string | null;
+
+    tipo_participante:
+        TipoParticipante;
+
+    nombre:
+        string;
+
+    apellido1:
+        string;
+
+    apellido2:
+        string;
+
+    email:
+        string;
+
+    curso:
+        string;
+
+    grupo:
+        string;
+
+    genero:
+        Genero | null;
+
+    orden:
+        number;
 };
 
 type EquipoEntrada = {
-    id: string | null;
-    nombre: string;
-    escudo: string | null;
-    capitan_id: string | null;
+    id:
+        string | null;
+
+    nombre:
+        string;
+
+    escudo:
+        string | null;
+
+    capitan_id:
+        string | null;
 };
 
 type DatosEntrada = {
-    acceso_capitan: boolean;
-    equipo: EquipoEntrada;
-    participantes: ParticipanteEntrada[];
+    acceso_capitan:
+        boolean;
+
+    equipo:
+        EquipoEntrada;
+
+    participantes:
+        ParticipanteEntrada[];
 };
 
 type FormularioDB = {
-    id: string;
-    edicion_id: string;
-    tipo: string | null;
-    estado: string | null;
-    usuario_id: string | null;
-    email_contacto: string | null;
-    acceso_capitan: boolean | null;
-    configuracion_snapshot: unknown;
-    iniciado_at: string | null;
-    enviado_at: string | null;
-    completado_at: string | null;
-    created_at: string;
-    updated_at: string;
+    id:
+        string;
+
+    edicion_id:
+        string;
+
+    tipo:
+        string | null;
+
+    estado:
+        string | null;
+
+    usuario_id:
+        string | null;
+
+    email_contacto:
+        string | null;
+
+    acceso_capitan:
+        boolean | null;
+
+    configuracion_snapshot:
+        unknown;
+
+    iniciado_at:
+        string | null;
+
+    enviado_at:
+        string | null;
+
+    completado_at:
+        string | null;
+
+    created_at:
+        string;
+
+    updated_at:
+        string;
 };
 
 type EquipoDB = {
-    id: string;
-    formulario_id: string;
-    nombre: string | null;
-    escudo: string | null;
-    capitan_id: string | null;
-    validacion_estado: string | null;
-    plaza_estado: string | null;
-    posicion_lista_espera: number | null;
-    nota_admin: string | null;
-    created_at: string;
-    updated_at: string;
+    id:
+        string;
+
+    formulario_id:
+        string;
+
+    nombre:
+        string | null;
+
+    escudo:
+        string | null;
+
+    capitan_id:
+        string | null;
+
+    validacion_estado:
+        string | null;
+
+    plaza_estado:
+        string | null;
+
+    posicion_lista_espera:
+        number | null;
+
+    nota_admin:
+        string | null;
+
+    created_at:
+        string;
+
+    updated_at:
+        string;
 };
 
 type ParticipanteDB = {
-    id: string;
-    equipo_id: string;
-    nombre: string | null;
-    apellido1: string | null;
-    apellido2: string | null;
-    email: string | null;
-    curso: string | null;
-    grupo: string | null;
-    genero: string | null;
-    tipo_participante: string | null;
-    validacion_estado: string | null;
-    orden: number | null;
-    activo: boolean;
-    created_at: string;
-    updated_at: string;
+    id:
+        string;
+
+    equipo_id:
+        string;
+
+    nombre:
+        string | null;
+
+    apellido1:
+        string | null;
+
+    apellido2:
+        string | null;
+
+    email:
+        string | null;
+
+    curso:
+        string | null;
+
+    grupo:
+        string | null;
+
+    genero:
+        string | null;
+
+    tipo_participante:
+        string | null;
+
+    validacion_estado:
+        string | null;
+
+    orden:
+        number | null;
+
+    activo:
+        boolean;
+
+    created_at:
+        string;
+
+    updated_at:
+        string;
 };
 
 type AccesoFormulario = {
-    formulario: FormularioDB;
-    equipo: EquipoDB | null;
-    propietario: boolean;
-    capitan: boolean;
-    puede_ver: boolean;
-    puede_editar: boolean;
-    puede_cambiar_acceso_capitan: boolean;
+    formulario:
+        FormularioDB;
+
+    equipo:
+        EquipoDB | null;
+
+    propietario:
+        boolean;
+
+    capitan:
+        boolean;
+
+    puede_ver:
+        boolean;
+
+    puede_editar:
+        boolean;
+
+    puede_cambiar_acceso_capitan:
+        boolean;
 };
+
+// ============================================================
+// ERROR API
+// ============================================================
+
+class ErrorAPI extends Error {
+    constructor(
+        public estado:
+            number,
+
+        mensaje:
+            string,
+    ) {
+        super(
+            mensaje,
+        );
+    }
+}
 
 // ============================================================
 // RESPUESTAS
 // ============================================================
 
-class ErrorAPI extends Error {
-    constructor(
-        public estado: number,
-        mensaje: string,
-    ) {
-        super(mensaje);
-    }
-}
-
 function responder(
-    datos: unknown,
-    estado = 200,
-) {
-    return Response.json(datos, {
-        status: estado,
+    datos:
+        unknown,
 
-        headers: {
-            "Cache-Control": "private, no-store",
+    estado =
+        200,
+) {
+    return Response.json(
+        datos,
+        {
+            status:
+                estado,
+
+            headers: {
+                "Cache-Control":
+                    "private, no-store",
+            },
         },
-    });
+    );
 }
 
 function responderError(
-    error: unknown,
+    error:
+        unknown,
 ) {
     if (
         error instanceof
@@ -246,8 +460,11 @@ function responderError(
     ) {
         return responder(
             {
-                success: false,
-                mensaje: error.message,
+                success:
+                    false,
+
+                mensaje:
+                    error.message,
             },
             error.estado,
         );
@@ -260,8 +477,11 @@ function responderError(
 
     return responder(
         {
-            success: false,
-            mensaje: "No s'ha pogut completar l'operació.",
+            success:
+                false,
+
+            mensaje:
+                "No s'ha pogut completar l'operació.",
         },
         500,
     );
@@ -272,26 +492,42 @@ function responderError(
 // ============================================================
 
 function esRegistro(
-    valor: unknown,
+    valor:
+        unknown,
 ): valor is Registro {
     return (
-        valor !== null &&
-        typeof valor === "object" &&
-        !Array.isArray(valor)
+        valor !==
+            null &&
+        typeof valor ===
+            "object" &&
+        !Array.isArray(
+            valor,
+        )
     );
 }
 
 function texto(
-    valor: unknown,
-    nombre: string,
-    maximo: number,
-    obligatorio = false,
+    valor:
+        unknown,
+
+    nombre:
+        string,
+
+    maximo:
+        number,
+
+    obligatorio =
+        false,
 ) {
     if (
-        valor === undefined ||
-        valor === null
+        valor ===
+            undefined ||
+        valor ===
+            null
     ) {
-        if (obligatorio) {
+        if (
+            obligatorio
+        ) {
             throw new ErrorAPI(
                 400,
                 `Falta el camp ${nombre}.`,
@@ -338,38 +574,51 @@ function texto(
 }
 
 function numeroONull(
-    valor: unknown,
+    valor:
+        unknown,
 ) {
     return (
-        typeof valor === "number" &&
-        Number.isFinite(valor)
+        typeof valor ===
+            "number" &&
+        Number.isFinite(
+            valor,
+        )
     )
         ? valor
         : null;
 }
 
 function numero(
-    valor: unknown,
-    defecto = 0,
+    valor:
+        unknown,
+
+    defecto =
+        0,
 ) {
     return (
-        typeof valor === "number" &&
-        Number.isFinite(valor)
+        typeof valor ===
+            "number" &&
+        Number.isFinite(
+            valor,
+        )
     )
         ? valor
         : defecto;
 }
 
 function textoONull(
-    valor: unknown,
+    valor:
+        unknown,
 ) {
-    return typeof valor === "string"
+    return typeof valor ===
+        "string"
         ? valor
         : null;
 }
 
 function normalizarEmail(
-    valor: string,
+    valor:
+        string,
 ) {
     return valor
         .trim()
@@ -377,7 +626,8 @@ function normalizarEmail(
 }
 
 function emailValido(
-    valor: string,
+    valor:
+        string,
 ) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
         valor,
@@ -385,7 +635,8 @@ function emailValido(
 }
 
 function estadoFormulario(
-    valor: string | null,
+    valor:
+        string | null,
 ): EstadoFormulario {
     const estado =
         valor
@@ -393,15 +644,20 @@ function estadoFormulario(
             .toUpperCase() ??
         "";
 
-    return ESTADOS_FORMULARIO.includes(
-        estado as EstadoFormulario,
-    )
-        ? estado as EstadoFormulario
-        : "BORRADOR";
+    if (
+        ESTADOS_FORMULARIO.includes(
+            estado as EstadoFormulario,
+        )
+    ) {
+        return estado as EstadoFormulario;
+    }
+
+    return "BORRADOR";
 }
 
 function normalizarEstadoEdicion(
-    estado: string | null,
+    estado:
+        string | null,
 ) {
     return estado
         ?.trim()
@@ -410,7 +666,8 @@ function normalizarEstadoEdicion(
 }
 
 function edicionActiva(
-    estado: string | null,
+    estado:
+        string | null,
 ) {
     const normalizado =
         normalizarEstadoEdicion(
@@ -418,21 +675,29 @@ function edicionActiva(
         );
 
     return (
-        normalizado === "ACTIVA" ||
-        normalizado === "ACTIVO" ||
-        normalizado === "ACTIU"
+        normalizado ===
+            "ACTIVA" ||
+        normalizado ===
+            "ACTIVO" ||
+        normalizado ===
+            "ACTIU"
     );
 }
 
 function fecha(
-    valor: string | null,
+    valor:
+        string | null,
 ) {
-    if (!valor) {
+    if (
+        !valor
+    ) {
         return null;
     }
 
     const resultado =
-        new Date(valor);
+        new Date(
+            valor,
+        );
 
     return Number.isNaN(
         resultado.getTime(),
@@ -442,12 +707,18 @@ function fecha(
 }
 
 function exigirUUID(
-    valor: unknown,
-    nombre: string,
+    valor:
+        unknown,
+
+    nombre:
+        string,
 ) {
     if (
-        typeof valor !== "string" ||
-        !UUID.test(valor)
+        typeof valor !==
+            "string" ||
+        !UUID.test(
+            valor,
+        )
     ) {
         throw new ErrorAPI(
             400,
@@ -463,13 +734,15 @@ function exigirUUID(
 // ============================================================
 
 async function leerJSON(
-    request: Request,
+    request:
+        Request,
 ): Promise<Registro> {
     const longitud =
         Number(
             request.headers.get(
                 "content-length",
-            ) || 0,
+            ) ||
+            0,
         );
 
     if (
@@ -498,7 +771,8 @@ async function leerJSON(
         );
     }
 
-    let resultado: unknown;
+    let resultado:
+        unknown;
 
     try {
         resultado =
@@ -527,8 +801,11 @@ async function leerJSON(
 }
 
 function comprobarOrigen(
-    request: Request,
-    url: URL,
+    request:
+        Request,
+
+    url:
+        URL,
 ) {
     const origen =
         request.headers.get(
@@ -537,7 +814,8 @@ function comprobarOrigen(
 
     if (
         origen &&
-        origen !== url.origin
+        origen !==
+            url.origin
     ) {
         throw new ErrorAPI(
             403,
@@ -551,14 +829,17 @@ function comprobarOrigen(
 // ============================================================
 
 async function obtenerUsuario(
-    cookies: Parameters<APIRoute>[0]["cookies"],
+    cookies:
+        Parameters<APIRoute>[0]["cookies"],
 ) {
     const token =
         cookies.get(
             "token_sesion",
         )?.value;
 
-    if (!token) {
+    if (
+        !token
+    ) {
         return null;
     }
 
@@ -568,18 +849,22 @@ async function obtenerUsuario(
 }
 
 async function exigirUsuario(
-    cookies: Parameters<APIRoute>[0]["cookies"],
+    cookies:
+        Parameters<APIRoute>[0]["cookies"],
 ) {
     const usuario =
         await obtenerUsuario(
             cookies,
         );
 
-    if (!usuario) {
+    if (
+        !usuario
+    ) {
         cookies.delete(
             "token_sesion",
             {
-                path: "/",
+                path:
+                    "/",
             },
         );
 
@@ -597,18 +882,15 @@ async function exigirUsuario(
 // ============================================================
 
 function esAdministrador(
-    usuario: Usuario | null,
+    usuario:
+        Usuario | null,
 ) {
-    if (!usuario) {
+    if (
+        !usuario
+    ) {
         return false;
     }
 
-    /*
-     * Administrador y desarrollador.
-     *
-     * admintorneo NO se considera administrador global
-     * de la plataforma para Admin Mode.
-     */
     return (
         obtenerNivelRol(
             usuario.rol,
@@ -618,12 +900,18 @@ function esAdministrador(
 }
 
 function puedeIgnorarPeriodo(
-    usuario: Usuario | null,
-    configuracion: ConfiguracionPlataforma,
+    usuario:
+        Usuario | null,
+
+    configuracion:
+        ConfiguracionPlataforma,
 ) {
     return (
-        configuracion.admin_mode === true &&
-        esAdministrador(usuario)
+        configuracion.admin_mode ===
+            true &&
+        esAdministrador(
+            usuario,
+        )
     );
 }
 
@@ -632,21 +920,26 @@ function puedeIgnorarPeriodo(
 // ============================================================
 
 function normalizarCursos(
-    valor: unknown,
+    valor:
+        unknown,
 ): CursoConfiguracion[] {
     if (
-        !Array.isArray(valor)
+        !Array.isArray(
+            valor,
+        )
     ) {
         return [];
     }
 
     return valor
-        .filter(esRegistro)
+        .filter(
+            esRegistro,
+        )
         .map(
             entrada => ({
                 curso:
                     typeof entrada.curso ===
-                    "string"
+                        "string"
                         ? entrada.curso.trim()
                         : "",
 
@@ -666,7 +959,9 @@ function normalizarCursos(
                                   grupo =>
                                       grupo.trim(),
                               )
-                              .filter(Boolean)
+                              .filter(
+                                  Boolean,
+                              )
                         : [],
             }),
         )
@@ -679,10 +974,13 @@ function normalizarCursos(
 }
 
 function normalizarConfiguracionEquipos(
-    valor: unknown,
+    valor:
+        unknown,
 ): ConfiguracionEquipos | null {
     if (
-        !esRegistro(valor)
+        !esRegistro(
+            valor,
+        )
     ) {
         return null;
     }
@@ -766,8 +1064,10 @@ function normalizarConfiguracionEquipos(
                 ),
 
             al_superar:
-                comportamiento === "lista_espera" ||
-                comportamiento === "bloquear"
+                comportamiento ===
+                    "lista_espera" ||
+                comportamiento ===
+                    "bloquear"
                     ? comportamiento
                     : "permitir",
         },
@@ -856,10 +1156,13 @@ function normalizarConfiguracionEquipos(
 // ============================================================
 
 function listaTexto(
-    valor: unknown,
+    valor:
+        unknown,
 ) {
     if (
-        !Array.isArray(valor)
+        !Array.isArray(
+            valor,
+        )
     ) {
         return [];
     }
@@ -880,7 +1183,9 @@ function listaTexto(
                             .trim()
                             .toLowerCase(),
                 )
-                .filter(Boolean),
+                .filter(
+                    Boolean,
+                ),
         ),
     ];
 }
@@ -901,24 +1206,38 @@ async function obtenerConfiguracionPlataforma():
             .order(
                 "created_at",
                 {
-                    ascending: true,
-                    nullsFirst: false,
+                    ascending:
+                        true,
+
+                    nullsFirst:
+                        false,
                 },
             )
-            .limit(1);
+            .limit(
+                1,
+            );
 
-    if (error) {
+    if (
+        error
+    ) {
         throw error;
     }
 
     const fila =
         data?.[0];
 
-    if (!fila) {
+    if (
+        !fila
+    ) {
         return {
-            admin_mode: false,
-            emails: [],
-            dominios: [],
+            admin_mode:
+                false,
+
+            emails:
+                [],
+
+            dominios:
+                [],
         };
     }
 
@@ -946,8 +1265,11 @@ async function obtenerConfiguracionPlataforma():
 }
 
 function emailPermitido(
-    email: string,
-    configuracion: ConfiguracionPlataforma,
+    email:
+        string,
+
+    configuracion:
+        ConfiguracionPlataforma,
 ) {
     const normalizado =
         normalizarEmail(
@@ -968,7 +1290,8 @@ function emailPermitido(
         );
 
     if (
-        posicion <= 0 ||
+        posicion <=
+            0 ||
         posicion ===
             normalizado.length -
                 1
@@ -978,7 +1301,8 @@ function emailPermitido(
 
     const dominio =
         normalizado.slice(
-            posicion + 1,
+            posicion +
+                1,
         );
 
     return configuracion.dominios.includes(
@@ -986,13 +1310,12 @@ function emailPermitido(
     );
 }
 
-// ============================================================
-// EMAIL DEL CREADOR
-// ============================================================
-
 function obtenerEmailCreador(
-    usuario: Usuario,
-    configuracion: ConfiguracionPlataforma,
+    usuario:
+        Usuario,
+
+    configuracion:
+        ConfiguracionPlataforma,
 ) {
     const email =
         normalizarEmail(
@@ -1002,7 +1325,9 @@ function obtenerEmailCreador(
 
     if (
         !email ||
-        !emailValido(email)
+        !emailValido(
+            email,
+        )
     ) {
         throw new ErrorAPI(
             400,
@@ -1030,7 +1355,8 @@ function obtenerEmailCreador(
 // ============================================================
 
 async function obtenerEdicion(
-    edicionID: string,
+    edicionID:
+        string,
 ) {
     const {
         data,
@@ -1049,7 +1375,9 @@ async function obtenerEdicion(
             )
             .maybeSingle();
 
-    if (error) {
+    if (
+        error
+    ) {
         throw error;
     }
 
@@ -1057,7 +1385,8 @@ async function obtenerEdicion(
 }
 
 async function obtenerConfiguracionEdicion(
-    edicionID: string,
+    edicionID:
+        string,
 ) {
     const {
         data,
@@ -1076,7 +1405,9 @@ async function obtenerConfiguracionEdicion(
             )
             .maybeSingle();
 
-    if (error) {
+    if (
+        error
+    ) {
         throw error;
     }
 
@@ -1085,12 +1416,19 @@ async function obtenerConfiguracionEdicion(
     );
 }
 
+// ============================================================
+// TORNEO
+// ============================================================
+
 async function obtenerTorneo(
-    torneoID: string | null,
-) {
+    torneoID:
+        string | null,
+): Promise<TorneoFormulario | null> {
     if (
         !torneoID ||
-        !UUID.test(torneoID)
+        !UUID.test(
+            torneoID,
+        )
     ) {
         return null;
     }
@@ -1104,7 +1442,7 @@ async function obtenerTorneo(
                 "torneos",
             )
             .select(
-                "id,nombre,deporte,activo",
+                "id,nombre,deporte,logo,banner,activo",
             )
             .eq(
                 "id",
@@ -1116,11 +1454,38 @@ async function obtenerTorneo(
             )
             .maybeSingle();
 
-    if (error) {
+    if (
+        error
+    ) {
         throw error;
     }
 
-    return data;
+    if (
+        !data
+    ) {
+        return null;
+    }
+
+    return {
+        id:
+            data.id,
+
+        nombre:
+            data.nombre ??
+            "Torneig",
+
+        deporte:
+            data.deporte ??
+            null,
+
+        logo:
+            data.logo ??
+            null,
+
+        banner:
+            data.banner ??
+            null,
+    };
 }
 
 // ============================================================
@@ -1128,7 +1493,8 @@ async function obtenerTorneo(
 // ============================================================
 
 function estadoPeriodo(
-    configuracion: ConfiguracionEquipos,
+    configuracion:
+        ConfiguracionEquipos,
 ) {
     const apertura =
         fecha(
@@ -1172,25 +1538,48 @@ function estadoPeriodo(
 }
 
 function periodoPermitido(
-    configuracionEdicion: ConfiguracionEquipos,
-    usuario: Usuario | null,
-    configuracionPlataforma: ConfiguracionPlataforma,
+    configuracionEdicion:
+        ConfiguracionEquipos,
+
+    usuario:
+        Usuario | null,
+
+    configuracionPlataforma:
+        ConfiguracionPlataforma,
 ) {
+    const estado =
+        estadoPeriodo(
+            configuracionEdicion,
+        );
+
+    if (
+        estado ===
+        "ABIERTA"
+    ) {
+        return true;
+    }
+
+    /*
+     * Admin Mode solo permite saltarse apertura/cierre.
+     * Si ni siquiera existen fechas válidas, la edición no
+     * se considera disponible.
+     */
     if (
         puedeIgnorarPeriodo(
             usuario,
             configuracionPlataforma,
+        ) &&
+        (
+            estado ===
+                "PROXIMAMENTE" ||
+            estado ===
+                "TANCADA"
         )
     ) {
         return true;
     }
 
-    return (
-        estadoPeriodo(
-            configuracionEdicion,
-        ) ===
-        "ABIERTA"
-    );
+    return false;
 }
 
 // ============================================================
@@ -1198,12 +1587,18 @@ function periodoPermitido(
 // ============================================================
 
 async function obtenerEdicionesDisponibles(
-    usuario: Usuario | null,
-    configuracionPlataforma: ConfiguracionPlataforma,
+    usuario:
+        Usuario | null,
+
+    configuracionPlataforma:
+        ConfiguracionPlataforma,
 ) {
     const {
-        data: edicionesData,
-        error: errorEdiciones,
+        data:
+            edicionesData,
+
+        error:
+            errorEdiciones,
     } =
         await supabaseAdmin
             .from(
@@ -1213,7 +1608,9 @@ async function obtenerEdicionesDisponibles(
                 "id,torneo_id,nombre,estado",
             );
 
-    if (errorEdiciones) {
+    if (
+        errorEdiciones
+    ) {
         throw errorEdiciones;
     }
 
@@ -1242,8 +1639,11 @@ async function obtenerEdicionesDisponibles(
         );
 
     const {
-        data: configuraciones,
-        error: errorConfiguraciones,
+        data:
+            configuraciones,
+
+        error:
+            errorConfiguraciones,
     } =
         await supabaseAdmin
             .from(
@@ -1337,8 +1737,11 @@ async function obtenerEdicionesDisponibles(
                     (
                         id,
                     ): id is string =>
-                        typeof id === "string" &&
-                        UUID.test(id),
+                        typeof id ===
+                            "string" &&
+                        UUID.test(
+                            id,
+                        ),
                 ),
         ),
     ];
@@ -1351,41 +1754,66 @@ async function obtenerEdicionesDisponibles(
     }
 
     const {
-        data: torneos,
-        error: errorTorneos,
+        data:
+            torneos,
+
+        error:
+            errorTorneos,
     } =
         await supabaseAdmin
             .from(
                 "torneos",
             )
             .select(
-                "id,nombre,deporte,activo",
+                "id,nombre,deporte,logo,banner,activo",
             )
             .in(
                 "id",
                 idsTorneos,
+            )
+            .eq(
+                "activo",
+                true,
             );
 
-    if (errorTorneos) {
+    if (
+        errorTorneos
+    ) {
         throw errorTorneos;
     }
 
-    const torneosActivos =
-        (
-            torneos ??
-            []
-        ).filter(
-            torneo =>
-                torneo.activo ===
-                true,
-        );
-
     const torneoPorID =
-        new Map(
-            torneosActivos.map(
+        new Map<
+            string,
+            TorneoFormulario
+        >(
+            (
+                torneos ??
+                []
+            ).map(
                 torneo => [
                     torneo.id,
-                    torneo,
+
+                    {
+                        id:
+                            torneo.id,
+
+                        nombre:
+                            torneo.nombre ??
+                            "Torneig",
+
+                        deporte:
+                            torneo.deporte ??
+                            null,
+
+                        logo:
+                            torneo.logo ??
+                            null,
+
+                        banner:
+                            torneo.banner ??
+                            null,
+                    },
                 ],
             ),
         );
@@ -1412,18 +1840,7 @@ async function obtenerEdicionesDisponibles(
                         entrada.edicion.nombre ??
                         "Edició",
 
-                    torneo: {
-                        id:
-                            torneo.id,
-
-                        nombre:
-                            torneo.nombre ??
-                            "Torneig",
-
-                        deporte:
-                            torneo.deporte ??
-                            null,
-                    },
+                    torneo,
 
                     apertura:
                         entrada
@@ -1453,7 +1870,8 @@ async function obtenerEdicionesDisponibles(
 // ============================================================
 
 async function obtenerEquipoFormulario(
-    formularioID: string,
+    formularioID:
+        string,
 ): Promise<EquipoDB | null> {
     const {
         data,
@@ -1470,9 +1888,13 @@ async function obtenerEquipoFormulario(
                 "formulario_id",
                 formularioID,
             )
-            .limit(1);
+            .limit(
+                1,
+            );
 
-    if (error) {
+    if (
+        error
+    ) {
         throw error;
     }
 
@@ -1480,7 +1902,8 @@ async function obtenerEquipoFormulario(
         data?.[0] as
             | EquipoDB
             | undefined
-    ) ?? null;
+    ) ??
+        null;
 }
 
 // ============================================================
@@ -1488,7 +1911,8 @@ async function obtenerEquipoFormulario(
 // ============================================================
 
 async function obtenerParticipantes(
-    equipoID: string,
+    equipoID:
+        string,
 ): Promise<ParticipanteDB[]> {
     const {
         data,
@@ -1512,11 +1936,14 @@ async function obtenerParticipantes(
             .order(
                 "orden",
                 {
-                    ascending: true,
+                    ascending:
+                        true,
                 },
             );
 
-    if (error) {
+    if (
+        error
+    ) {
         throw error;
     }
 
@@ -1531,7 +1958,8 @@ async function obtenerParticipantes(
 // ============================================================
 
 async function obtenerObservaciones(
-    formularioID: string,
+    formularioID:
+        string,
 ) {
     const {
         data,
@@ -1551,11 +1979,14 @@ async function obtenerObservaciones(
             .order(
                 "created_at",
                 {
-                    ascending: true,
+                    ascending:
+                        true,
                 },
             );
 
-    if (error) {
+    if (
+        error
+    ) {
         throw error;
     }
 
@@ -1602,11 +2033,12 @@ async function obtenerObservaciones(
 }
 
 // ============================================================
-// SALIDA PARTICIPANTE
+// NORMALIZAR PARTICIPANTE SALIDA
 // ============================================================
 
 function normalizarParticipanteSalida(
-    participante: ParticipanteDB,
+    participante:
+        ParticipanteDB,
 ) {
     const genero =
         participante.genero ===
@@ -1667,7 +2099,8 @@ function normalizarParticipanteSalida(
 // ============================================================
 
 async function cargarFormularioCompleto(
-    formulario: FormularioDB,
+    formulario:
+        FormularioDB,
 ) {
     const equipo =
         await obtenerEquipoFormulario(
@@ -1748,12 +2181,15 @@ async function cargarFormularioCompleto(
 }
 
 // ============================================================
-// FORMULARIO PROPIETARIO
+// FORMULARIO DEL PROPIETARIO
 // ============================================================
 
 async function obtenerFormularioPropietario(
-    edicionID: string,
-    usuarioID: string,
+    edicionID:
+        string,
+
+    usuarioID:
+        string,
 ): Promise<FormularioDB | null> {
     const {
         data,
@@ -1781,12 +2217,17 @@ async function obtenerFormularioPropietario(
             .order(
                 "created_at",
                 {
-                    ascending: true,
+                    ascending:
+                        true,
                 },
             )
-            .limit(1);
+            .limit(
+                1,
+            );
 
-    if (error) {
+    if (
+        error
+    ) {
         throw error;
     }
 
@@ -1794,7 +2235,8 @@ async function obtenerFormularioPropietario(
         data?.[0] as
             | FormularioDB
             | undefined
-    ) ?? null;
+    ) ??
+        null;
 }
 
 // ============================================================
@@ -1802,8 +2244,11 @@ async function obtenerFormularioPropietario(
 // ============================================================
 
 async function obtenerFormularioComoCapitan(
-    edicionID: string,
-    usuario: Usuario,
+    edicionID:
+        string,
+
+    usuario:
+        Usuario,
 ): Promise<FormularioDB | null> {
     const emailUsuario =
         normalizarEmail(
@@ -1818,8 +2263,11 @@ async function obtenerFormularioComoCapitan(
     }
 
     const {
-        data: formularios,
-        error: errorFormularios,
+        data:
+            formularios,
+
+        error:
+            errorFormularios,
     } =
         await supabaseAdmin
             .from(
@@ -1862,8 +2310,11 @@ async function obtenerFormularioComoCapitan(
         );
 
     const {
-        data: equipos,
-        error: errorEquipos,
+        data:
+            equipos,
+
+        error:
+            errorEquipos,
     } =
         await supabaseAdmin
             .from(
@@ -1918,8 +2369,11 @@ async function obtenerFormularioComoCapitan(
     }
 
     const {
-        data: capitanes,
-        error: errorCapitanes,
+        data:
+            capitanes,
+
+        error:
+            errorCapitanes,
     } =
         await supabaseAdmin
             .from(
@@ -1980,7 +2434,8 @@ async function obtenerFormularioComoCapitan(
         ) as
             | FormularioDB
             | undefined
-    ) ?? null;
+    ) ??
+        null;
 }
 
 // ============================================================
@@ -1988,9 +2443,14 @@ async function obtenerFormularioComoCapitan(
 // ============================================================
 
 function permisosFormulario(
-    formulario: FormularioDB,
-    propietario: boolean,
-    capitan: boolean,
+    formulario:
+        FormularioDB,
+
+    propietario:
+        boolean,
+
+    capitan:
+        boolean,
 ) {
     const estado =
         estadoFormulario(
@@ -2028,9 +2488,14 @@ function permisosFormulario(
 // ============================================================
 
 async function obtenerAccesoPorID(
-    formularioID: string,
-    edicionID: string,
-    usuario: Usuario,
+    formularioID:
+        string,
+
+    edicionID:
+        string,
+
+    usuario:
+        Usuario,
 ): Promise<AccesoFormulario> {
     const {
         data,
@@ -2057,7 +2522,9 @@ async function obtenerAccesoPorID(
             )
             .maybeSingle();
 
-    if (error) {
+    if (
+        error
+    ) {
         throw error;
     }
 
@@ -2093,8 +2560,11 @@ async function obtenerAccesoPorID(
         usuario.email
     ) {
         const {
-            data: participante,
-            error: errorParticipante,
+            data:
+                participante,
+
+            error:
+                errorParticipante,
         } =
             await supabaseAdmin
                 .from(
@@ -2164,12 +2634,16 @@ async function obtenerAccesoPorID(
 // ============================================================
 
 function leerEscudo(
-    valor: unknown,
+    valor:
+        unknown,
 ) {
     if (
-        valor === null ||
-        valor === undefined ||
-        valor === ""
+        valor ===
+            null ||
+        valor ===
+            undefined ||
+        valor ===
+            ""
     ) {
         return null;
     }
@@ -2217,15 +2691,20 @@ function leerEscudo(
 }
 
 // ============================================================
-// PARTICIPANTE ENTRANTE
+// LEER PARTICIPANTE
 // ============================================================
 
 function leerParticipante(
-    valor: unknown,
-    indice: number,
+    valor:
+        unknown,
+
+    indice:
+        number,
 ): ParticipanteEntrada {
     if (
-        !esRegistro(valor)
+        !esRegistro(
+            valor,
+        )
     ) {
         throw new ErrorAPI(
             400,
@@ -2233,13 +2712,17 @@ function leerParticipante(
         );
     }
 
-    let id: string | null =
+    let id:
+        string | null =
         null;
 
     if (
-        valor.id !== null &&
-        valor.id !== undefined &&
-        valor.id !== ""
+        valor.id !==
+            null &&
+        valor.id !==
+            undefined &&
+        valor.id !==
+            ""
     ) {
         id =
             exigirUUID(
@@ -2272,7 +2755,9 @@ function leerParticipante(
 
     if (
         email &&
-        !emailValido(email)
+        !emailValido(
+            email,
+        )
     ) {
         throw new ErrorAPI(
             400,
@@ -2285,9 +2770,12 @@ function leerParticipante(
         null;
 
     if (
-        valor.genero !== null &&
-        valor.genero !== undefined &&
-        valor.genero !== ""
+        valor.genero !==
+            null &&
+        valor.genero !==
+            undefined &&
+        valor.genero !==
+            ""
     ) {
         if (
             valor.genero !==
@@ -2314,7 +2802,8 @@ function leerParticipante(
             valor.orden >
                 0
             ? valor.orden
-            : indice + 1;
+            : indice +
+              1;
 
     return {
         id,
@@ -2366,14 +2855,17 @@ function leerParticipante(
 }
 
 // ============================================================
-// DATOS ENTRANTES
+// LEER DATOS
 // ============================================================
 
 function leerDatos(
-    valor: unknown,
+    valor:
+        unknown,
 ): DatosEntrada {
     if (
-        !esRegistro(valor)
+        !esRegistro(
+            valor,
+        )
     ) {
         throw new ErrorAPI(
             400,
@@ -2407,9 +2899,12 @@ function leerDatos(
         null;
 
     if (
-        valor.equipo.id !== null &&
-        valor.equipo.id !== undefined &&
-        valor.equipo.id !== ""
+        valor.equipo.id !==
+            null &&
+        valor.equipo.id !==
+            undefined &&
+        valor.equipo.id !==
+            ""
     ) {
         equipoID =
             exigirUUID(
@@ -2423,9 +2918,12 @@ function leerDatos(
         null;
 
     if (
-        valor.equipo.capitan_id !== null &&
-        valor.equipo.capitan_id !== undefined &&
-        valor.equipo.capitan_id !== ""
+        valor.equipo.capitan_id !==
+            null &&
+        valor.equipo.capitan_id !==
+            undefined &&
+        valor.equipo.capitan_id !==
+            ""
     ) {
         capitanID =
             exigirUUID(
@@ -2518,12 +3016,15 @@ function leerDatos(
 }
 
 // ============================================================
-// EMAILS PARTICIPANTES
+// VALIDAR EMAILS
 // ============================================================
 
 function validarEmails(
-    participantes: ParticipanteEntrada[],
-    configuracion: ConfiguracionPlataforma,
+    participantes:
+        ParticipanteEntrada[],
+
+    configuracion:
+        ConfiguracionPlataforma,
 ) {
     for (
         let indice =
@@ -2534,7 +3035,9 @@ function validarEmails(
             1
     ) {
         const participante =
-            participantes[indice];
+            participantes[
+                indice
+            ];
 
         if (
             !participante.email
@@ -2561,7 +3064,8 @@ function validarEmails(
 // ============================================================
 
 function validarEmailsRepetidos(
-    participantes: ParticipanteEntrada[],
+    participantes:
+        ParticipanteEntrada[],
 ) {
     const usados =
         new Set<string>();
@@ -2582,7 +3086,9 @@ function validarEmailsRepetidos(
             );
 
         if (
-            usados.has(email)
+            usados.has(
+                email,
+            )
         ) {
             throw new ErrorAPI(
                 409,
@@ -2590,7 +3096,9 @@ function validarEmailsRepetidos(
             );
         }
 
-        usados.add(email);
+        usados.add(
+            email,
+        );
     }
 }
 
@@ -2599,9 +3107,14 @@ function validarEmailsRepetidos(
 // ============================================================
 
 function cursoValido(
-    curso: string,
-    grupo: string,
-    configuracion: ConfiguracionEquipos,
+    curso:
+        string,
+
+    grupo:
+        string,
+
+    configuracion:
+        ConfiguracionEquipos,
 ) {
     const cursoConfigurado =
         configuracion.cursos.find(
@@ -2622,17 +3135,13 @@ function cursoValido(
             .length ===
         0
     ) {
-        return (
-            grupo ===
-            ""
-        );
+        return grupo ===
+            "";
     }
 
-    return cursoConfigurado
-        .grupos
-        .includes(
-            grupo,
-        );
+    return cursoConfigurado.grupos.includes(
+        grupo,
+    );
 }
 
 // ============================================================
@@ -2640,8 +3149,11 @@ function cursoValido(
 // ============================================================
 
 function validarEstructuraParticipantes(
-    participantes: ParticipanteEntrada[],
-    configuracion: ConfiguracionEquipos,
+    participantes:
+        ParticipanteEntrada[],
+
+    configuracion:
+        ConfiguracionEquipos,
 ) {
     const profesores =
         participantes.filter(
@@ -2804,8 +3316,11 @@ function validarEstructuraParticipantes(
 // ============================================================
 
 function validarEnvio(
-    datos: DatosEntrada,
-    configuracion: ConfiguracionEquipos,
+    datos:
+        DatosEntrada,
+
+    configuracion:
+        ConfiguracionEquipos,
 ) {
     if (
         !datos.equipo.nombre
@@ -3040,9 +3555,14 @@ function validarEnvio(
 // ============================================================
 
 async function comprobarDuplicadosEdicion(
-    edicionID: string,
-    participantes: ParticipanteEntrada[],
-    equipoActualID: string | null,
+    edicionID:
+        string,
+
+    participantes:
+        ParticipanteEntrada[],
+
+    equipoActualID:
+        string | null,
 ) {
     const emails = [
         ...new Set(
@@ -3053,7 +3573,9 @@ async function comprobarDuplicadosEdicion(
                             participante.email,
                         ),
                 )
-                .filter(Boolean),
+                .filter(
+                    Boolean,
+                ),
         ),
     ];
 
@@ -3065,8 +3587,11 @@ async function comprobarDuplicadosEdicion(
     }
 
     const {
-        data: formularios,
-        error: errorFormularios,
+        data:
+            formularios,
+
+        error:
+            errorFormularios,
     } =
         await supabaseAdmin
             .from(
@@ -3099,8 +3624,11 @@ async function comprobarDuplicadosEdicion(
     }
 
     const {
-        data: equipos,
-        error: errorEquipos,
+        data:
+            equipos,
+
+        error:
+            errorEquipos,
     } =
         await supabaseAdmin
             .from(
@@ -3146,8 +3674,11 @@ async function comprobarDuplicadosEdicion(
     }
 
     const {
-        data: coincidencias,
-        error: errorParticipantes,
+        data:
+            coincidencias,
+
+        error:
+            errorParticipantes,
     } =
         await supabaseAdmin
             .from(
@@ -3201,8 +3732,11 @@ async function comprobarDuplicadosEdicion(
 // ============================================================
 
 async function guardarParticipantes(
-    equipoID: string,
-    participantes: ParticipanteEntrada[],
+    equipoID:
+        string,
+
+    participantes:
+        ParticipanteEntrada[],
 ) {
     const actuales =
         await obtenerParticipantes(
@@ -3225,6 +3759,10 @@ async function guardarParticipantes(
     const ahora =
         new Date()
             .toISOString();
+
+    // ========================================================
+    // ACTUALIZAR EXISTENTES
+    // ========================================================
 
     for (
         const participante
@@ -3327,6 +3865,10 @@ async function guardarParticipantes(
         }
     }
 
+    // ========================================================
+    // INSERTAR NUEVOS
+    // ========================================================
+
     const nuevos =
         participantes.filter(
             participante =>
@@ -3416,7 +3958,11 @@ async function guardarParticipantes(
         }
     }
 
-    const idsEliminar =
+    // ========================================================
+    // DESACTIVAR LOS QUE YA NO ESTÁN
+    // ========================================================
+
+    const idsDesactivar =
         actuales
             .filter(
                 participante =>
@@ -3430,7 +3976,7 @@ async function guardarParticipantes(
             );
 
     if (
-        idsEliminar.length >
+        idsDesactivar.length >
         0
     ) {
         const {
@@ -3453,7 +3999,7 @@ async function guardarParticipantes(
                 )
                 .in(
                     "id",
-                    idsEliminar,
+                    idsDesactivar,
                 );
 
         if (
@@ -3469,8 +4015,11 @@ async function guardarParticipantes(
 // ============================================================
 
 function configuracionFormulario(
-    formulario: FormularioDB,
-    actual: ConfiguracionEquipos,
+    formulario:
+        FormularioDB,
+
+    actual:
+        ConfiguracionEquipos,
 ) {
     const snapshot =
         normalizarConfiguracionEquipos(
@@ -3546,31 +4095,69 @@ export const GET: APIRoute =
                 );
 
             const permisosVacios = {
-                propietario: false,
-                capitan: false,
-                puede_ver: false,
-                puede_editar: false,
-                puede_cambiar_acceso_capitan: false,
+                propietario:
+                    false,
+
+                capitan:
+                    false,
+
+                puede_ver:
+                    false,
+
+                puede_editar:
+                    false,
+
+                puede_cambiar_acceso_capitan:
+                    false,
             };
+
+            // =================================================
+            // SIN EDICIÓN
+            // =================================================
 
             if (
                 !parametro
             ) {
                 return responder({
-                    success: true,
-                    disponible: false,
-                    motivo: "SIN_EDICION",
-                    mensaje: "Selecciona una edició per començar la inscripció.",
+                    success:
+                        true,
+
+                    disponible:
+                        false,
+
+                    motivo:
+                        "SIN_EDICION",
+
+                    mensaje:
+                        "Selecciona una edició per començar la inscripció.",
+
                     sesion,
-                    torneo: null,
-                    edicion: null,
-                    configuracion: null,
-                    formulario: null,
-                    permisos: permisosVacios,
-                    edicionesDisponibles: alternativas,
+
+                    torneo:
+                        null,
+
+                    edicion:
+                        null,
+
+                    configuracion:
+                        null,
+
+                    formulario:
+                        null,
+
+                    permisos:
+                        permisosVacios,
+
+                    edicionesDisponibles:
+                        alternativas,
+
                     accesoAdmin,
                 });
             }
+
+            // =================================================
+            // ID INVÁLIDO
+            // =================================================
 
             if (
                 !UUID.test(
@@ -3578,20 +4165,45 @@ export const GET: APIRoute =
                 )
             ) {
                 return responder({
-                    success: true,
-                    disponible: false,
-                    motivo: "NO_TROBADA",
-                    mensaje: "L'edició seleccionada no existeix o ja no està disponible.",
+                    success:
+                        true,
+
+                    disponible:
+                        false,
+
+                    motivo:
+                        "NO_TROBADA",
+
+                    mensaje:
+                        "L'edició seleccionada no existeix o ja no està disponible.",
+
                     sesion,
-                    torneo: null,
-                    edicion: null,
-                    configuracion: null,
-                    formulario: null,
-                    permisos: permisosVacios,
-                    edicionesDisponibles: alternativas,
+
+                    torneo:
+                        null,
+
+                    edicion:
+                        null,
+
+                    configuracion:
+                        null,
+
+                    formulario:
+                        null,
+
+                    permisos:
+                        permisosVacios,
+
+                    edicionesDisponibles:
+                        alternativas,
+
                     accesoAdmin,
                 });
             }
+
+            // =================================================
+            // EDICIÓN
+            // =================================================
 
             const edicion =
                 await obtenerEdicion(
@@ -3602,143 +4214,256 @@ export const GET: APIRoute =
                 !edicion
             ) {
                 return responder({
-                    success: true,
-                    disponible: false,
-                    motivo: "NO_TROBADA",
-                    mensaje: "L'edició seleccionada no existeix o ja no està disponible.",
+                    success:
+                        true,
+
+                    disponible:
+                        false,
+
+                    motivo:
+                        "NO_TROBADA",
+
+                    mensaje:
+                        "L'edició seleccionada no existeix o ja no està disponible.",
+
                     sesion,
-                    torneo: null,
-                    edicion: null,
-                    configuracion: null,
-                    formulario: null,
-                    permisos: permisosVacios,
-                    edicionesDisponibles: alternativas,
+
+                    torneo:
+                        null,
+
+                    edicion:
+                        null,
+
+                    configuracion:
+                        null,
+
+                    formulario:
+                        null,
+
+                    permisos:
+                        permisosVacios,
+
+                    edicionesDisponibles:
+                        alternativas,
+
                     accesoAdmin,
                 });
             }
 
-            const configuracionActual =
-                await obtenerConfiguracionEdicion(
-                    edicion.id,
-                );
+            // =================================================
+            // TORNEO + CONFIGURACIÓN
+            // =================================================
 
-            const torneo =
-                await obtenerTorneo(
-                    edicion.torneo_id,
-                );
+            const [
+                configuracionActual,
+                torneo,
+            ] =
+                await Promise.all([
+                    obtenerConfiguracionEdicion(
+                        edicion.id,
+                    ),
+
+                    obtenerTorneo(
+                        edicion.torneo_id,
+                    ),
+                ]);
 
             if (
                 !configuracionActual
             ) {
                 return responder({
-                    success: true,
-                    disponible: false,
-                    motivo: "SIN_CONFIGURACION",
-                    mensaje: "Aquesta edició encara no té configurada la inscripció d'equips.",
+                    success:
+                        true,
+
+                    disponible:
+                        false,
+
+                    motivo:
+                        "SIN_CONFIGURACION",
+
+                    mensaje:
+                        "Aquesta edició encara no té configurada la inscripció d'equips.",
+
                     sesion,
                     torneo,
                     edicion,
-                    configuracion: null,
-                    formulario: null,
-                    permisos: permisosVacios,
-                    edicionesDisponibles: alternativas.filter(
-                        alternativa =>
-                            alternativa.id !==
-                            edicion.id,
-                    ),
+
+                    configuracion:
+                        null,
+
+                    formulario:
+                        null,
+
+                    permisos:
+                        permisosVacios,
+
+                    edicionesDisponibles:
+                        alternativas.filter(
+                            alternativa =>
+                                alternativa.id !==
+                                edicion.id,
+                        ),
+
                     accesoAdmin,
                 });
             }
 
-            /*
-             * Admin Mode NO permite utilizar una edición
-             * desactivada/finalizada. Únicamente ignora las fechas.
-             */
+            // =================================================
+            // EDICIÓN INACTIVA
+            // =================================================
+
             if (
                 !edicionActiva(
                     edicion.estado,
                 )
             ) {
                 return responder({
-                    success: true,
-                    disponible: false,
-                    motivo: "TANCADA",
-                    mensaje: "Aquesta edició no està activa.",
+                    success:
+                        true,
+
+                    disponible:
+                        false,
+
+                    motivo:
+                        "TANCADA",
+
+                    mensaje:
+                        "Aquesta edició no està activa.",
+
                     sesion,
                     torneo,
                     edicion,
-                    configuracion: configuracionActual,
-                    formulario: null,
-                    permisos: permisosVacios,
-                    edicionesDisponibles: alternativas.filter(
-                        alternativa =>
-                            alternativa.id !==
-                            edicion.id,
-                    ),
+
+                    configuracion:
+                        configuracionActual,
+
+                    formulario:
+                        null,
+
+                    permisos:
+                        permisosVacios,
+
+                    edicionesDisponibles:
+                        alternativas.filter(
+                            alternativa =>
+                                alternativa.id !==
+                                edicion.id,
+                        ),
+
                     accesoAdmin,
                 });
             }
+
+            // =================================================
+            // PERÍODO
+            // =================================================
 
             const periodo =
                 estadoPeriodo(
                     configuracionActual,
                 );
 
-            /*
-             * Administrador + Admin Mode:
-             * puede ignorar apertura/cierre.
-             */
+            const puedeSaltarsePeriodo =
+                accesoAdmin &&
+                (
+                    periodo ===
+                        "PROXIMAMENTE" ||
+                    periodo ===
+                        "TANCADA"
+                );
+
             if (
-                periodo !== "ABIERTA" &&
-                !accesoAdmin
+                periodo !==
+                    "ABIERTA" &&
+                !puedeSaltarsePeriodo
             ) {
                 return responder({
-                    success: true,
-                    disponible: false,
-                    motivo: periodo,
+                    success:
+                        true,
+
+                    disponible:
+                        false,
+
+                    motivo:
+                        periodo,
+
                     mensaje:
-                        periodo === "PROXIMAMENTE"
+                        periodo ===
+                            "PROXIMAMENTE"
                             ? "Les inscripcions d'aquesta edició encara no han començat."
-                            : periodo === "TANCADA"
+                            : periodo ===
+                                "TANCADA"
                               ? "Les inscripcions d'aquesta edició ja estan tancades."
                               : "Aquesta edició no té un període d'inscripció vàlid.",
+
                     sesion,
                     torneo,
                     edicion,
-                    configuracion: configuracionActual,
-                    formulario: null,
-                    permisos: permisosVacios,
-                    edicionesDisponibles: alternativas.filter(
-                        alternativa =>
-                            alternativa.id !==
-                            edicion.id,
-                    ),
+
+                    configuracion:
+                        configuracionActual,
+
+                    formulario:
+                        null,
+
+                    permisos:
+                        permisosVacios,
+
+                    edicionesDisponibles:
+                        alternativas.filter(
+                            alternativa =>
+                                alternativa.id !==
+                                edicion.id,
+                        ),
+
                     accesoAdmin,
                 });
             }
 
-            /*
-             * Sin sesión se puede ver que la edición existe,
-             * pero no se genera ni permite rellenar formulario.
-             */
+            // =================================================
+            // SIN SESIÓN
+            // =================================================
+
             if (
                 !usuario
             ) {
                 return responder({
-                    success: true,
-                    disponible: true,
-                    motivo: null,
-                    mensaje: null,
+                    success:
+                        true,
+
+                    disponible:
+                        true,
+
+                    motivo:
+                        null,
+
+                    mensaje:
+                        null,
+
                     sesion,
                     torneo,
                     edicion,
-                    configuracion: configuracionActual,
-                    formulario: null,
-                    permisos: permisosVacios,
-                    edicionesDisponibles: alternativas,
-                    accesoAdmin: false,
+
+                    configuracion:
+                        configuracionActual,
+
+                    formulario:
+                        null,
+
+                    permisos:
+                        permisosVacios,
+
+                    edicionesDisponibles:
+                        alternativas,
+
+                    accesoAdmin:
+                        false,
                 });
             }
+
+            // =================================================
+            // FORMULARIO DEL PROPIETARIO
+            // =================================================
 
             let formulario =
                 await obtenerFormularioPropietario(
@@ -3753,6 +4478,10 @@ export const GET: APIRoute =
 
             let capitan =
                 false;
+
+            // =================================================
+            // FORMULARIO COMO CAPITÁN
+            // =================================================
 
             if (
                 !formulario
@@ -3769,32 +4498,63 @@ export const GET: APIRoute =
                     );
             }
 
+            // =================================================
+            // FORMULARIO NUEVO
+            // =================================================
+
             if (
                 !formulario
             ) {
                 return responder({
-                    success: true,
-                    disponible: true,
-                    motivo: null,
-                    mensaje: null,
+                    success:
+                        true,
+
+                    disponible:
+                        true,
+
+                    motivo:
+                        null,
+
+                    mensaje:
+                        null,
+
                     sesion,
                     torneo,
                     edicion,
-                    configuracion: configuracionActual,
-                    formulario: null,
+
+                    configuracion:
+                        configuracionActual,
+
+                    formulario:
+                        null,
 
                     permisos: {
-                        propietario: false,
-                        capitan: false,
-                        puede_ver: true,
-                        puede_editar: true,
-                        puede_cambiar_acceso_capitan: true,
+                        propietario:
+                            false,
+
+                        capitan:
+                            false,
+
+                        puede_ver:
+                            true,
+
+                        puede_editar:
+                            true,
+
+                        puede_cambiar_acceso_capitan:
+                            true,
                     },
 
-                    edicionesDisponibles: alternativas,
+                    edicionesDisponibles:
+                        alternativas,
+
                     accesoAdmin,
                 });
             }
+
+            // =================================================
+            // FORMULARIO EXISTENTE
+            // =================================================
 
             const configuracion =
                 configuracionFormulario(
@@ -3808,15 +4568,25 @@ export const GET: APIRoute =
                 );
 
             return responder({
-                success: true,
-                disponible: true,
-                motivo: null,
-                mensaje: null,
+                success:
+                    true,
+
+                disponible:
+                    true,
+
+                motivo:
+                    null,
+
+                mensaje:
+                    null,
+
                 sesion,
                 torneo,
                 edicion,
                 configuracion,
-                formulario: datosFormulario,
+
+                formulario:
+                    datosFormulario,
 
                 permisos:
                     permisosFormulario(
@@ -3825,7 +4595,9 @@ export const GET: APIRoute =
                         capitan,
                     ),
 
-                edicionesDisponibles: alternativas,
+                edicionesDisponibles:
+                    alternativas,
+
                 accesoAdmin,
             });
         } catch (
@@ -3839,7 +4611,7 @@ export const GET: APIRoute =
 
 // ============================================================
 // POST
-// CREAR
+// CREAR FORMULARIO
 // ============================================================
 
 export const POST: APIRoute =
@@ -3868,10 +4640,6 @@ export const POST: APIRoute =
                     configuracionPlataforma,
                 );
 
-            /*
-             * El correo de contacto lo decide exclusivamente
-             * el servidor a partir del usuario autenticado.
-             */
             const emailContacto =
                 obtenerEmailCreador(
                     usuario,
@@ -3930,12 +4698,24 @@ export const POST: APIRoute =
                 );
             }
 
-            if (
+            const periodo =
                 estadoPeriodo(
                     configuracion,
-                ) !==
+                );
+
+            const puedeSaltarsePeriodo =
+                accesoAdmin &&
+                (
+                    periodo ===
+                        "PROXIMAMENTE" ||
+                    periodo ===
+                        "TANCADA"
+                );
+
+            if (
+                periodo !==
                     "ABIERTA" &&
-                !accesoAdmin
+                !puedeSaltarsePeriodo
             ) {
                 throw new ErrorAPI(
                     403,
@@ -3993,8 +4773,13 @@ export const POST: APIRoute =
             const equipoID =
                 randomUUID();
 
+            // =================================================
+            // FORMULARIO
+            // =================================================
+
             const {
-                error: errorFormulario,
+                error:
+                    errorFormulario,
             } =
                 await supabaseAdmin
                     .from(
@@ -4016,9 +4801,6 @@ export const POST: APIRoute =
                         usuario_id:
                             usuario.id,
 
-                        /*
-                         * Siempre el correo del creador.
-                         */
                         email_contacto:
                             emailContacto,
 
@@ -4050,8 +4832,13 @@ export const POST: APIRoute =
                 throw errorFormulario;
             }
 
+            // =================================================
+            // EQUIPO
+            // =================================================
+
             const {
-                error: errorEquipo,
+                error:
+                    errorEquipo,
             } =
                 await supabaseAdmin
                     .from(
@@ -4087,6 +4874,10 @@ export const POST: APIRoute =
                 throw errorEquipo;
             }
 
+            // =================================================
+            // PARTICIPANTES
+            // =================================================
+
             if (
                 datos.participantes.length >
                 0
@@ -4097,9 +4888,16 @@ export const POST: APIRoute =
                 );
             }
 
+            // =================================================
+            // RECARGAR
+            // =================================================
+
             const {
-                data: formularioGuardado,
-                error: errorRecarga,
+                data:
+                    formularioGuardado,
+
+                error:
+                    errorRecarga,
             } =
                 await supabaseAdmin
                     .from(
@@ -4121,8 +4919,11 @@ export const POST: APIRoute =
             }
 
             return responder({
-                success: true,
-                mensaje: "Inscripció guardada correctament.",
+                success:
+                    true,
+
+                mensaje:
+                    "Inscripció guardada correctament.",
 
                 formulario:
                     await cargarFormularioCompleto(
@@ -4202,6 +5003,10 @@ export const PATCH: APIRoute =
                     "del formulari",
                 );
 
+            // =================================================
+            // EDICIÓN
+            // =================================================
+
             const edicion =
                 await obtenerEdicion(
                     edicionID,
@@ -4219,6 +5024,10 @@ export const PATCH: APIRoute =
                 );
             }
 
+            // =================================================
+            // CONFIGURACIÓN
+            // =================================================
+
             const configuracionActual =
                 await obtenerConfiguracionEdicion(
                     edicionID,
@@ -4233,22 +5042,38 @@ export const PATCH: APIRoute =
                 );
             }
 
-            /*
-             * Admin Mode permite guardar Y enviar fuera
-             * del intervalo de inscripción.
-             */
-            if (
+            // =================================================
+            // PERÍODO
+            // =================================================
+
+            const periodo =
                 estadoPeriodo(
                     configuracionActual,
-                ) !==
+                );
+
+            const puedeSaltarsePeriodo =
+                accesoAdmin &&
+                (
+                    periodo ===
+                        "PROXIMAMENTE" ||
+                    periodo ===
+                        "TANCADA"
+                );
+
+            if (
+                periodo !==
                     "ABIERTA" &&
-                !accesoAdmin
+                !puedeSaltarsePeriodo
             ) {
                 throw new ErrorAPI(
                     403,
                     "El període d'inscripció no està obert.",
                 );
             }
+
+            // =================================================
+            // ACCESO
+            // =================================================
 
             const acceso =
                 await obtenerAccesoPorID(
@@ -4257,10 +5082,6 @@ export const PATCH: APIRoute =
                     usuario,
                 );
 
-            /*
-             * Admin Mode no salta el estado EN_REVISION.
-             * Solo afecta a las fechas.
-             */
             if (
                 !acceso.puede_editar
             ) {
@@ -4280,6 +5101,10 @@ export const PATCH: APIRoute =
                 leerDatos(
                     cuerpo.datos,
                 );
+
+            // =================================================
+            // VALIDACIONES
+            // =================================================
 
             validarEmails(
                 datos.participantes,
@@ -4310,6 +5135,10 @@ export const PATCH: APIRoute =
             const ahora =
                 new Date()
                     .toISOString();
+
+            // =================================================
+            // CREAR EQUIPO SI FALTA
+            // =================================================
 
             if (
                 !equipo
@@ -4380,11 +5209,19 @@ export const PATCH: APIRoute =
                 );
             }
 
+            // =================================================
+            // DUPLICADOS MISMA EDICIÓN
+            // =================================================
+
             await comprobarDuplicadosEdicion(
                 edicionID,
                 datos.participantes,
                 equipo.id,
             );
+
+            // =================================================
+            // CAPITÁN
+            // =================================================
 
             let capitanID =
                 acceso.propietario
@@ -4413,6 +5250,10 @@ export const PATCH: APIRoute =
                 capitanID =
                     null;
             }
+
+            // =================================================
+            // PROTEGER EMAIL DEL CAPITÁN
+            // =================================================
 
             if (
                 acceso.capitan &&
@@ -4443,17 +5284,28 @@ export const PATCH: APIRoute =
                 }
             }
 
+            // =================================================
+            // GUARDAR PARTICIPANTES
+            // =================================================
+
             await guardarParticipantes(
                 equipo.id,
                 datos.participantes,
             );
 
+            // =================================================
+            // COMPROBAR CAPITÁN
+            // =================================================
+
             if (
                 capitanID
             ) {
                 const {
-                    data: capitan,
-                    error: errorCapitan,
+                    data:
+                        capitan,
+
+                    error:
+                        errorCapitan,
                 } =
                     await supabaseAdmin
                         .from(
@@ -4501,6 +5353,10 @@ export const PATCH: APIRoute =
                 }
             }
 
+            // =================================================
+            // ACCESO CAPITÁN
+            // =================================================
+
             let accesoCapitan =
                 acceso.propietario
                     ? datos.acceso_capitan
@@ -4514,8 +5370,13 @@ export const PATCH: APIRoute =
                     false;
             }
 
+            // =================================================
+            // ACTUALIZAR EQUIPO
+            // =================================================
+
             const {
-                error: errorEquipo,
+                error:
+                    errorEquipo,
             } =
                 await supabaseAdmin
                     .from(
@@ -4550,6 +5411,10 @@ export const PATCH: APIRoute =
                 throw errorEquipo;
             }
 
+            // =================================================
+            // ESTADO FORMULARIO
+            // =================================================
+
             const estadoAnterior =
                 estadoFormulario(
                     acceso.formulario.estado,
@@ -4566,43 +5431,46 @@ export const PATCH: APIRoute =
                       ? "BORRADOR"
                       : estadoAnterior;
 
-            const actualizacionFormulario: Record<string, unknown> = {
-                acceso_capitan:
-                    accesoCapitan,
-
-                estado:
-                    nuevoEstado,
-
-                enviado_at:
-                    enviar
-                        ? ahora
-                        : nuevoEstado ===
-                              "BORRADOR"
-                          ? null
-                          : acceso.formulario.enviado_at,
-
-                updated_at:
-                    ahora,
-            };
+            // =================================================
+            // ACTUALIZAR FORMULARIO
+            // ============================================================
 
             /*
-             * IMPORTANTE:
+             * email_contacto NO se actualiza.
              *
-             * email_contacto NO se incluye en el UPDATE.
-             * Es inmutable después de crear el formulario.
+             * Siempre conserva el correo de la persona que
+             * creó originalmente el formulario.
              */
 
             const {
-                data: formularioGuardado,
-                error: errorFormulario,
+                data:
+                    formularioGuardado,
+
+                error:
+                    errorFormulario,
             } =
                 await supabaseAdmin
                     .from(
                         "formularios",
                     )
-                    .update(
-                        actualizacionFormulario,
-                    )
+                    .update({
+                        acceso_capitan:
+                            accesoCapitan,
+
+                        estado:
+                            nuevoEstado,
+
+                        enviado_at:
+                            enviar
+                                ? ahora
+                                : nuevoEstado ===
+                                      "BORRADOR"
+                                  ? null
+                                  : acceso.formulario.enviado_at,
+
+                        updated_at:
+                            ahora,
+                    })
                     .eq(
                         "id",
                         formularioID,
@@ -4632,7 +5500,8 @@ export const PATCH: APIRoute =
             }
 
             return responder({
-                success: true,
+                success:
+                    true,
 
                 mensaje:
                     enviar

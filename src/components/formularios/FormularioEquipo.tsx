@@ -103,6 +103,8 @@ export type TorneoFormulario = {
     id: string;
     nombre: string;
     deporte: string | null;
+    logo: string | null;
+    banner: string | null;
 };
 
 export type EdicionFormulario = {
@@ -123,6 +125,8 @@ export type EdicionDisponible = {
         id: string;
         nombre: string;
         deporte: string | null;
+        logo: string | null;
+        banner: string | null;
     };
 
     apertura: string | null;
@@ -253,6 +257,9 @@ export type RespuestaCargaFormulario = {
 
     edicionesDisponibles:
         EdicionDisponible[];
+
+    accesoAdmin?:
+        boolean;
 };
 
 type RespuestaGuardado = {
@@ -835,22 +842,13 @@ export default function FormularioEquipo({
                         return;
                     }
 
-                    /*
-                     * Si ya existe una inscripción, utilizamos
-                     * siempre el correo que devuelve el servidor.
-                     *
-                     * Si es una inscripción nueva, el correo se
-                     * obtiene directamente de la sesión.
-                     */
                     const inicial =
                         cargaNueva.formulario
                             ? {
                                   ...cargaNueva.formulario,
 
                                   email_contacto:
-                                      cargaNueva.formulario.email_contacto ||
-                                      cargaNueva.sesion.usuario.email ||
-                                      "",
+                                      cargaNueva.formulario.email_contacto,
                               }
                             : crearFormularioNuevo(
                                   cargaNueva.sesion,
@@ -999,10 +997,6 @@ export default function FormularioEquipo({
             return;
         }
 
-        /*
-         * El correo de contacto nunca se toma del componente
-         * hijo. Se conserva el que pertenece al creador.
-         */
         setFormulario(
             actual => {
                 if (
@@ -1117,14 +1111,6 @@ export default function FormularioEquipo({
             DatosFormularioEquipo,
     ) {
         return {
-            /*
-             * Se mantiene por compatibilidad con el formato del
-             * frontend, pero el servidor NO debe utilizarlo para
-             * modificar el correo de contacto.
-             */
-            email_contacto:
-                actual.email_contacto,
-
             acceso_capitan:
                 actual.acceso_capitan,
 
@@ -1289,12 +1275,6 @@ export default function FormularioEquipo({
                 );
             }
 
-            /*
-             * Muy importante:
-             * tras el primer guardado, el servidor devuelve los
-             * participantes con UUID reales. Así pueden elegirse
-             * posteriormente como capitán.
-             */
             const actualizado:
                 DatosFormularioEquipo = {
                     ...datos.formulario,
@@ -1552,10 +1532,6 @@ export default function FormularioEquipo({
             return;
         }
 
-        /*
-         * Permitimos volver libremente a apartados anteriores.
-         * Para avanzar, se utiliza "Guardar i continuar".
-         */
         if (
             indice >
             pasoActual &&
@@ -1733,24 +1709,58 @@ export default function FormularioEquipo({
 
     return (
         <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+
             {/* =================================================
                 CABECERA
             ================================================= */}
 
-            <header className="mb-6">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="min-w-0">
-                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-                            {carga.torneo?.nombre ?? "Torneig"}
-                        </p>
+            <header className="mb-6 rounded-2xl border border-border bg-background p-5 shadow-sm sm:p-6">
+                <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
 
-                        <h1 className="mt-1 text-2xl font-bold tracking-tight text-neutral-titulos sm:text-3xl">
-                            Inscripció d'equip
-                        </h1>
+                    <div className="flex min-w-0 items-center gap-4">
+                        {carga.torneo?.logo && (
+                            <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border bg-card p-2 sm:h-20 sm:w-20">
+                                <img src={carga.torneo.logo} alt={`Logo de ${carga.torneo.nombre}`} className="h-full w-full object-contain" />
+                            </div>
+                        )}
 
-                        <p className="mt-2 text-sm leading-6 text-neutral">
-                            {carga.edicion.nombre}
-                        </p>
+                        <div className="min-w-0">
+                            {carga.torneo?.deporte && (
+                                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+                                    {carga.torneo.deporte}
+                                </p>
+                            )}
+
+                            <h1 className="mt-1 text-xl font-bold tracking-tight text-neutral-titulos sm:text-2xl lg:text-3xl">
+                                {carga.torneo?.nombre ?? "Torneig"}
+                            </h1>
+
+                            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                                <span className="text-sm font-semibold text-neutral">
+                                    Inscripció d'equip
+                                </span>
+
+                                <span className="h-1 w-1 rounded-full bg-neutral/40" />
+
+                                <span className="text-sm text-neutral">
+                                    {carga.edicion.nombre}
+                                </span>
+
+                                {carga.edicion.sede && (
+                                    <>
+                                        <span className="h-1 w-1 rounded-full bg-neutral/40" />
+
+                                        <span className="inline-flex items-center gap-1.5 text-sm text-neutral">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" className="h-4 w-4 fill-current" aria-hidden="true">
+                                                <path d="M480-80q-15 0-30-5t-26-15Q274-231 197-343.5T120-560q0-150 105-255t255-105q150 0 255 105t105 255q0 104-77 216.5T536-100q-11 10-26 15t-30 5Zm0-400q33 0 56.5-23.5T560-560q0-33-23.5-56.5T480-640q-33 0-56.5 23.5T400-560q0 33 23.5 56.5T480-480Z" />
+                                            </svg>
+
+                                            {carga.edicion.sede}
+                                        </span>
+                                    </>
+                                )}
+                            </div>
+                        </div>
                     </div>
 
                     <EstadoFormularioCabecera formulario={formulario} permisos={permisos} />
@@ -2016,22 +2026,34 @@ function EstadoFormularioCabecera({
     const configuracion =
         formulario.estado === "BORRADOR"
             ? {
-                  texto: "Esborrany",
-                  clases: "border-border bg-card text-neutral",
+                  texto:
+                      "Esborrany",
+
+                  clases:
+                      "border-border bg-card text-neutral",
               }
             : formulario.estado === "EN_REVISION"
               ? {
-                    texto: "En revisió",
-                    clases: "border-secondary/30 bg-secondary/10 text-secondary",
+                    texto:
+                        "En revisió",
+
+                    clases:
+                        "border-secondary/30 bg-secondary/10 text-secondary",
                 }
               : formulario.estado === "APROBADO"
                 ? {
-                      texto: "Aprovada",
-                      clases: "border-primary/30 bg-primary/10 text-primary",
+                      texto:
+                          "Aprovada",
+
+                      clases:
+                          "border-primary/30 bg-primary/10 text-primary",
                   }
                 : {
-                      texto: "Denegada",
-                      clases: "border-error/30 bg-error-container/30 text-error-foreground",
+                      texto:
+                          "Denegada",
+
+                      clases:
+                          "border-error/30 bg-error-container/30 text-error-foreground",
                   };
 
     return (
@@ -2060,15 +2082,15 @@ function PantallaEdicionNoDisponible({
         RespuestaCargaFormulario;
 }) {
     return (
-        <div className="mx-auto w-full max-w-4xl px-4 py-10 sm:py-16">
-            <div className="rounded-2xl border border-border bg-background p-6 text-center sm:p-8">
-                <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-card text-neutral">
+        <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+            <div className="mx-auto max-w-3xl text-center">
+                <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" className="h-7 w-7 fill-current" aria-hidden="true">
-                        <path d="M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h80v-80h80v80h240v-80h80v80h80q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80H200Zm0-80h560v-400H200v400Zm0-480h560v-80H200v80Zm280 320q-17 0-28.5-11.5T440-360q0-17 11.5-28.5T480-400q17 0 28.5 11.5T520-360q0 17-11.5 28.5T480-320Z" />
+                        <path d="M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h80v-80h80v80h240v-80h80v80h80q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80H200Zm0-80h560v-400H200v400Zm0-480h560v-80H200v80Z" />
                     </svg>
                 </span>
 
-                <h1 className="mt-5 text-2xl font-bold text-neutral-titulos">
+                <h1 className="mt-5 text-2xl font-bold tracking-tight text-neutral-titulos sm:text-3xl">
                     {carga.motivo === "SIN_EDICION"
                         ? "Selecciona una edició"
                         : "Inscripció no disponible"}
@@ -2080,18 +2102,18 @@ function PantallaEdicionNoDisponible({
             </div>
 
             {carga.edicionesDisponibles.length > 0 ? (
-                <section className="mt-6">
-                    <div className="mb-4">
+                <section className="mt-10">
+                    <div className="mb-5">
                         <h2 className="text-lg font-semibold text-neutral-titulos">
-                            Edicions amb inscripcions obertes
+                            Edicions disponibles
                         </h2>
 
                         <p className="mt-1 text-sm text-neutral">
-                            Selecciona l'edició en què vols inscriure l'equip.
+                            Selecciona l'edició en què vols inscriure el teu equip.
                         </p>
                     </div>
 
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                         {carga.edicionesDisponibles.map(
                             edicion => {
                                 const cierre =
@@ -2100,36 +2122,84 @@ function PantallaEdicionNoDisponible({
                                     );
 
                                 return (
-                                    <a key={edicion.id} href={`/inscripcio?edicionID=${encodeURIComponent(edicion.id)}`} className="group rounded-2xl border border-border bg-background p-5 transition hover:border-primary/50 hover:bg-primary/5">
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div className="min-w-0">
-                                                <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-                                                    {edicion.torneo.nombre}
-                                                </p>
+                                    <a key={edicion.id} href={`/inscripcio?edicionID=${encodeURIComponent(edicion.id)}`} className="group flex min-h-[350px] flex-col overflow-hidden rounded-2xl border border-border bg-background transition duration-200 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
 
-                                                <h3 className="mt-1 truncate font-semibold text-neutral-titulos">
-                                                    {edicion.nombre}
-                                                </h3>
+                                        {/* =====================================
+                                            BANNER
+                                        ====================================== */}
 
+                                        <div className="relative h-44 w-full shrink-0 overflow-hidden bg-card">
+                                            {edicion.torneo.banner ? (
+                                                <img src={edicion.torneo.banner} alt={`Banner de ${edicion.torneo.nombre}`} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                                            ) : (
+                                                <div className="flex h-full w-full items-center justify-center bg-primary/5">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" className="h-16 w-16 fill-primary/20" aria-hidden="true">
+                                                        <path d="M280-120v-80h160v-124q-49-11-87.5-41.5T296-442q-75-9-125.5-65.5T120-640v-40q0-33 23.5-56.5T200-760h80v-80h400v80h80q33 0 56.5 23.5T840-680v40q0 76-50.5 132.5T664-442q-18 46-56.5 76.5T520-324v124h160v80H280Z" />
+                                                    </svg>
+                                                </div>
+                                            )}
+
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+
+                                            {edicion.torneo.logo && (
+                                                <div className="absolute left-4 top-4 flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border border-white/30 bg-white/95 p-1.5 shadow-sm">
+                                                    <img src={edicion.torneo.logo} alt="" className="h-full w-full object-contain" />
+                                                </div>
+                                            )}
+
+                                            <div className="absolute inset-x-0 bottom-0 p-4">
                                                 {edicion.torneo.deporte && (
-                                                    <p className="mt-1 text-xs text-neutral">
+                                                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">
                                                         {edicion.torneo.deporte}
                                                     </p>
                                                 )}
-                                            </div>
 
-                                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-card text-neutral transition group-hover:bg-primary group-hover:text-white">
-                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" className="h-4 w-4 fill-current" aria-hidden="true">
-                                                    <path d="m647-440-224 224 57 56 320-320-320-320-57 56 224 224H160v80h487Z" />
-                                                </svg>
-                                            </span>
+                                                <p className="mt-1 line-clamp-2 text-lg font-bold leading-tight text-white">
+                                                    {edicion.torneo.nombre}
+                                                </p>
+                                            </div>
                                         </div>
 
-                                        {cierre && (
-                                            <p className="mt-4 border-t border-border pt-3 text-xs text-neutral">
-                                                Inscripcions fins al <span className="font-semibold text-neutral-titulos">{cierre}</span>
-                                            </p>
-                                        )}
+                                        {/* =====================================
+                                            DATOS
+                                        ====================================== */}
+
+                                        <div className="flex flex-1 flex-col p-5">
+                                            <div className="flex items-start justify-between gap-4">
+                                                <div className="min-w-0">
+                                                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+                                                        Edició
+                                                    </p>
+
+                                                    <h3 className="mt-1 text-lg font-bold text-neutral-titulos">
+                                                        {edicion.nombre}
+                                                    </h3>
+                                                </div>
+
+                                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-card text-neutral transition group-hover:bg-primary group-hover:text-white">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" className="h-5 w-5 fill-current" aria-hidden="true">
+                                                        <path d="m647-440-224 224 57 56 320-320-320-320-57 56 224 224H160v80h487Z" />
+                                                    </svg>
+                                                </span>
+                                            </div>
+
+                                            <div className="mt-auto pt-5">
+                                                {cierre && (
+                                                    <div className="flex items-start gap-2 border-t border-border pt-4 text-xs leading-5 text-neutral">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" className="mt-0.5 h-4 w-4 shrink-0 fill-primary" aria-hidden="true">
+                                                            <path d="M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-80h80v80h320v-80h80v80h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80H200Z" />
+                                                        </svg>
+
+                                                        <span>
+                                                            Inscripcions fins al{" "}
+                                                            <strong className="font-semibold text-neutral-titulos">
+                                                                {cierre}
+                                                            </strong>
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
                                     </a>
                                 );
                             },
@@ -2137,8 +2207,14 @@ function PantallaEdicionNoDisponible({
                     </div>
                 </section>
             ) : (
-                <div className="mt-6 rounded-2xl border border-dashed border-border bg-card/20 p-6 text-center">
-                    <p className="text-sm font-medium text-neutral">
+                <div className="mx-auto mt-8 max-w-2xl rounded-2xl border border-dashed border-border bg-card/20 p-8 text-center">
+                    <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-card text-neutral">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" className="h-5 w-5 fill-current" aria-hidden="true">
+                            <path d="M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h80v-80h80v80h240v-80h80v80h80q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80H200Z" />
+                        </svg>
+                    </span>
+
+                    <p className="mt-4 text-sm font-medium text-neutral">
                         No hi ha cap edició amb inscripcions obertes actualment.
                     </p>
                 </div>
