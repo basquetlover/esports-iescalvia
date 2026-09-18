@@ -921,10 +921,7 @@ const descripcionPagina =
 
         {
             edicion && (
-                <nav
-                    aria-label="Seccions del torneig"
-                    class="sticky top-0 z-30 w-full border-b border-border bg-background/95 backdrop-blur-md"
-                >
+                <nav aria-label="Seccions del torneig" class="sticky top-0 z-30 w-full border-b border-border bg-background/95 backdrop-blur-md">
                     <div class="mx-auto flex w-full max-w-6xl overflow-x-auto px-4 sm:px-6 lg:px-8">
 
                         <!-- RESUM -->
@@ -932,20 +929,13 @@ const descripcionPagina =
                         {
                             seccionActiva ===
                             "resum" ? (
-                                <a
-                                    href={`/tornejos/${torneo.id}`}
-                                    aria-current="page"
-                                    class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-semibold text-primary"
-                                >
+                                <a href={`/tornejos/${torneo.id}`} aria-current="page" class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-semibold text-primary">
                                     Resum
 
                                     <span class="absolute inset-x-4 bottom-0 h-0.5 rounded-full bg-primary"></span>
                                 </a>
                             ) : (
-                                <a
-                                    href={`/tornejos/${torneo.id}`}
-                                    class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-medium text-neutral transition hover:text-neutral-titulos"
-                                >
+                                <a href={`/tornejos/${torneo.id}`} class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-medium text-neutral transition hover:text-neutral-titulos">
                                     Resum
                                 </a>
                             )
@@ -958,20 +948,13 @@ const descripcionPagina =
                             (
                                 seccionActiva ===
                                 "informacio" ? (
-                                    <a
-                                        href={`/tornejos/${torneo.id}?seccio=informacio`}
-                                        aria-current="page"
-                                        class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-semibold text-primary"
-                                    >
+                                    <a href={`/tornejos/${torneo.id}?seccio=informacio`} aria-current="page" class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-semibold text-primary">
                                         Informació
 
                                         <span class="absolute inset-x-4 bottom-0 h-0.5 rounded-full bg-primary"></span>
                                     </a>
                                 ) : (
-                                    <a
-                                        href={`/tornejos/${torneo.id}?seccio=informacio`}
-                                        class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-medium text-neutral transition hover:text-neutral-titulos"
-                                    >
+                                    <a href={`/tornejos/${torneo.id}?seccio=informacio`} class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-medium text-neutral transition hover:text-neutral-titulos">
                                         Informació
                                     </a>
                                 )
@@ -985,20 +968,13 @@ const descripcionPagina =
                             (
                                 seccionActiva ===
                                 "inscripcio" ? (
-                                    <a
-                                        href={`/tornejos/${torneo.id}?seccio=inscripcio`}
-                                        aria-current="page"
-                                        class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-semibold text-primary"
-                                    >
+                                    <a href={`/tornejos/${torneo.id}?seccio=inscripcio`} aria-current="page" class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-semibold text-primary">
                                         Inscripció
 
                                         <span class="absolute inset-x-4 bottom-0 h-0.5 rounded-full bg-primary"></span>
                                     </a>
                                 ) : (
-                                    <a
-                                        href={`/tornejos/${torneo.id}?seccio=inscripcio`}
-                                        class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-medium text-neutral transition hover:text-neutral-titulos"
-                                    >
+                                    <a href={`/tornejos/${torneo.id}?seccio=inscripcio`} class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-medium text-neutral transition hover:text-neutral-titulos">
                                         Inscripció
                                     </a>
                                 )
@@ -1012,20 +988,13 @@ const descripcionPagina =
                             (
                                 seccionActiva ===
                                 "voluntariat" ? (
-                                    <a
-                                        href={`/tornejos/${torneo.id}?seccio=voluntariat`}
-                                        aria-current="page"
-                                        class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-semibold text-primary"
-                                    >
+                                    <a href={`/tornejos/${torneo.id}?seccio=voluntariat`} aria-current="page" class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-semibold text-primary">
                                         Voluntariat
 
                                         <span class="absolute inset-x-4 bottom-0 h-0.5 rounded-full bg-primary"></span>
                                     </a>
                                 ) : (
-                                    <a
-                                        href={`/tornejos/${torneo.id}?seccio=voluntariat`}
-                                        class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-medium text-neutral transition hover:text-neutral-titulos"
-                                    >
+                                    <a href={`/tornejos/${torneo.id}?seccio=voluntariat`} class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-medium text-neutral transition hover:text-neutral-titulos">
                                         Voluntariat
                                     </a>
                                 )
@@ -1094,6 +1063,9 @@ const descripcionPagina =
                                 "inscripcio" &&
                             mostrarInscripcion && (
                                 <Inscripcio
+                                    edicionID={
+                                        edicion.id
+                                    }
                                     configuracion={
                                         configuracion
                                             ?.equipos ??

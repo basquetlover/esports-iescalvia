@@ -8,6 +8,9 @@ type Props = {
 
     banner:
         string;
+
+    edicionID:
+        string;
 };
 
 type EstadoInscripcion =
@@ -42,6 +45,7 @@ const {
     configuracion,
     faq,
     banner,
+    edicionID,
 } =
     Astro.props as Props;
 
@@ -558,257 +562,209 @@ const preguntasFAQ:
         ================================================== -->
 
         <section class="relative overflow-hidden rounded-2xl bg-primary">
-    <div class="relative grid min-h-72 items-end gap-8 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_340px] lg:p-10">
-        <div>
-            {
-                estado ===
-                    "oberta" && (
-                    <span class="inline-flex rounded-full bg-emerald-500/90 px-3 py-1.5 text-xs font-semibold text-white">
-                        Obert
-                    </span>
-                )
-            }
+            <div class="relative grid min-h-72 items-end gap-8 p-6 sm:p-8 lg:grid-cols-[minmax(0,1fr)_340px] lg:p-10">
+                <div>
+                    {
+                        estado ===
+                            "oberta" && (
+                            <span class="inline-flex rounded-full bg-emerald-500/90 px-3 py-1.5 text-xs font-semibold text-white">
+                                Obert
+                            </span>
+                        )
+                    }
 
-            {
-                estado ===
-                    "proximament" && (
-                    <span class="inline-flex rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white">
-                        Pròximament
-                    </span>
-                )
-            }
+                    {
+                        estado ===
+                            "proximament" && (
+                            <span class="inline-flex rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white">
+                                Pròximament
+                            </span>
+                        )
+                    }
 
-            {
-                estado ===
-                    "tancada" && (
-                    <span class="inline-flex rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white">
-                        Tancat
-                    </span>
-                )
-            }
+                    {
+                        estado ===
+                            "tancada" && (
+                            <span class="inline-flex rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white">
+                                Tancat
+                            </span>
+                        )
+                    }
 
-            {
-                estado ===
-                    "sense_dates" && (
-                    <span class="inline-flex rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white">
-                        Inscripció
-                    </span>
-                )
-            }
+                    {
+                        estado ===
+                            "sense_dates" && (
+                            <span class="inline-flex rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white">
+                                Inscripció
+                            </span>
+                        )
+                    }
 
-            <h2 class="mt-5 text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                {
-                    estado ===
-                        "oberta"
-                        ? "Inscripcions Obertes"
-                        : estado ===
-                            "proximament"
-                          ? "Inscripcions pròximament"
-                          : estado ===
-                                "tancada"
-                            ? "Inscripcions tancades"
-                            : "Inscripció d'equips"
-                }
-            </h2>
+                    <h2 class="mt-5 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                        {
+                            estado ===
+                                "oberta"
+                                ? "Inscripcions Obertes"
+                                : estado ===
+                                    "proximament"
+                                  ? "Inscripcions pròximament"
+                                  : estado ===
+                                        "tancada"
+                                    ? "Inscripcions tancades"
+                                    : "Inscripció d'equips"
+                        }
+                    </h2>
 
-            <p class="mt-3 max-w-2xl text-sm leading-6 text-white/80 sm:text-base sm:leading-7">
-                Prepara el teu equip i participa en aquesta edició del torneig.
-            </p>
+                    <p class="mt-3 max-w-2xl text-sm leading-6 text-white/80 sm:text-base sm:leading-7">
+                        Prepara el teu equip i participa en aquesta edició del torneig.
+                    </p>
 
-            {
-                estado ===
-                    "oberta" && (
-                    <a
-                        href={`/inscripcio?`}
-                        class="mt-6 inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-primary transition hover:bg-white/90"
-                    >
-                        Inscriure el meu equip
+                    {
+                        estado ===
+                            "oberta" && (
+                            <a href={`/inscripcio?edicionID=${encodeURIComponent(edicionID)}`} class="mt-6 inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-primary transition hover:bg-white/90">
+                                Inscriure el meu equip
 
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="1.8"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            class="h-4 w-4"
-                            aria-hidden="true"
-                        >
-                            <path d="M5 12h14"></path>
-                            <path d="m13 6 6 6-6 6"></path>
-                        </svg>
-                    </a>
-                )
-            }
-        </div>
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true">
+                                    <path d="M5 12h14"></path>
+                                    <path d="m13 6 6 6-6 6"></path>
+                                </svg>
+                            </a>
+                        )
+                    }
+                </div>
 
-        <div class="hidden justify-end lg:flex">
-    {
-        estado === "oberta" && fechaCierre ? (
-            <div
-                data-countdown
-                data-target={fechaCierre.toISOString()}
-                class="w-full max-w-sm rounded-2xl border border-white/15 bg-white/10 p-5 text-white backdrop-blur-sm"
-            >
-                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-white/60">
-                    Temps restant
-                </p>
+                <div class="hidden justify-end lg:flex">
+                    {
+                        estado === "oberta" && fechaCierre ? (
+                            <div data-countdown data-target={fechaCierre.toISOString()} class="w-full max-w-sm rounded-2xl border border-white/15 bg-white/10 p-5 text-white backdrop-blur-sm">
+                                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-white/60">
+                                    Temps restant
+                                </p>
 
-                <p class="mt-1 text-sm font-medium text-white/80">
-                    Fins al tancament de les inscripcions
-                </p>
+                                <p class="mt-1 text-sm font-medium text-white/80">
+                                    Fins al tancament de les inscripcions
+                                </p>
 
-                <div class="mt-5 grid grid-cols-4 gap-2">
-                    <div class="rounded-xl bg-black/15 px-2 py-3 text-center">
-                        <span
-                            data-days
-                            class="block text-2xl font-bold tracking-tight text-white"
-                        >
-                            00
-                        </span>
+                                <div class="mt-5 grid grid-cols-4 gap-2">
+                                    <div class="rounded-xl bg-black/15 px-2 py-3 text-center">
+                                        <span data-days class="block text-2xl font-bold tracking-tight text-white">
+                                            00
+                                        </span>
 
-                        <span class="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-white/55">
-                            Dies
-                        </span>
-                    </div>
+                                        <span class="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-white/55">
+                                            Dies
+                                        </span>
+                                    </div>
 
-                    <div class="rounded-xl bg-black/15 px-2 py-3 text-center">
-                        <span
-                            data-hours
-                            class="block text-2xl font-bold tracking-tight text-white"
-                        >
-                            00
-                        </span>
+                                    <div class="rounded-xl bg-black/15 px-2 py-3 text-center">
+                                        <span data-hours class="block text-2xl font-bold tracking-tight text-white">
+                                            00
+                                        </span>
 
-                        <span class="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-white/55">
-                            Hores
-                        </span>
-                    </div>
+                                        <span class="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-white/55">
+                                            Hores
+                                        </span>
+                                    </div>
 
-                    <div class="rounded-xl bg-black/15 px-2 py-3 text-center">
-                        <span
-                            data-minutes
-                            class="block text-2xl font-bold tracking-tight text-white"
-                        >
-                            00
-                        </span>
+                                    <div class="rounded-xl bg-black/15 px-2 py-3 text-center">
+                                        <span data-minutes class="block text-2xl font-bold tracking-tight text-white">
+                                            00
+                                        </span>
 
-                        <span class="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-white/55">
-                            Min
-                        </span>
-                    </div>
+                                        <span class="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-white/55">
+                                            Min
+                                        </span>
+                                    </div>
 
-                    <div class="rounded-xl bg-black/15 px-2 py-3 text-center">
-                        <span
-                            data-seconds
-                            class="block text-2xl font-bold tracking-tight text-white"
-                        >
-                            00
-                        </span>
+                                    <div class="rounded-xl bg-black/15 px-2 py-3 text-center">
+                                        <span data-seconds class="block text-2xl font-bold tracking-tight text-white">
+                                            00
+                                        </span>
 
-                        <span class="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-white/55">
-                            Seg
-                        </span>
-                    </div>
+                                        <span class="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-white/55">
+                                            Seg
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : estado === "proximament" && fechaApertura ? (
+                            <div data-countdown data-target={fechaApertura.toISOString()} class="w-full max-w-sm rounded-2xl border border-white/15 bg-white/10 p-5 text-white backdrop-blur-sm">
+                                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-white/60">
+                                    Comença en
+                                </p>
+
+                                <p class="mt-1 text-sm font-medium text-white/80">
+                                    Temps fins a l'obertura de les inscripcions
+                                </p>
+
+                                <div class="mt-5 grid grid-cols-4 gap-2">
+                                    <div class="rounded-xl bg-black/15 px-2 py-3 text-center">
+                                        <span data-days class="block text-2xl font-bold tracking-tight text-white">
+                                            00
+                                        </span>
+
+                                        <span class="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-white/55">
+                                            Dies
+                                        </span>
+                                    </div>
+
+                                    <div class="rounded-xl bg-black/15 px-2 py-3 text-center">
+                                        <span data-hours class="block text-2xl font-bold tracking-tight text-white">
+                                            00
+                                        </span>
+
+                                        <span class="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-white/55">
+                                            Hores
+                                        </span>
+                                    </div>
+
+                                    <div class="rounded-xl bg-black/15 px-2 py-3 text-center">
+                                        <span data-minutes class="block text-2xl font-bold tracking-tight text-white">
+                                            00
+                                        </span>
+
+                                        <span class="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-white/55">
+                                            Min
+                                        </span>
+                                    </div>
+
+                                    <div class="rounded-xl bg-black/15 px-2 py-3 text-center">
+                                        <span data-seconds class="block text-2xl font-bold tracking-tight text-white">
+                                            00
+                                        </span>
+
+                                        <span class="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-white/55">
+                                            Seg
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : estado === "tancada" ? (
+                            <div class="w-full max-w-sm rounded-2xl border border-white/15 bg-white/10 p-5 text-white backdrop-blur-sm">
+                                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-white/60">
+                                    Inscripció
+                                </p>
+
+                                <p class="mt-3 text-2xl font-bold tracking-tight text-white">
+                                    Termini finalitzat
+                                </p>
+
+                                <p class="mt-2 text-sm leading-6 text-white/70">
+                                    El període d'inscripció d'aquesta edició ja ha finalitzat.
+                                </p>
+                            </div>
+                        ) : null
+                    }
                 </div>
             </div>
-        ) : estado === "proximament" && fechaApertura ? (
-            <div
-                data-countdown
-                data-target={fechaApertura.toISOString()}
-                class="w-full max-w-sm rounded-2xl border border-white/15 bg-white/10 p-5 text-white backdrop-blur-sm"
-            >
-                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-white/60">
-                    Comença en
-                </p>
-
-                <p class="mt-1 text-sm font-medium text-white/80">
-                    Temps fins a l'obertura de les inscripcions
-                </p>
-
-                <div class="mt-5 grid grid-cols-4 gap-2">
-                    <div class="rounded-xl bg-black/15 px-2 py-3 text-center">
-                        <span
-                            data-days
-                            class="block text-2xl font-bold tracking-tight text-white"
-                        >
-                            00
-                        </span>
-
-                        <span class="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-white/55">
-                            Dies
-                        </span>
-                    </div>
-
-                    <div class="rounded-xl bg-black/15 px-2 py-3 text-center">
-                        <span
-                            data-hours
-                            class="block text-2xl font-bold tracking-tight text-white"
-                        >
-                            00
-                        </span>
-
-                        <span class="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-white/55">
-                            Hores
-                        </span>
-                    </div>
-
-                    <div class="rounded-xl bg-black/15 px-2 py-3 text-center">
-                        <span
-                            data-minutes
-                            class="block text-2xl font-bold tracking-tight text-white"
-                        >
-                            00
-                        </span>
-
-                        <span class="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-white/55">
-                            Min
-                        </span>
-                    </div>
-
-                    <div class="rounded-xl bg-black/15 px-2 py-3 text-center">
-                        <span
-                            data-seconds
-                            class="block text-2xl font-bold tracking-tight text-white"
-                        >
-                            00
-                        </span>
-
-                        <span class="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-white/55">
-                            Seg
-                        </span>
-                    </div>
-                </div>
-            </div>
-        ) : estado === "tancada" ? (
-            <div class="w-full max-w-sm rounded-2xl border border-white/15 bg-white/10 p-5 text-white backdrop-blur-sm">
-                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-white/60">
-                    Inscripció
-                </p>
-
-                <p class="mt-3 text-2xl font-bold tracking-tight text-white">
-                    Termini finalitzat
-                </p>
-
-                <p class="mt-2 text-sm leading-6 text-white/70">
-                    El període d'inscripció d'aquesta edició ja ha finalitzat.
-                </p>
-            </div>
-        ) : null
-    }
-</div>
-    </div>
-</section>
+        </section>
 
         <!-- =================================================
             REQUISITOS
         ================================================== -->
 
-        <section
-            id="requisits"
-            class="grid scroll-mt-24 grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]"
-        >
+        <section id="requisits" class="grid scroll-mt-24 grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
             <div>
                 <p class="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
                     Participació
@@ -829,17 +785,7 @@ const preguntasFAQ:
 
                     <div class="flex items-start gap-4 border-b border-border p-5">
                         <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="1.7"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                class="h-5 w-5"
-                                aria-hidden="true"
-                            >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
                                 <circle cx="9" cy="8" r="3"></circle>
                                 <circle cx="17" cy="9" r="2.5"></circle>
                                 <path d="M3.5 20v-1a5.5 5.5 0 0 1 11 0v1"></path>
@@ -862,17 +808,7 @@ const preguntasFAQ:
 
                     <div class="flex items-start gap-4 border-b border-border p-5">
                         <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="1.7"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                class="h-5 w-5"
-                                aria-hidden="true"
-                            >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
                                 <circle cx="8.5" cy="8.5" r="3.5"></circle>
                                 <circle cx="15.5" cy="15.5" r="3.5"></circle>
                                 <path d="m11 11 2 2"></path>
@@ -903,17 +839,7 @@ const preguntasFAQ:
 
                     <div class="flex items-start gap-4 border-b border-border p-5">
                         <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="1.7"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                class="h-5 w-5"
-                                aria-hidden="true"
-                            >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
                                 <path d="M3 4h18v12H3z"></path>
                                 <path d="M8 20h8"></path>
                                 <path d="M12 16v4"></path>
@@ -955,17 +881,7 @@ const preguntasFAQ:
 
                     <div class="flex items-start gap-4 border-b border-border p-5">
                         <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="1.7"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                class="h-5 w-5"
-                                aria-hidden="true"
-                            >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
                                 <circle cx="9" cy="7" r="3"></circle>
                                 <path d="M3 20v-1a6 6 0 0 1 12 0v1"></path>
                                 <path d="M17 6h4"></path>
@@ -996,17 +912,7 @@ const preguntasFAQ:
 
                     <div class="flex items-start gap-4 p-5">
                         <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="1.7"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                class="h-5 w-5"
-                                aria-hidden="true"
-                            >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
                                 <circle cx="8" cy="8" r="3"></circle>
                                 <path d="M3 20v-1a5 5 0 0 1 10 0v1"></path>
                                 <path d="M16 8h5"></path>
@@ -1033,17 +939,7 @@ const preguntasFAQ:
 
             <aside class="h-max rounded-2xl border border-border bg-card/50 p-5 lg:sticky lg:top-24">
                 <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="1.7"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        class="h-5 w-5"
-                        aria-hidden="true"
-                    >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true">
                         <rect x="3" y="5" width="18" height="16" rx="2"></rect>
                         <path d="M16 3v4"></path>
                         <path d="M8 3v4"></path>
@@ -1153,16 +1049,7 @@ const preguntasFAQ:
 
                 <article class="rounded-2xl border border-border bg-card/40 p-5">
                     <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="1.7"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            class="h-5 w-5"
-                        >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
                             <circle cx="12" cy="12" r="9"></circle>
                             <path d="m8 12 2.5 2.5L16 9"></path>
                         </svg>
@@ -1180,16 +1067,7 @@ const preguntasFAQ:
 
                 <article class="rounded-2xl border border-border bg-card/40 p-5">
                     <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="1.7"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            class="h-5 w-5"
-                        >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
                             <path d="M8 3h8"></path>
                             <path d="M9 3v3"></path>
                             <path d="M15 3v3"></path>
@@ -1211,16 +1089,7 @@ const preguntasFAQ:
 
                 <article class="rounded-2xl border border-border bg-card/40 p-5">
                     <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="1.7"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            class="h-5 w-5"
-                        >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5">
                             <circle cx="12" cy="12" r="9"></circle>
                             <path d="M12 7v5l3 2"></path>
                         </svg>
@@ -1248,16 +1117,7 @@ const preguntasFAQ:
                 <section class="rounded-3xl border border-primary/20 bg-primary/5 p-6 sm:p-8">
                     <div class="flex flex-col gap-5 sm:flex-row sm:items-start">
                         <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary text-white">
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="1.8"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                class="h-6 w-6"
-                            >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6">
                                 <circle cx="8" cy="8" r="3"></circle>
                                 <circle cx="16" cy="8" r="3"></circle>
                                 <path d="M2.5 20a5.5 5.5 0 0 1 11 0"></path>
@@ -1412,16 +1272,7 @@ const preguntasFAQ:
                                             </span>
 
                                             <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-card text-neutral transition group-open:rotate-180">
-                                                <svg
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    viewBox="0 0 24 24"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    stroke-width="1.8"
-                                                    stroke-linecap="round"
-                                                    stroke-linejoin="round"
-                                                    class="h-4 w-4"
-                                                >
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">
                                                     <path d="m6 9 6 6 6-6"></path>
                                                 </svg>
                                             </span>
