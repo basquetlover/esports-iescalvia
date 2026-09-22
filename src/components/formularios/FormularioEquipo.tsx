@@ -2122,7 +2122,7 @@ function PantallaEdicionNoDisponible({
                                     );
 
                                 return (
-                                    <a key={edicion.id} href={`/inscripcio?edicionID=${encodeURIComponent(edicion.id)}`} className="group flex min-h-[350px] flex-col overflow-hidden rounded-2xl border border-border bg-background transition duration-200 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
+                                    <a key={edicion.id} href={`/inscripcio?edicionID=${encodeURIComponent(edicion.id)}`} className="group flex min-h-87.5 flex-col overflow-hidden rounded-2xl border border-border bg-background transition duration-200 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
 
                                         {/* =====================================
                                             BANNER
@@ -2139,7 +2139,7 @@ function PantallaEdicionNoDisponible({
                                                 </div>
                                             )}
 
-                                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+                                            <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/10 to-transparent" />
 
                                             {edicion.torneo.logo && (
                                                 <div className="absolute left-4 top-4 flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border border-white/30 bg-white/95 p-1.5 shadow-sm">

@@ -728,9 +728,9 @@ export default function PasoFAQ({
                                                             aria-hidden="true"
                                                             className={`
                                                                 absolute
-                                                                top-[2px]
-                                                                h-[18px]
-                                                                w-[18px]
+                                                                top-0.5
+                                                                h-4.5
+                                                                w-4.5
                                                                 rounded-full
                                                                 bg-white
                                                                 shadow-sm
@@ -738,8 +738,8 @@ export default function PasoFAQ({
 
                                                                 ${
                                                                     pregunta.activo
-                                                                        ? "left-[21px]"
-                                                                        : "left-[2px]"
+                                                                        ? "left-5.25"
+                                                                        : "left-0.5"
                                                                 }
                                                             `}
                                                         />

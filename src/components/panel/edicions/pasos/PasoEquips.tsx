@@ -1266,7 +1266,7 @@ function Interruptor({
                 }
                 className={`relative mt-0.5 h-6 w-11 shrink-0 rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-50 ${activo ? "border-primary bg-primary" : "border-border bg-muted/40"}`}
             >
-                <span aria-hidden="true" className={`absolute top-[2px] h-[18px] w-[18px] rounded-full bg-white shadow-sm transition-all ${activo ? "left-[21px]" : "left-[2px]"}`} />
+                <span aria-hidden="true" className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-white shadow-sm transition-all ${activo ? "left-5.25" : "left-0.5"}`} />
             </button>
         </div>
     );
