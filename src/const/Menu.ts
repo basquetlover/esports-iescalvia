@@ -41,7 +41,7 @@ export const MENU_PERFIL = [
     {
         nombre: 'Les meves inscripcions',
         enlace: `/perfil/inscripcions`,
-        estado: 'Pròximament',
+        estado: 'Activa',
         icono: '<path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h168q13-36 43.5-58t68.5-22 68.5 22 43.5 58h168q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120zm0-80h560v-560H200zm80-80h280v-80H280zm0-160h400v-80H280zm0-160h400v-80H280zm221.5-198.5Q510-807 510-820t-8.5-21.5T480-850t-21.5 8.5T450-820t8.5 21.5T480-790t21.5-8.5M200-200v-560z"/>',
     },
     {

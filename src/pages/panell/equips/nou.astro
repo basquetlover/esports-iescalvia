@@ -1,0 +1,156 @@
+---
+import Crear from "@components/panel/equips/Crear";
+import Error404 from "@components/panel/Error404.astro";
+import LayoutPanel from "@layouts/LayoutPanel.astro";
+
+export const prerender = false;
+
+Astro.response.headers.set(
+    "Cache-Control",
+    "private, no-store",
+);
+
+// ============================================================
+// PARÁMETROS
+// ============================================================
+
+const torneoID =
+    Astro.url.searchParams
+        .get("torneoID")
+        ?.trim()
+        .toLowerCase() ??
+    "";
+
+const edicionID =
+    Astro.url.searchParams
+        .get("edicionID")
+        ?.trim()
+        .toLowerCase() ??
+    "";
+
+// ============================================================
+// VALIDACIÓN
+// ============================================================
+
+const UUID =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const torneoValido =
+    UUID.test(
+        torneoID,
+    );
+
+const edicionValida =
+    UUID.test(
+        edicionID,
+    );
+
+const parametrosValidos =
+    torneoValido &&
+    edicionValida;
+
+if (
+    !parametrosValidos
+) {
+    Astro.response.status =
+        404;
+}
+
+// ============================================================
+// ENLACES
+// ============================================================
+
+const parametrosRetorno =
+    parametrosValidos
+        ? new URLSearchParams({
+              torneoID,
+              edicionID,
+          })
+        : null;
+
+const volver =
+    parametrosRetorno
+        ? `/panell/equips?${parametrosRetorno.toString()}`
+        : "/panell";
+---
+
+<LayoutPanel title="Crear equip" seccion="equips" accion="crear">
+    {
+        parametrosValidos ? (
+            <div class="min-h-full w-full bg-background pb-10">
+                <header class="border-b border-border/50 bg-card/40">
+                    <div class="mx-auto flex w-full max-w-[1600px] flex-wrap items-center justify-between gap-3 px-4 py-3 md:px-6">
+                        <nav aria-label="Fil d'Ariadna">
+                            <ol class="flex flex-wrap items-center gap-2 text-xs text-neutral">
+                                <li>
+                                    <a href="/panell" class="rounded transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                                        Panell d'administració
+                                    </a>
+                                </li>
+
+                                <li aria-hidden="true" class="text-neutral/40">
+                                    /
+                                </li>
+
+                                <li>
+                                    <a href={volver} class="rounded transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                                        Equips i participants
+                                    </a>
+                                </li>
+
+                                <li aria-hidden="true" class="text-neutral/40">
+                                    /
+                                </li>
+
+                                <li aria-current="page" class="font-semibold text-neutral-titulos">
+                                    Crear equip
+                                </li>
+                            </ol>
+                        </nav>
+
+                        <a href={volver} class="inline-flex items-center gap-2 rounded-lg border border-border/50 bg-card px-3 py-2 text-xs font-semibold text-neutral-titulos transition hover:border-primary/25 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5" aria-hidden="true">
+                                <path d="m12 19-7-7 7-7"></path>
+                                <path d="M5 12h14"></path>
+                            </svg>
+
+                            Tornar als equips
+                        </a>
+                    </div>
+                </header>
+
+                <main class="mx-auto w-full max-w-[1600px] px-4 py-5 md:px-6 md:py-6">
+                    <div class="mb-6">
+                        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+                            Gestió administrativa
+                        </p>
+
+                        <h1 class="mt-1 text-3xl font-bold tracking-tight text-neutral-titulos max-md:text-2xl">
+                            Crear un equip
+                        </h1>
+
+                        <p class="mt-2 max-w-3xl text-sm leading-6 text-neutral">
+                            Crea manualment una inscripció d'equip, afegeix els participants, selecciona el capità i defineix el responsable de la inscripció.
+                        </p>
+                    </div>
+
+                    <Crear torneoID={torneoID} edicionID={edicionID} volver={volver} client:load />
+
+                    <noscript>
+                        <div role="alert" class="rounded-2xl border border-border bg-card p-6">
+                            <h2 class="text-lg font-semibold text-neutral-titulos">
+                                JavaScript necessari
+                            </h2>
+
+                            <p class="mt-2 text-sm leading-6 text-neutral">
+                                Necessites activar JavaScript per crear un equip des del panell d'administració.
+                            </p>
+                        </div>
+                    </noscript>
+                </main>
+            </div>
+        ) : (
+            <Error404 atras="/panell" inicio="/panell" />
+        )
+    }
+</LayoutPanel>

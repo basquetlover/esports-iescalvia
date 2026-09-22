@@ -1,0 +1,328 @@
+---
+type ArticleNormativa = {
+    numero: string;
+    texto: string;
+};
+
+type ApartatNormativa = {
+    numero: number;
+    titulo: string;
+    articulos: ArticleNormativa[];
+};
+
+type Props = {
+    normativa: string | null;
+};
+
+const { normativa } = Astro.props as Props;
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function esRegistro(
+    valor: unknown,
+): valor is Record<string, unknown> {
+    return (
+        valor !== null &&
+        typeof valor === "object" &&
+        !Array.isArray(valor)
+    );
+}
+
+function normalizarNormativa(
+    valor: string | null,
+): ApartatNormativa[] {
+    const contenido =
+        valor?.trim() ??
+        "";
+
+    if (!contenido) {
+        return [];
+    }
+
+    try {
+        const parsed: unknown =
+            JSON.parse(contenido);
+
+        if (!Array.isArray(parsed)) {
+            throw new Error("Format antic");
+        }
+
+        const apartados: ApartatNormativa[] = [];
+
+        for (
+            let indiceApartado = 0;
+            indiceApartado < parsed.length;
+            indiceApartado += 1
+        ) {
+            const apartado =
+                parsed[indiceApartado];
+
+            if (!esRegistro(apartado)) {
+                continue;
+            }
+
+            const titulo =
+                typeof apartado.titulo === "string"
+                    ? apartado.titulo.trim()
+                    : "";
+
+            if (!titulo) {
+                continue;
+            }
+
+            const articulos: ArticleNormativa[] = [];
+
+            if (Array.isArray(apartado.articulos)) {
+                for (
+                    let indiceArticulo = 0;
+                    indiceArticulo < apartado.articulos.length;
+                    indiceArticulo += 1
+                ) {
+                    const articulo =
+                        apartado.articulos[indiceArticulo];
+
+                    if (!esRegistro(articulo)) {
+                        continue;
+                    }
+
+                    const texto =
+                        typeof articulo.texto === "string"
+                            ? articulo.texto.trim()
+                            : "";
+
+                    if (!texto) {
+                        continue;
+                    }
+
+                    const numero =
+                        typeof articulo.numero === "string" &&
+                        articulo.numero.trim()
+                            ? articulo.numero.trim()
+                            : `${indiceApartado + 1}.${indiceArticulo + 1}`;
+
+                    articulos.push({
+                        numero,
+                        texto,
+                    });
+                }
+            }
+
+            apartados.push({
+                numero:
+                    typeof apartado.numero === "number" &&
+                    Number.isFinite(apartado.numero)
+                        ? apartado.numero
+                        : indiceApartado + 1,
+
+                titulo,
+                articulos,
+            });
+        }
+
+        return apartados;
+    } catch {
+        return [
+            {
+                numero: 1,
+                titulo: "Normativa general",
+                articulos: [
+                    {
+                        numero: "1.1",
+                        texto: contenido,
+                    },
+                ],
+            },
+        ];
+    }
+}
+
+const apartados =
+    normalizarNormativa(normativa);
+
+const totalArticulos =
+    apartados.reduce(
+        (total, apartado) =>
+            total + apartado.articulos.length,
+        0,
+    );
+---
+
+<section class="w-full bg-background">
+    <div class="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+
+        <!-- CABECERA -->
+
+        <div class="max-w-3xl">
+            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-6 w-6 fill-current" aria-hidden="true">
+                    <path d="M160-120v-80h480v80H160Zm226-194L160-540l84-86 228 226-86 86Zm254-254L414-796l86-84 226 226-86 86Zm184 408L302-682l56-56 522 522-56 56Z"></path>
+                </svg>
+            </div>
+
+            <p class="mt-5 text-sm font-semibold uppercase tracking-[0.16em] text-primary">
+                Reglament
+            </p>
+
+            <h2 class="mt-2 text-3xl font-bold tracking-tight text-neutral-titulos sm:text-4xl">
+                Normativa del torneig
+            </h2>
+
+            <p class="mt-4 max-w-2xl text-base leading-7 text-neutral">
+                Consulta les normes generals que regulen la participació i el desenvolupament d'aquest torneig.
+            </p>
+
+            {
+                apartados.length > 0 && (
+                    <div class="mt-5 flex flex-wrap items-center gap-2 text-xs text-neutral">
+                        <span class="rounded-full border border-border bg-card px-3 py-1.5 font-medium">
+                            {apartados.length} {apartados.length === 1 ? "apartat" : "apartats"}
+                        </span>
+
+                        <span class="rounded-full border border-border bg-card px-3 py-1.5 font-medium">
+                            {totalArticulos} {totalArticulos === 1 ? "article" : "articles"}
+                        </span>
+                    </div>
+                )
+            }
+        </div>
+
+        {
+            apartados.length > 0 ? (
+                <div class="mt-10 grid items-start gap-8 lg:grid-cols-[250px_minmax(0,1fr)]">
+
+                    <!-- ÍNDICE -->
+
+                    <aside class="hidden lg:block">
+                        <div class="sticky top-20 overflow-hidden rounded-2xl border border-border bg-card">
+                            <div class="border-b border-border px-5 py-4">
+                                <p class="text-xs font-semibold uppercase tracking-[0.14em] text-neutral/70">
+                                    Contingut
+                                </p>
+                            </div>
+
+                            <nav aria-label="Índex de la normativa" class="p-2">
+                                {
+                                    apartados.map(
+                                        (
+                                            apartado,
+                                            indice,
+                                        ) => (
+                                            <a href={`#normativa-${indice + 1}`} class="group flex items-start gap-3 rounded-xl px-3 py-3 text-sm transition hover:bg-background">
+                                                <span class="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 px-1.5 text-[11px] font-bold text-primary">
+                                                    {apartado.numero}
+                                                </span>
+
+                                                <span class="min-w-0 leading-5 text-neutral transition group-hover:text-neutral-titulos">
+                                                    {apartado.titulo}
+                                                </span>
+                                            </a>
+                                        ),
+                                    )
+                                }
+                            </nav>
+                        </div>
+                    </aside>
+
+                    <!-- CONTENIDO -->
+
+                    <div class="min-w-0 space-y-6">
+                        {
+                            apartados.map(
+                                (
+                                    apartado,
+                                    indiceApartado,
+                                ) => (
+                                    <article id={`normativa-${indiceApartado + 1}`} class="scroll-mt-24 overflow-hidden rounded-2xl border border-border bg-card">
+                                        <header class="border-b border-border bg-primary/5 px-5 py-5 sm:px-7">
+                                            <div class="flex items-start gap-4">
+                                                <span class="flex h-10 min-w-10 shrink-0 items-center justify-center rounded-xl bg-primary px-2 text-sm font-bold text-white">
+                                                    {apartado.numero}
+                                                </span>
+
+                                                <div class="min-w-0 pt-1">
+                                                    <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+                                                        Apartat {apartado.numero}
+                                                    </p>
+
+                                                    <h3 class="mt-1 text-xl font-bold leading-snug text-neutral-titulos sm:text-2xl">
+                                                        {apartado.titulo}
+                                                    </h3>
+                                                </div>
+                                            </div>
+                                        </header>
+
+                                        {
+                                            apartado.articulos.length > 0 ? (
+                                                <div class="divide-y divide-border">
+                                                    {
+                                                        apartado.articulos.map(
+                                                            articulo => (
+                                                                <section class="px-5 py-6 sm:px-7 sm:py-7">
+                                                                    <div class="flex items-start gap-4">
+                                                                        <span class="mt-0.5 shrink-0 rounded-lg bg-background px-2.5 py-1.5 text-xs font-bold text-primary">
+                                                                            {articulo.numero}
+                                                                        </span>
+
+                                                                        <p class="min-w-0 whitespace-pre-line text-sm leading-7 text-neutral sm:text-base sm:leading-8">
+                                                                            {articulo.texto}
+                                                                        </p>
+                                                                    </div>
+                                                                </section>
+                                                            ),
+                                                        )
+                                                    }
+                                                </div>
+                                            ) : (
+                                                <div class="px-5 py-8 sm:px-7">
+                                                    <p class="text-sm leading-6 text-neutral">
+                                                        Aquest apartat encara no conté cap article.
+                                                    </p>
+                                                </div>
+                                            )
+                                        }
+                                    </article>
+                                ),
+                            )
+                        }
+
+                        <div class="flex items-start gap-4 rounded-2xl border border-border bg-background p-5 sm:p-6">
+                            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-5 w-5 fill-current" aria-hidden="true">
+                                    <path d="M440-280h80v-240h-80v240Zm40-320q17 0 28.5-11.5T520-640q0-17-11.5-28.5T480-680q-17 0-28.5 11.5T440-640q0 17 11.5 28.5T480-600Zm0 520q-83 0-156-31.5T197-197t-85.5-127T80-480t31.5-156T197-763t127-85.5T480-880t156 31.5T763-763t85.5 127T880-480t-31.5 156T763-197t-127 85.5T480-80Z"></path>
+                                </svg>
+                            </span>
+
+                            <div>
+                                <h3 class="text-sm font-semibold text-neutral-titulos">
+                                    Compliment de la normativa
+                                </h3>
+
+                                <p class="mt-1 text-sm leading-6 text-neutral">
+                                    La participació en el torneig implica el coneixement i l'acceptació de la normativa publicada per l'organització.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                <div class="mt-10 rounded-2xl border border-dashed border-border bg-card/40 px-6 py-12 text-center">
+                    <span class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-6 w-6 fill-current" aria-hidden="true">
+                            <path d="M280-120q-33 0-56.5-23.5T200-200v-560q0-33 23.5-56.5T280-840h280l200 200v440q0 33-23.5 56.5T680-120H280Zm240-480h160L520-760v160ZM360-320h240v-80H360v80Zm0-160h240v-80H360v80Z"></path>
+                        </svg>
+                    </span>
+
+                    <h3 class="mt-4 text-lg font-semibold text-neutral-titulos">
+                        Encara no hi ha normativa publicada
+                    </h3>
+
+                    <p class="mx-auto mt-2 max-w-lg text-sm leading-6 text-neutral">
+                        L'organització encara no ha publicat la normativa base d'aquest torneig.
+                    </p>
+                </div>
+            )
+        }
+    </div>
+</section>

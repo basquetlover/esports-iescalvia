@@ -1,0 +1,55 @@
+---
+import Lista from "@components/panel/equips/Lista";
+import LayoutPanel from "@layouts/LayoutPanel.astro";
+
+export const prerender = false;
+
+Astro.response.headers.set(
+    "Cache-Control",
+    "private, no-store",
+);
+
+const torneoID =
+    Astro.url.searchParams
+        .get("torneoID")
+        ?.trim() ??
+    "";
+
+const edicionID =
+    Astro.url.searchParams
+        .get("edicionID")
+        ?.trim() ??
+    "";
+
+if (
+    !torneoID ||
+    !edicionID
+) {
+    return Astro.redirect(
+        "/panell",
+        303,
+    );
+}
+---
+
+<LayoutPanel title="Equips i participants" seccion="equips" accion="ver">
+    <div class="w-full p-4">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+                    Edició seleccionada
+                </p>
+
+                <h1 class="mt-1 text-3xl font-bold tracking-tight text-neutral-titulos max-md:text-2xl">
+                    Equips i participants
+                </h1>
+
+                <p class="mt-1 max-w-2xl text-sm leading-6 text-neutral">
+                    Consulta les inscripcions d'equips, revisa el seu estat i accedeix a la informació dels participants.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <Lista torneoID={torneoID} edicionID={edicionID} client:load />
+</LayoutPanel>

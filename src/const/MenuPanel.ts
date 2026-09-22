@@ -148,7 +148,7 @@ export const MENU_PANEL_TORNEO: GrupoMenuPanel[] = [
                     "equips",
 
                 estado:
-                    "Pròximament",
+                    "Activa",
 
                 contexto:
                     "edicion",

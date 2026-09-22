@@ -5,170 +5,74 @@ import Resum from "@components/tornejos/seccions/Resum.astro";
 import Informacio from "@components/tornejos/seccions/Informacio.astro";
 import Inscripcio from "@components/tornejos/seccions/Inscripcio.astro";
 import Voluntariat from "@components/tornejos/seccions/Voluntariat.astro";
+import Normativa from "@components/tornejos/seccions/Normativa.astro";
 
-import {
-    supabaseAdmin,
-} from "@utils/supabase";
+import { supabaseAdmin } from "@utils/supabase";
 
-export const prerender =
-    false;
+export const prerender = false;
 
 // ============================================================
 // TIPOS
 // ============================================================
 
 type Torneo = {
-    id:
-        string;
-
-    nombre:
-        string;
-
-    banner:
-        string;
-
-    deporte:
-        string;
-
-    descripcion:
-        string;
-
-    normativa_base:
-        string | null;
+    id: string;
+    nombre: string;
+    banner: string;
+    deporte: string;
+    descripcion: string;
+    normativa_base: string | null;
 };
 
 type Edicion = {
-    id:
-        string;
-
-    torneo_id:
-        string;
-
-    nombre:
-        string;
-
-    fecha_inicio:
-        string | null;
-
-    fecha_fin:
-        string | null;
-
-    estado:
-        string;
-
-    sede:
-        string;
+    id: string;
+    torneo_id: string;
+    nombre: string;
+    fecha_inicio: string | null;
+    fecha_fin: string | null;
+    estado: string;
+    sede: string;
 };
 
 type ConfiguracionEdicion = {
-    equipos:
-        unknown;
-
-    voluntarios:
-        unknown;
-
-    informacion:
-        unknown;
-
-    faq:
-        unknown;
-
-    competicion:
-        unknown;
+    equipos: unknown;
+    voluntarios: unknown;
+    informacion: unknown;
+    faq: unknown;
+    competicion: unknown;
 };
 
 type SeccionID =
     | "resum"
     | "informacio"
     | "inscripcio"
-    | "voluntariat";
+    | "voluntariat"
+    | "normativa";
 
 // ============================================================
 // HELPERS
 // ============================================================
 
-function esRegistro(
-    valor:
-        unknown,
-): valor is Record<
-    string,
-    unknown
-> {
-    return (
-        valor !==
-            null &&
-        typeof valor ===
-            "object" &&
-        !Array.isArray(
-            valor
-        )
-    );
+function esRegistro(valor: unknown): valor is Record<string, unknown> {
+    return valor !== null && typeof valor === "object" && !Array.isArray(valor);
 }
 
 // ============================================================
 // INSCRIPCIÓN EQUIPOS
 // ============================================================
 
-function tieneConfiguracionInscripcion(
-    valor:
-        unknown,
-) {
-    if (
-        !esRegistro(
-            valor
-        )
-    ) {
+function tieneConfiguracionInscripcion(valor: unknown) {
+    if (!esRegistro(valor)) {
         return false;
     }
 
-    const inscripcion =
-        esRegistro(
-            valor.inscripcion
-        )
-            ? valor.inscripcion
-            : null;
-
-    const cupo =
-        esRegistro(
-            valor.cupo
-        )
-            ? valor.cupo
-            : null;
-
-    const jugadores =
-        esRegistro(
-            valor.jugadores
-        )
-            ? valor.jugadores
-            : null;
-
-    const genero =
-        esRegistro(
-            valor.genero
-        )
-            ? valor.genero
-            : null;
-
-    const profesores =
-        esRegistro(
-            valor.profesores
-        )
-            ? valor.profesores
-            : null;
-
-    const entrenador =
-        esRegistro(
-            valor.entrenador
-        )
-            ? valor.entrenador
-            : null;
-
-    const staff =
-        esRegistro(
-            valor.staff
-        )
-            ? valor.staff
-            : null;
+    const inscripcion = esRegistro(valor.inscripcion) ? valor.inscripcion : null;
+    const cupo = esRegistro(valor.cupo) ? valor.cupo : null;
+    const jugadores = esRegistro(valor.jugadores) ? valor.jugadores : null;
+    const genero = esRegistro(valor.genero) ? valor.genero : null;
+    const profesores = esRegistro(valor.profesores) ? valor.profesores : null;
+    const entrenador = esRegistro(valor.entrenador) ? valor.entrenador : null;
+    const staff = esRegistro(valor.staff) ? valor.staff : null;
 
     return Boolean(
         inscripcion ||
@@ -185,188 +89,137 @@ function tieneConfiguracionInscripcion(
 // INFORMACIÓN
 // ============================================================
 
-function tieneInformacionPublica(
-    valor:
-        unknown,
-) {
-    if (
-        !esRegistro(
-            valor
-        ) ||
-        !Array.isArray(
-            valor.bloques
-        )
-    ) {
+function tieneInformacionPublica(valor: unknown) {
+    if (!esRegistro(valor) || !Array.isArray(valor.bloques)) {
         return false;
     }
 
-    return valor.bloques.some(
-        bloque => {
-            if (
-                !esRegistro(
-                    bloque
-                )
-            ) {
-                return false;
-            }
-
-            return (
-                typeof bloque.title ===
-                    "string" &&
-                Boolean(
-                    bloque.title.trim()
-                ) &&
-                typeof bloque.body ===
-                    "string" &&
-                Boolean(
-                    bloque.body.trim()
-                )
-            );
+    return valor.bloques.some((bloque) => {
+        if (!esRegistro(bloque)) {
+            return false;
         }
-    );
+
+        return (
+            typeof bloque.title === "string" &&
+            Boolean(bloque.title.trim()) &&
+            typeof bloque.body === "string" &&
+            Boolean(bloque.body.trim())
+        );
+    });
 }
 
 // ============================================================
 // VOLUNTARIADO
 // ============================================================
 
-function tieneConfiguracionVoluntariado(
-    valor:
-        unknown,
-) {
-    if (
-        !esRegistro(
-            valor
-        )
-    ) {
+function tieneConfiguracionVoluntariado(valor: unknown) {
+    if (!esRegistro(valor)) {
         return false;
     }
 
-    const cupo =
-        esRegistro(
-            valor.cupo
-        )
-            ? valor.cupo
-            : {};
+    const cupo = esRegistro(valor.cupo) ? valor.cupo : {};
+    const maximo = cupo.maximo;
 
-    const maximo =
-        cupo.maximo;
-
-    /*
-     * Si se configura explícitamente 0 voluntarios,
-     * la sección pública desaparece completamente.
-     */
     if (
-        typeof maximo ===
-            "number" &&
-        Number.isFinite(
-            maximo
-        ) &&
-        maximo <=
-            0
+        typeof maximo === "number" &&
+        Number.isFinite(maximo) &&
+        maximo <= 0
     ) {
         return false;
     }
 
     const tieneRolesActivos =
-        Array.isArray(
-            valor.tipos
-        ) &&
-        valor.tipos.some(
-            tipo => {
-                if (
-                    !esRegistro(
-                        tipo
-                    )
-                ) {
-                    return false;
-                }
-
-                return (
-                    tipo.activo !==
-                        false &&
-                    typeof tipo.nombre ===
-                        "string" &&
-                    Boolean(
-                        tipo.nombre.trim()
-                    )
-                );
+        Array.isArray(valor.tipos) &&
+        valor.tipos.some((tipo) => {
+            if (!esRegistro(tipo)) {
+                return false;
             }
-        );
+
+            return (
+                tipo.activo !== false &&
+                typeof tipo.nombre === "string" &&
+                Boolean(tipo.nombre.trim())
+            );
+        });
 
     const tieneCupoPositivo =
-        typeof maximo ===
-            "number" &&
-        Number.isFinite(
-            maximo
-        ) &&
-        maximo >
-            0;
+        typeof maximo === "number" &&
+        Number.isFinite(maximo) &&
+        maximo > 0;
 
-    return (
-        tieneRolesActivos ||
-        tieneCupoPositivo
-    );
+    return tieneRolesActivos || tieneCupoPositivo;
+}
+
+// ============================================================
+// NORMATIVA
+// ============================================================
+
+function tieneNormativaPublica(valor: string | null) {
+    const contenido = valor?.trim() ?? "";
+
+    if (!contenido) {
+        return false;
+    }
+
+    /*
+     * La normativa actual se guarda como JSON.
+     * También se mantiene compatibilidad con normativa antigua
+     * almacenada como texto plano.
+     */
+    try {
+        const normativa: unknown = JSON.parse(contenido);
+
+        if (!Array.isArray(normativa)) {
+            return true;
+        }
+
+        return normativa.some((apartado) => {
+            if (!esRegistro(apartado)) {
+                return false;
+            }
+
+            return (
+                typeof apartado.titulo === "string" &&
+                Boolean(apartado.titulo.trim())
+            );
+        });
+    } catch {
+        return true;
+    }
 }
 
 // ============================================================
 // EDICIONES PÚBLICAS
 // ============================================================
 
-function estadoPublico(
-    estado:
-        string | null,
-) {
-    const valor =
-        estado
-            ?.trim()
-            .toLowerCase() ??
-        "";
+function estadoPublico(estado: string | null) {
+    const valor = estado?.trim().toLowerCase() ?? "";
 
     return (
-        valor ===
-            "activa" ||
-        valor ===
-            "activo" ||
-        valor ===
-            "actiu" ||
-        valor ===
-            "finalizada" ||
-        valor ===
-            "finalitzada" ||
-        valor ===
-            "finalitzat"
+        valor === "activa" ||
+        valor === "activo" ||
+        valor === "actiu" ||
+        valor === "finalizada" ||
+        valor === "finalitzada" ||
+        valor === "finalitzat"
     );
 }
 
-function prioridadEstado(
-    estado:
-        string | null,
-) {
-    const valor =
-        estado
-            ?.trim()
-            .toLowerCase() ??
-        "";
+function prioridadEstado(estado: string | null) {
+    const valor = estado?.trim().toLowerCase() ?? "";
 
     if (
-        valor ===
-            "activa" ||
-        valor ===
-            "activo" ||
-        valor ===
-            "actiu"
+        valor === "activa" ||
+        valor === "activo" ||
+        valor === "actiu"
     ) {
         return 0;
     }
 
     if (
-        valor ===
-            "finalizada" ||
-        valor ===
-            "finalitzada" ||
-        valor ===
-            "finalitzat"
+        valor === "finalizada" ||
+        valor === "finalitzada" ||
+        valor === "finalitzat"
     ) {
         return 1;
     }
@@ -374,41 +227,24 @@ function prioridadEstado(
     return 2;
 }
 
-function tiempoFecha(
-    valor:
-        string | null,
-) {
-    if (
-        !valor
-    ) {
+function tiempoFecha(valor: string | null) {
+    if (!valor) {
         return 0;
     }
 
-    const tiempo =
-        new Date(
-            valor
-        ).getTime();
+    const tiempo = new Date(valor).getTime();
 
-    return Number.isFinite(
-        tiempo
-    )
-        ? tiempo
-        : 0;
+    return Number.isFinite(tiempo) ? tiempo : 0;
 }
 
 // ============================================================
 // ID TORNEO
 // ============================================================
 
-const torneoID =
-    Astro.params.id;
+const torneoID = Astro.params.id;
 
-if (
-    !torneoID
-) {
-    return Astro.redirect(
-        "/tornejos"
-    );
+if (!torneoID) {
+    return Astro.redirect("/tornejos");
 }
 
 // ============================================================
@@ -416,81 +252,42 @@ if (
 // ============================================================
 
 const {
-    data:
-        torneoData,
-    error:
-        errorTorneo,
-} =
-    await supabaseAdmin
-        .from(
-            "torneos"
-        )
-        .select(
-            `
-                id,
-                nombre,
-                banner,
-                deporte,
-                descripcion,
-                normativa_base
-            `
-        )
-        .eq(
-            "id",
-            torneoID
-        )
-        .eq(
-            "activo",
-            true
-        )
-        .maybeSingle();
+    data: torneoData,
+    error: errorTorneo,
+} = await supabaseAdmin
+    .from("torneos")
+    .select(`
+        id,
+        nombre,
+        banner,
+        deporte,
+        descripcion,
+        normativa_base
+    `)
+    .eq("id", torneoID)
+    .eq("activo", true)
+    .maybeSingle();
 
-if (
-    errorTorneo
-) {
+if (errorTorneo) {
     console.error(
         "Error carregant el torneig:",
-        errorTorneo
+        errorTorneo,
     );
 }
 
-if (
-    errorTorneo ||
-    !torneoData
-) {
-    return new Response(
-        null,
-        {
-            status:
-                404,
-        }
-    );
+if (errorTorneo || !torneoData) {
+    return new Response(null, {
+        status: 404,
+    });
 }
 
-const torneo:
-    Torneo = {
-    id:
-        torneoData.id,
-
-    nombre:
-        torneoData.nombre ??
-        "Torneig",
-
-    banner:
-        torneoData.banner ??
-        "",
-
-    deporte:
-        torneoData.deporte ??
-        "",
-
-    descripcion:
-        torneoData.descripcion ??
-        "",
-
-    normativa_base:
-        torneoData.normativa_base ??
-        null,
+const torneo: Torneo = {
+    id: torneoData.id,
+    nombre: torneoData.nombre ?? "Torneig",
+    banner: torneoData.banner ?? "",
+    deporte: torneoData.deporte ?? "",
+    descripcion: torneoData.descripcion ?? "",
+    normativa_base: torneoData.normativa_base ?? null,
 };
 
 // ============================================================
@@ -498,117 +295,63 @@ const torneo:
 // ============================================================
 
 const {
-    data:
-        edicionesData,
-    error:
-        errorEdiciones,
-} =
-    await supabaseAdmin
-        .from(
-            "ediciones"
-        )
-        .select(
-            `
-                id,
-                torneo_id,
-                nombre,
-                fecha_inicio,
-                fecha_fin,
-                estado,
-                sede
-            `
-        )
-        .eq(
-            "torneo_id",
-            torneoID
-        );
+    data: edicionesData,
+    error: errorEdiciones,
+} = await supabaseAdmin
+    .from("ediciones")
+    .select(`
+        id,
+        torneo_id,
+        nombre,
+        fecha_inicio,
+        fecha_fin,
+        estado,
+        sede
+    `)
+    .eq("torneo_id", torneoID);
 
-if (
-    errorEdiciones
-) {
+if (errorEdiciones) {
     console.error(
         "Error carregant les edicions:",
-        errorEdiciones
+        errorEdiciones,
     );
 }
 
-const edicionesPublicas =
-    (
-        edicionesData ??
-        []
-    )
-        .filter(
-            edicion =>
-                estadoPublico(
-                    edicion.estado
-                )
+const edicionesPublicas = (edicionesData ?? [])
+    .filter((edicion) =>
+        estadoPublico(
+            edicion.estado,
         )
-        .sort(
-            (
-                a,
-                b
-            ) => {
-                const prioridad =
-                    prioridadEstado(
-                        a.estado
-                    ) -
-                    prioridadEstado(
-                        b.estado
-                    );
+    )
+    .sort((a, b) => {
+        const prioridad =
+            prioridadEstado(a.estado) -
+            prioridadEstado(b.estado);
 
-                if (
-                    prioridad !==
-                    0
-                ) {
-                    return prioridad;
-                }
+        if (prioridad !== 0) {
+            return prioridad;
+        }
 
-                return (
-                    tiempoFecha(
-                        b.fecha_inicio
-                    ) -
-                    tiempoFecha(
-                        a.fecha_inicio
-                    )
-                );
-            }
+        return (
+            tiempoFecha(b.fecha_inicio) -
+            tiempoFecha(a.fecha_inicio)
         );
+    });
 
 const edicionData =
-    edicionesPublicas[
-        0
-    ] ??
+    edicionesPublicas[0] ??
     null;
 
-const edicion:
-    Edicion | null =
+const edicion: Edicion | null =
     edicionData
         ? {
-              id:
-                  edicionData.id,
-
-              torneo_id:
-                  edicionData.torneo_id,
-
-              nombre:
-                  edicionData.nombre ??
-                  "",
-
-              fecha_inicio:
-                  edicionData.fecha_inicio ??
-                  null,
-
-              fecha_fin:
-                  edicionData.fecha_fin ??
-                  null,
-
-              estado:
-                  edicionData.estado ??
-                  "",
-
-              sede:
-                  edicionData.sede ??
-                  "",
+              id: edicionData.id,
+              torneo_id: edicionData.torneo_id,
+              nombre: edicionData.nombre ?? "",
+              fecha_inicio: edicionData.fecha_inicio ?? null,
+              fecha_fin: edicionData.fecha_fin ?? null,
+              estado: edicionData.estado ?? "",
+              sede: edicionData.sede ?? "",
           }
         : null;
 
@@ -616,65 +359,39 @@ const edicion:
 // CONFIGURACIÓN
 // ============================================================
 
-let configuracion:
-    ConfiguracionEdicion | null =
+let configuracion: ConfiguracionEdicion | null =
     null;
 
-if (
-    edicion
-) {
+if (edicion) {
     const {
-        data:
-            configuracionData,
-        error:
-            errorConfiguracion,
-    } =
-        await supabaseAdmin
-            .from(
-                "configuracion_ediciones"
-            )
-            .select(
-                `
-                    equipos,
-                    voluntarios,
-                    informacion,
-                    faq,
-                    competicion
-                `
-            )
-            .eq(
-                "edicion_id",
-                edicion.id
-            )
-            .maybeSingle();
+        data: configuracionData,
+        error: errorConfiguracion,
+    } = await supabaseAdmin
+        .from("configuracion_ediciones")
+        .select(`
+            equipos,
+            voluntarios,
+            informacion,
+            faq,
+            competicion
+        `)
+        .eq("edicion_id", edicion.id)
+        .maybeSingle();
 
-    if (
-        errorConfiguracion
-    ) {
+    if (errorConfiguracion) {
         console.error(
             "Error carregant la configuració de l'edició:",
-            errorConfiguracion
+            errorConfiguracion,
         );
     }
 
-    if (
-        configuracionData
-    ) {
+    if (configuracionData) {
         configuracion = {
-            equipos:
-                configuracionData.equipos,
-
-            voluntarios:
-                configuracionData.voluntarios,
-
-            informacion:
-                configuracionData.informacion,
-
-            faq:
-                configuracionData.faq,
-
-            competicion:
-                configuracionData.competicion,
+            equipos: configuracionData.equipos,
+            voluntarios: configuracionData.voluntarios,
+            informacion: configuracionData.informacion,
+            faq: configuracionData.faq,
+            competicion: configuracionData.competicion,
         };
     }
 }
@@ -684,30 +401,26 @@ if (
 // ============================================================
 
 const mostrarInformacion =
-    Boolean(
-        edicion
-    ) &&
+    Boolean(edicion) &&
     tieneInformacionPublica(
-        configuracion
-            ?.informacion
+        configuracion?.informacion,
     );
 
 const mostrarInscripcion =
-    Boolean(
-        edicion
-    ) &&
+    Boolean(edicion) &&
     tieneConfiguracionInscripcion(
-        configuracion
-            ?.equipos
+        configuracion?.equipos,
     );
 
 const mostrarVoluntariado =
-    Boolean(
-        edicion
-    ) &&
+    Boolean(edicion) &&
     tieneConfiguracionVoluntariado(
-        configuracion
-            ?.voluntarios
+        configuracion?.voluntarios,
+    );
+
+const mostrarNormativa =
+    tieneNormativaPublica(
+        torneo.normativa_base,
     );
 
 // ============================================================
@@ -715,19 +428,15 @@ const mostrarVoluntariado =
 // ============================================================
 
 const parametroSeccion =
-    Astro.url
-        .searchParams
-        .get(
-            "seccio"
-        );
+    Astro.url.searchParams.get(
+        "seccio",
+    );
 
-let seccionActiva:
-    SeccionID =
+let seccionActiva: SeccionID =
     "resum";
 
 if (
-    parametroSeccion ===
-        "informacio" &&
+    parametroSeccion === "informacio" &&
     mostrarInformacion
 ) {
     seccionActiva =
@@ -735,8 +444,7 @@ if (
 }
 
 if (
-    parametroSeccion ===
-        "inscripcio" &&
+    parametroSeccion === "inscripcio" &&
     mostrarInscripcion
 ) {
     seccionActiva =
@@ -744,12 +452,19 @@ if (
 }
 
 if (
-    parametroSeccion ===
-        "voluntariat" &&
+    parametroSeccion === "voluntariat" &&
     mostrarVoluntariado
 ) {
     seccionActiva =
         "voluntariat";
+}
+
+if (
+    parametroSeccion === "normativa" &&
+    mostrarNormativa
+) {
+    seccionActiva =
+        "normativa";
 }
 
 // ============================================================
@@ -757,22 +472,16 @@ if (
 // ============================================================
 
 const tituloPagina =
-    edicion
-        ?.nombre
-        ?.trim()
+    edicion?.nombre?.trim()
         ? `${torneo.nombre} · ${edicion.nombre}`
         : torneo.nombre;
 
 const descripcionPagina =
-    torneo.descripcion
-        .trim() ||
+    torneo.descripcion.trim() ||
     `Informació del torneig ${torneo.nombre}.`;
 ---
 
-<Layout
-    title={tituloPagina}
-    description={descripcionPagina}
->
+<Layout title={tituloPagina} description={descripcionPagina}>
     <main class="min-h-screen bg-background">
 
         <!-- =================================================
@@ -782,21 +491,14 @@ const descripcionPagina =
         <section class="relative min-h-screen w-full overflow-hidden bg-card">
             {
                 torneo.banner ? (
-                    <img
-                        src={torneo.banner}
-                        alt=""
-                        aria-hidden="true"
-                        class="absolute inset-0 h-full w-full object-cover"
-                    />
+                    <img src={torneo.banner} alt="" aria-hidden="true" class="absolute inset-0 h-full w-full object-cover" />
                 ) : (
                     <div class="absolute inset-0 bg-primary/10"></div>
                 )
             }
 
             <div class="absolute inset-0 bg-black/15"></div>
-
             <div class="absolute inset-0 bg-linear-to-t from-black/95 via-black/25 to-transparent"></div>
-
             <div class="absolute inset-x-0 bottom-0 h-64 bg-linear-to-t from-black/60 to-transparent"></div>
 
             <div class="relative mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-end px-4 pb-14 sm:px-6 sm:pb-16 lg:px-8 lg:pb-20">
@@ -835,24 +537,9 @@ const descripcionPagina =
                                 {
                                     edicion.sede && (
                                         <span class="inline-flex items-center gap-2">
-                                            <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                viewBox="0 0 24 24"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                stroke-width="1.8"
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                class="h-4 w-4 shrink-0"
-                                                aria-hidden="true"
-                                            >
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 shrink-0" aria-hidden="true">
                                                 <path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"></path>
-
-                                                <circle
-                                                    cx="12"
-                                                    cy="10"
-                                                    r="2.5"
-                                                ></circle>
+                                                <circle cx="12" cy="10" r="2.5"></circle>
                                             </svg>
 
                                             {edicion.sede}
@@ -863,29 +550,10 @@ const descripcionPagina =
                                 {
                                     edicion.fecha_inicio && (
                                         <span class="inline-flex items-center gap-2">
-                                            <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                viewBox="0 0 24 24"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                stroke-width="1.8"
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                class="h-4 w-4 shrink-0"
-                                                aria-hidden="true"
-                                            >
-                                                <rect
-                                                    x="3"
-                                                    y="5"
-                                                    width="18"
-                                                    height="16"
-                                                    rx="2"
-                                                ></rect>
-
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 shrink-0" aria-hidden="true">
+                                                <rect x="3" y="5" width="18" height="16" rx="2"></rect>
                                                 <path d="M16 3v4"></path>
-
                                                 <path d="M8 3v4"></path>
-
                                                 <path d="M3 10h18"></path>
                                             </svg>
 
@@ -893,16 +561,13 @@ const descripcionPagina =
                                                 new Intl.DateTimeFormat(
                                                     "ca-ES",
                                                     {
-                                                        dateStyle:
-                                                            "long",
-
-                                                        timeZone:
-                                                            "Europe/Madrid",
-                                                    }
+                                                        dateStyle: "long",
+                                                        timeZone: "Europe/Madrid",
+                                                    },
                                                 ).format(
                                                     new Date(
-                                                        edicion.fecha_inicio
-                                                    )
+                                                        edicion.fecha_inicio,
+                                                    ),
                                                 )
                                             }
                                         </span>
@@ -920,15 +585,14 @@ const descripcionPagina =
         ================================================== -->
 
         {
-            edicion && (
+            (edicion || mostrarNormativa) && (
                 <nav aria-label="Seccions del torneig" class="sticky top-0 z-30 w-full border-b border-border bg-background/95 backdrop-blur-md">
                     <div class="mx-auto flex w-full max-w-6xl overflow-x-auto px-4 sm:px-6 lg:px-8">
 
                         <!-- RESUM -->
 
                         {
-                            seccionActiva ===
-                            "resum" ? (
+                            seccionActiva === "resum" ? (
                                 <a href={`/tornejos/${torneo.id}`} aria-current="page" class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-semibold text-primary">
                                     Resum
 
@@ -944,10 +608,8 @@ const descripcionPagina =
                         <!-- INFORMACIÓ -->
 
                         {
-                            mostrarInformacion &&
-                            (
-                                seccionActiva ===
-                                "informacio" ? (
+                            mostrarInformacion && (
+                                seccionActiva === "informacio" ? (
                                     <a href={`/tornejos/${torneo.id}?seccio=informacio`} aria-current="page" class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-semibold text-primary">
                                         Informació
 
@@ -964,10 +626,8 @@ const descripcionPagina =
                         <!-- INSCRIPCIÓ -->
 
                         {
-                            mostrarInscripcion &&
-                            (
-                                seccionActiva ===
-                                "inscripcio" ? (
+                            mostrarInscripcion && (
+                                seccionActiva === "inscripcio" ? (
                                     <a href={`/tornejos/${torneo.id}?seccio=inscripcio`} aria-current="page" class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-semibold text-primary">
                                         Inscripció
 
@@ -984,10 +644,8 @@ const descripcionPagina =
                         <!-- VOLUNTARIAT -->
 
                         {
-                            mostrarVoluntariado &&
-                            (
-                                seccionActiva ===
-                                "voluntariat" ? (
+                            mostrarVoluntariado && (
+                                seccionActiva === "voluntariat" ? (
                                     <a href={`/tornejos/${torneo.id}?seccio=voluntariat`} aria-current="page" class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-semibold text-primary">
                                         Voluntariat
 
@@ -996,6 +654,24 @@ const descripcionPagina =
                                 ) : (
                                     <a href={`/tornejos/${torneo.id}?seccio=voluntariat`} class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-medium text-neutral transition hover:text-neutral-titulos">
                                         Voluntariat
+                                    </a>
+                                )
+                            )
+                        }
+
+                        <!-- NORMATIVA -->
+
+                        {
+                            mostrarNormativa && (
+                                seccionActiva === "normativa" ? (
+                                    <a href={`/tornejos/${torneo.id}?seccio=normativa`} aria-current="page" class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-semibold text-primary">
+                                        Normativa
+
+                                        <span class="absolute inset-x-4 bottom-0 h-0.5 rounded-full bg-primary"></span>
+                                    </a>
+                                ) : (
+                                    <a href={`/tornejos/${torneo.id}?seccio=normativa`} class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-medium text-neutral transition hover:text-neutral-titulos">
+                                        Normativa
                                     </a>
                                 )
                             )
@@ -1011,7 +687,10 @@ const descripcionPagina =
 
         <section class="min-h-130 bg-background">
             {
-                !edicion ? (
+                seccionActiva === "normativa" &&
+                mostrarNormativa ? (
+                    <Normativa normativa={torneo.normativa_base} />
+                ) : !edicion ? (
                     <div class="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
                         <div class="rounded-2xl border border-border bg-card/40 px-6 py-12 text-center">
                             <h2 class="text-xl font-semibold text-neutral-titulos">
@@ -1022,16 +701,27 @@ const descripcionPagina =
                                 Quan hi hagi una edició activa del torneig,
                                 la seva informació apareixerà aquí.
                             </p>
+
+                            {
+                                mostrarNormativa && (
+                                    <a href={`/tornejos/${torneo.id}?seccio=normativa`} class="mt-6 inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary/90">
+                                        Consultar la normativa
+
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true">
+                                            <path d="M5 12h14"></path>
+                                            <path d="m13 6 6 6-6 6"></path>
+                                        </svg>
+                                    </a>
+                                )
+                            }
                         </div>
                     </div>
                 ) : (
                     <>
-
                         <!-- RESUM -->
 
                         {
-                            seccionActiva ===
-                                "resum" && (
+                            seccionActiva === "resum" && (
                                 <Resum
                                     torneo={torneo}
                                     edicion={edicion}
@@ -1043,13 +733,11 @@ const descripcionPagina =
                         <!-- INFORMACIÓ -->
 
                         {
-                            seccionActiva ===
-                                "informacio" &&
+                            seccionActiva === "informacio" &&
                             mostrarInformacion && (
                                 <Informacio
                                     configuracion={
-                                        configuracion
-                                            ?.informacion ??
+                                        configuracion?.informacion ??
                                         null
                                     }
                                 />
@@ -1059,26 +747,19 @@ const descripcionPagina =
                         <!-- INSCRIPCIÓ -->
 
                         {
-                            seccionActiva ===
-                                "inscripcio" &&
+                            seccionActiva === "inscripcio" &&
                             mostrarInscripcion && (
                                 <Inscripcio
-                                    edicionID={
-                                        edicion.id
-                                    }
+                                    edicionID={edicion.id}
                                     configuracion={
-                                        configuracion
-                                            ?.equipos ??
+                                        configuracion?.equipos ??
                                         null
                                     }
                                     faq={
-                                        configuracion
-                                            ?.faq ??
+                                        configuracion?.faq ??
                                         null
                                     }
-                                    banner={
-                                        torneo.banner
-                                    }
+                                    banner={torneo.banner}
                                 />
                             )
                         }
@@ -1086,18 +767,14 @@ const descripcionPagina =
                         <!-- VOLUNTARIAT -->
 
                         {
-                            seccionActiva ===
-                                "voluntariat" &&
+                            seccionActiva === "voluntariat" &&
                             mostrarVoluntariado && (
                                 <Voluntariat
                                     configuracion={
-                                        configuracion
-                                            ?.voluntarios ??
+                                        configuracion?.voluntarios ??
                                         null
                                     }
-                                    banner={
-                                        torneo.banner
-                                    }
+                                    banner={torneo.banner}
                                 />
                             )
                         }

@@ -1,0 +1,1317 @@
+---
+import LayoutPerfil from "@layouts/LayoutPerfil.astro";
+
+import { obtenerUsuarioPorToken } from "@pages/api/sesiones/sesiones";
+import { supabaseAdmin } from "@utils/supabase";
+
+export const prerender = false;
+
+// ============================================================
+// TIPOS
+// ============================================================
+
+type EstadoFormulario =
+    | "BORRADOR"
+    | "EN_REVISION"
+    | "APROBADO"
+    | "DENEGADO";
+
+type TipoAcceso =
+    | "propietario"
+    | "capitan";
+
+type FormularioPerfil = {
+    id: string;
+    edicion_id: string;
+    estado: EstadoFormulario;
+    usuario_id: string | null;
+    acceso_capitan: boolean;
+    iniciado_at: string | null;
+    enviado_at: string | null;
+    completado_at: string | null;
+    created_at: string | null;
+    updated_at: string | null;
+    tipoAcceso: TipoAcceso;
+};
+
+type EquipoPerfil = {
+    id: string;
+    formulario_id: string;
+    nombre: string | null;
+    escudo: string | null;
+    capitan_id: string | null;
+    plaza_estado: string | null;
+    posicion_lista_espera: number | null;
+};
+
+type EdicionPerfil = {
+    id: string;
+    torneo_id: string;
+    nombre: string;
+    estado: string;
+    sede: string | null;
+    fecha_inicio: string | null;
+    fecha_fin: string | null;
+};
+
+type TorneoPerfil = {
+    id: string;
+    nombre: string;
+    deporte: string | null;
+    logo: string | null;
+    banner: string | null;
+};
+
+type InscripcionPerfil = {
+    formulario: FormularioPerfil;
+    equipo: EquipoPerfil | null;
+    edicion: EdicionPerfil | null;
+    torneo: TorneoPerfil | null;
+};
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function normalizarEstadoFormulario(
+    valor: unknown,
+): EstadoFormulario {
+    const estado =
+        typeof valor === "string"
+            ? valor.trim().toUpperCase()
+            : "";
+
+    if (
+        estado === "EN_REVISION" ||
+        estado === "APROBADO" ||
+        estado === "DENEGADO"
+    ) {
+        return estado;
+    }
+
+    return "BORRADOR";
+}
+
+function tiempo(
+    valor: string | null,
+) {
+    if (!valor) {
+        return 0;
+    }
+
+    const fecha =
+        new Date(valor);
+
+    return Number.isNaN(
+        fecha.getTime(),
+    )
+        ? 0
+        : fecha.getTime();
+}
+
+function fechaVisible(
+    valor: string | null,
+) {
+    if (!valor) {
+        return null;
+    }
+
+    const fecha =
+        new Date(valor);
+
+    if (
+        Number.isNaN(
+            fecha.getTime(),
+        )
+    ) {
+        return null;
+    }
+
+    return new Intl.DateTimeFormat(
+        "ca-ES",
+        {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+            timeZone: "Europe/Madrid",
+        },
+    ).format(fecha);
+}
+
+function configuracionEstado(
+    estado: EstadoFormulario,
+) {
+    if (
+        estado === "EN_REVISION"
+    ) {
+        return {
+            etiqueta: "En revisió",
+            descripcion: "La inscripció està pendent de revisió per part de l'organització.",
+            clases: "bg-secondary/10 text-secondary",
+            icono: '<path d="M480-120q-150 0-255-105T120-480q0-150 105-255t255-105q150 0 255 105t105 255q0 150-105 255T480-120Zm40-200h80v-200H480v-200h-80v280q0 17 11.5 28.5T440-400h80v80Z"></path>',
+        };
+    }
+
+    if (
+        estado === "APROBADO"
+    ) {
+        return {
+            etiqueta: "Aprovada",
+            descripcion: "La inscripció ha estat validada per l'organització.",
+            clases: "bg-primary/10 text-primary",
+            icono: '<path d="m382-240-228-228 57-57 171 171 367-367 57 57-424 424Z"></path>',
+        };
+    }
+
+    if (
+        estado === "DENEGADO"
+    ) {
+        return {
+            etiqueta: "Requereix canvis",
+            descripcion: "L'organització ha indicat que s'han de corregir algunes dades.",
+            clases: "bg-error/10 text-error",
+            icono: '<path d="M480-280q17 0 28.5-11.5T520-320q0-17-11.5-28.5T480-360q-17 0-28.5 11.5T440-320q0 17 11.5 28.5T480-280Zm-40-160h80v-240h-80v240Z"></path>',
+        };
+    }
+
+    return {
+        etiqueta: "Esborrany",
+        descripcion: "La inscripció encara no s'ha enviat a revisió.",
+        clases: "bg-neutral/10 text-neutral",
+        icono: '<path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h447l193 193v447q0 33-23.5 56.5T760-120H200Zm280-80q50 0 85-35t35-85q0-50-35-85t-85-35q-50 0-85 35t-35 85q0 50 35 85t85 35ZM240-560h360v-160H240v160Z"></path>',
+    };
+}
+
+function fechaActividad(
+    formulario: FormularioPerfil,
+) {
+    if (
+        formulario.estado ===
+        "EN_REVISION"
+    ) {
+        return (
+            formulario.enviado_at ??
+            formulario.updated_at ??
+            formulario.iniciado_at
+        );
+    }
+
+    if (
+        formulario.estado ===
+            "APROBADO" ||
+        formulario.estado ===
+            "DENEGADO"
+    ) {
+        return (
+            formulario.completado_at ??
+            formulario.updated_at ??
+            formulario.enviado_at
+        );
+    }
+
+    return (
+        formulario.updated_at ??
+        formulario.iniciado_at ??
+        formulario.created_at
+    );
+}
+
+// ============================================================
+// SESIÓN
+// ============================================================
+
+const token =
+    Astro.cookies.get(
+        "token_sesion",
+    )?.value;
+
+const usuario =
+    token
+        ? await obtenerUsuarioPorToken(
+              token,
+          )
+        : null;
+
+// ============================================================
+// FORMULARIOS
+// ============================================================
+
+let formularios: FormularioPerfil[] = [];
+let equipos: EquipoPerfil[] = [];
+let ediciones: EdicionPerfil[] = [];
+let torneos: TorneoPerfil[] = [];
+
+if (usuario) {
+    // ========================================================
+    // PROPIETARIO
+    // ========================================================
+
+    const {
+        data:
+            formulariosPropiosData,
+
+        error:
+            errorFormulariosPropios,
+    } =
+        await supabaseAdmin
+            .from("formularios")
+            .select("id,edicion_id,estado,usuario_id,acceso_capitan,iniciado_at,enviado_at,completado_at,created_at,updated_at")
+            .eq(
+                "usuario_id",
+                usuario.id,
+            )
+            .eq(
+                "tipo",
+                "EQUIPO",
+            );
+
+    if (
+        errorFormulariosPropios
+    ) {
+        console.error(
+            "Error carregant les inscripcions de l'usuari:",
+            errorFormulariosPropios,
+        );
+    }
+
+    formularios =
+        (
+            formulariosPropiosData ??
+            []
+        ).map(
+            formulario => ({
+                id:
+                    formulario.id,
+
+                edicion_id:
+                    formulario.edicion_id,
+
+                estado:
+                    normalizarEstadoFormulario(
+                        formulario.estado,
+                    ),
+
+                usuario_id:
+                    formulario.usuario_id ??
+                    null,
+
+                acceso_capitan:
+                    formulario.acceso_capitan ===
+                    true,
+
+                iniciado_at:
+                    formulario.iniciado_at ??
+                    null,
+
+                enviado_at:
+                    formulario.enviado_at ??
+                    null,
+
+                completado_at:
+                    formulario.completado_at ??
+                    null,
+
+                created_at:
+                    formulario.created_at ??
+                    null,
+
+                updated_at:
+                    formulario.updated_at ??
+                    null,
+
+                tipoAcceso:
+                    "propietario" as const,
+            }),
+        );
+
+    // ========================================================
+    // ACCESO COMO CAPITÁN
+    // ========================================================
+
+    const emailUsuario =
+        usuario.email
+            ?.trim()
+            .toLowerCase() ??
+        "";
+
+    if (emailUsuario) {
+        const {
+            data:
+                participantesData,
+
+            error:
+                errorParticipantes,
+        } =
+            await supabaseAdmin
+                .from("participantes_equipo")
+                .select("id,equipo_id,email,activo")
+                .eq(
+                    "email",
+                    emailUsuario,
+                )
+                .eq(
+                    "activo",
+                    true,
+                );
+
+        if (
+            errorParticipantes
+        ) {
+            console.error(
+                "Error cercant l'accés com a capità:",
+                errorParticipantes,
+            );
+        }
+
+        const idsParticipantes =
+            (
+                participantesData ??
+                []
+            ).map(
+                participante =>
+                    participante.id,
+            );
+
+        if (
+            idsParticipantes.length >
+            0
+        ) {
+            const {
+                data:
+                    equiposCapitanData,
+
+                error:
+                    errorEquiposCapitan,
+            } =
+                await supabaseAdmin
+                    .from("equipos")
+                    .select("id,formulario_id,capitan_id")
+                    .in(
+                        "capitan_id",
+                        idsParticipantes,
+                    );
+
+            if (
+                errorEquiposCapitan
+            ) {
+                console.error(
+                    "Error cercant equips com a capità:",
+                    errorEquiposCapitan,
+                );
+            }
+
+            const idsFormulariosCapitan = [
+                ...new Set(
+                    (
+                        equiposCapitanData ??
+                        []
+                    )
+                        .map(
+                            equipo =>
+                                equipo.formulario_id,
+                        )
+                        .filter(
+                            (
+                                id,
+                            ): id is string =>
+                                typeof id ===
+                                    "string" &&
+                                Boolean(id),
+                        ),
+                ),
+            ];
+
+            if (
+                idsFormulariosCapitan.length >
+                0
+            ) {
+                const {
+                    data:
+                        formulariosCapitanData,
+
+                    error:
+                        errorFormulariosCapitan,
+                } =
+                    await supabaseAdmin
+                        .from("formularios")
+                        .select("id,edicion_id,estado,usuario_id,acceso_capitan,iniciado_at,enviado_at,completado_at,created_at,updated_at")
+                        .in(
+                            "id",
+                            idsFormulariosCapitan,
+                        )
+                        .eq(
+                            "tipo",
+                            "EQUIPO",
+                        )
+                        .eq(
+                            "acceso_capitan",
+                            true,
+                        );
+
+                if (
+                    errorFormulariosCapitan
+                ) {
+                    console.error(
+                        "Error carregant formularis com a capità:",
+                        errorFormulariosCapitan,
+                    );
+                }
+
+                const idsExistentes =
+                    new Set(
+                        formularios.map(
+                            formulario =>
+                                formulario.id,
+                        ),
+                    );
+
+                for (
+                    const formulario
+                    of formulariosCapitanData ??
+                        []
+                ) {
+                    if (
+                        idsExistentes.has(
+                            formulario.id,
+                        )
+                    ) {
+                        continue;
+                    }
+
+                    formularios.push({
+                        id:
+                            formulario.id,
+
+                        edicion_id:
+                            formulario.edicion_id,
+
+                        estado:
+                            normalizarEstadoFormulario(
+                                formulario.estado,
+                            ),
+
+                        usuario_id:
+                            formulario.usuario_id ??
+                            null,
+
+                        acceso_capitan:
+                            formulario.acceso_capitan ===
+                            true,
+
+                        iniciado_at:
+                            formulario.iniciado_at ??
+                            null,
+
+                        enviado_at:
+                            formulario.enviado_at ??
+                            null,
+
+                        completado_at:
+                            formulario.completado_at ??
+                            null,
+
+                        created_at:
+                            formulario.created_at ??
+                            null,
+
+                        updated_at:
+                            formulario.updated_at ??
+                            null,
+
+                        tipoAcceso:
+                            "capitan",
+                    });
+
+                    idsExistentes.add(
+                        formulario.id,
+                    );
+                }
+            }
+        }
+    }
+
+    // ========================================================
+    // EQUIPOS
+    // ========================================================
+
+    const idsFormularios =
+        formularios.map(
+            formulario =>
+                formulario.id,
+        );
+
+    if (
+        idsFormularios.length >
+        0
+    ) {
+        const {
+            data:
+                equiposData,
+
+            error:
+                errorEquipos,
+        } =
+            await supabaseAdmin
+                .from("equipos")
+                .select("id,formulario_id,nombre,escudo,capitan_id,plaza_estado,posicion_lista_espera")
+                .in(
+                    "formulario_id",
+                    idsFormularios,
+                );
+
+        if (
+            errorEquipos
+        ) {
+            console.error(
+                "Error carregant els equips:",
+                errorEquipos,
+            );
+        }
+
+        equipos =
+            (
+                equiposData ??
+                []
+            ).map(
+                equipo => ({
+                    id:
+                        equipo.id,
+
+                    formulario_id:
+                        equipo.formulario_id,
+
+                    nombre:
+                        equipo.nombre ??
+                        null,
+
+                    escudo:
+                        equipo.escudo ??
+                        null,
+
+                    capitan_id:
+                        equipo.capitan_id ??
+                        null,
+
+                    plaza_estado:
+                        equipo.plaza_estado ??
+                        null,
+
+                    posicion_lista_espera:
+                        equipo.posicion_lista_espera ??
+                        null,
+                }),
+            );
+    }
+
+    // ========================================================
+    // EDICIONES
+    // ========================================================
+
+    const idsEdiciones = [
+        ...new Set(
+            formularios.map(
+                formulario =>
+                    formulario.edicion_id,
+            ),
+        ),
+    ];
+
+    if (
+        idsEdiciones.length >
+        0
+    ) {
+        const {
+            data:
+                edicionesData,
+
+            error:
+                errorEdiciones,
+        } =
+            await supabaseAdmin
+                .from("ediciones")
+                .select("id,torneo_id,nombre,estado,sede,fecha_inicio,fecha_fin")
+                .in(
+                    "id",
+                    idsEdiciones,
+                );
+
+        if (
+            errorEdiciones
+        ) {
+            console.error(
+                "Error carregant les edicions:",
+                errorEdiciones,
+            );
+        }
+
+        ediciones =
+            (
+                edicionesData ??
+                []
+            ).map(
+                edicion => ({
+                    id:
+                        edicion.id,
+
+                    torneo_id:
+                        edicion.torneo_id,
+
+                    nombre:
+                        edicion.nombre ??
+                        "Edició",
+
+                    estado:
+                        edicion.estado ??
+                        "",
+
+                    sede:
+                        edicion.sede ??
+                        null,
+
+                    fecha_inicio:
+                        edicion.fecha_inicio ??
+                        null,
+
+                    fecha_fin:
+                        edicion.fecha_fin ??
+                        null,
+                }),
+            );
+    }
+
+    // ========================================================
+    // TORNEOS
+    // ========================================================
+
+    const idsTorneos = [
+        ...new Set(
+            ediciones
+                .map(
+                    edicion =>
+                        edicion.torneo_id,
+                )
+                .filter(
+                    Boolean,
+                ),
+        ),
+    ];
+
+    if (
+        idsTorneos.length >
+        0
+    ) {
+        const {
+            data:
+                torneosData,
+
+            error:
+                errorTorneos,
+        } =
+            await supabaseAdmin
+                .from("torneos")
+                .select("id,nombre,deporte,logo,banner")
+                .in(
+                    "id",
+                    idsTorneos,
+                );
+
+        if (
+            errorTorneos
+        ) {
+            console.error(
+                "Error carregant els tornejos:",
+                errorTorneos,
+            );
+        }
+
+        torneos =
+            (
+                torneosData ??
+                []
+            ).map(
+                torneo => ({
+                    id:
+                        torneo.id,
+
+                    nombre:
+                        torneo.nombre ??
+                        "Torneig",
+
+                    deporte:
+                        torneo.deporte ??
+                        null,
+
+                    logo:
+                        torneo.logo ??
+                        null,
+
+                    banner:
+                        torneo.banner ??
+                        null,
+                }),
+            );
+    }
+}
+
+// ============================================================
+// RELACIONES
+// ============================================================
+
+const equipoPorFormulario =
+    new Map(
+        equipos.map(
+            equipo => [
+                equipo.formulario_id,
+                equipo,
+            ],
+        ),
+    );
+
+const edicionPorID =
+    new Map(
+        ediciones.map(
+            edicion => [
+                edicion.id,
+                edicion,
+            ],
+        ),
+    );
+
+const torneoPorID =
+    new Map(
+        torneos.map(
+            torneo => [
+                torneo.id,
+                torneo,
+            ],
+        ),
+    );
+
+const inscripciones:
+    InscripcionPerfil[] =
+    formularios
+        .map(
+            formulario => {
+                const equipo =
+                    equipoPorFormulario.get(
+                        formulario.id,
+                    ) ??
+                    null;
+
+                const edicion =
+                    edicionPorID.get(
+                        formulario.edicion_id,
+                    ) ??
+                    null;
+
+                const torneo =
+                    edicion
+                        ? torneoPorID.get(
+                              edicion.torneo_id,
+                          ) ??
+                          null
+                        : null;
+
+                return {
+                    formulario,
+                    equipo,
+                    edicion,
+                    torneo,
+                };
+            },
+        )
+        .sort(
+            (
+                a,
+                b,
+            ) =>
+                tiempo(
+                    fechaActividad(
+                        b.formulario,
+                    ),
+                ) -
+                tiempo(
+                    fechaActividad(
+                        a.formulario,
+                    ),
+                ),
+        );
+
+// ============================================================
+// FILTRO
+// ============================================================
+
+const estadosPermitidos =
+    new Set([
+        "totes",
+        "esborrany",
+        "revisio",
+        "aprovades",
+        "canvis",
+    ]);
+
+const parametroEstado =
+    Astro.url.searchParams.get(
+        "estat",
+    ) ??
+    "totes";
+
+const filtro =
+    estadosPermitidos.has(
+        parametroEstado,
+    )
+        ? parametroEstado
+        : "totes";
+
+const inscripcionesFiltradas =
+    inscripciones.filter(
+        inscripcion => {
+            if (
+                filtro === "totes"
+            ) {
+                return true;
+            }
+
+            if (
+                filtro === "esborrany"
+            ) {
+                return (
+                    inscripcion.formulario.estado ===
+                    "BORRADOR"
+                );
+            }
+
+            if (
+                filtro === "revisio"
+            ) {
+                return (
+                    inscripcion.formulario.estado ===
+                    "EN_REVISION"
+                );
+            }
+
+            if (
+                filtro === "aprovades"
+            ) {
+                return (
+                    inscripcion.formulario.estado ===
+                    "APROBADO"
+                );
+            }
+
+            return (
+                inscripcion.formulario.estado ===
+                "DENEGADO"
+            );
+        },
+    );
+
+// ============================================================
+// CONTADORES
+// ============================================================
+
+const total =
+    inscripciones.length;
+
+const totalBorradores =
+    inscripciones.filter(
+        inscripcion =>
+            inscripcion.formulario.estado ===
+            "BORRADOR",
+    ).length;
+
+const totalRevision =
+    inscripciones.filter(
+        inscripcion =>
+            inscripcion.formulario.estado ===
+            "EN_REVISION",
+    ).length;
+
+const totalAprobadas =
+    inscripciones.filter(
+        inscripcion =>
+            inscripcion.formulario.estado ===
+            "APROBADO",
+    ).length;
+
+const totalCambios =
+    inscripciones.filter(
+        inscripcion =>
+            inscripcion.formulario.estado ===
+            "DENEGADO",
+    ).length;
+
+const filtros = [
+    {
+        id: "totes",
+        nombre: "Totes",
+        cantidad: total,
+    },
+    {
+        id: "esborrany",
+        nombre: "Esborranys",
+        cantidad: totalBorradores,
+    },
+    {
+        id: "revisio",
+        nombre: "En revisió",
+        cantidad: totalRevision,
+    },
+    {
+        id: "aprovades",
+        nombre: "Aprovades",
+        cantidad: totalAprobadas,
+    },
+    {
+        id: "canvis",
+        nombre: "Requereixen canvis",
+        cantidad: totalCambios,
+    },
+];
+---
+
+<LayoutPerfil title="Les meves inscripcions">
+    <div class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
+
+        <!-- =================================================
+            CABECERA
+        ================================================== -->
+
+        <header class="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+                    Portal d'usuari
+                </p>
+
+                <h1 class="mt-1 text-2xl font-bold tracking-tight text-neutral-titulos sm:text-3xl">
+                    Les meves inscripcions
+                </h1>
+
+                <p class="mt-2 max-w-2xl text-sm leading-6 text-neutral">
+                    Consulta l'estat dels teus equips i accedeix als formularis que pots gestionar.
+                </p>
+            </div>
+
+            <a href="/tornejos" class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary/90">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-4 w-4 fill-current" aria-hidden="true">
+                    <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z"></path>
+                </svg>
+
+                Nova inscripció
+            </a>
+        </header>
+
+        <!-- =================================================
+            FILTROS
+        ================================================== -->
+
+        {
+            total > 0 && (
+                <div class="mt-8 overflow-x-auto border-b border-border">
+                    <nav aria-label="Filtrar inscripcions" class="flex min-w-max gap-1">
+                        {
+                            filtros.map(
+                                item => (
+                                    <a href={item.id === "totes" ? "/perfil/inscripcions" : `/perfil/inscripcions?estat=${item.id}`} aria-current={filtro === item.id ? "page" : undefined} class={`relative flex min-h-12 items-center gap-2 px-3 text-sm transition ${filtro === item.id ? "font-semibold text-primary" : "font-medium text-neutral hover:text-neutral-titulos"}`}>
+                                        {item.nombre}
+
+                                        <span class={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${filtro === item.id ? "bg-primary/10 text-primary" : "bg-card text-neutral"}`}>
+                                            {item.cantidad}
+                                        </span>
+
+                                        {
+                                            filtro === item.id && (
+                                                <span class="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-primary"></span>
+                                            )
+                                        }
+                                    </a>
+                                ),
+                            )
+                        }
+                    </nav>
+                </div>
+            )
+        }
+
+        <!-- =================================================
+            LISTADO
+        ================================================== -->
+
+        {
+            inscripcionesFiltradas.length > 0 ? (
+                <div class="mt-7 grid grid-cols-1 gap-5 xl:grid-cols-2">
+                    {
+                        inscripcionesFiltradas.map(
+                            inscripcion => {
+                                const estado =
+                                    configuracionEstado(
+                                        inscripcion.formulario.estado,
+                                    );
+
+                                const fecha =
+                                    fechaVisible(
+                                        fechaActividad(
+                                            inscripcion.formulario,
+                                        ),
+                                    );
+
+                                const fechaTorneo =
+                                    fechaVisible(
+                                        inscripcion.edicion?.fecha_inicio ??
+                                        null,
+                                    );
+
+                                const enlaceFormulario =
+                                    inscripcion.edicion
+                                        ? `/inscripcio?edicionID=${encodeURIComponent(inscripcion.edicion.id)}`
+                                        : null;
+
+                                const enlaceTorneo =
+                                    inscripcion.torneo
+                                        ? `/tornejos/${encodeURIComponent(inscripcion.torneo.id)}`
+                                        : null;
+
+                                return (
+                                    <article class="overflow-hidden rounded-2xl border border-border bg-card">
+                                        <!-- BANNER -->
+
+                                        <div class="relative h-32 overflow-hidden bg-primary/10 sm:h-36">
+                                            {
+                                                inscripcion.torneo?.banner ? (
+                                                    <img src={inscripcion.torneo.banner} alt="" class="h-full w-full object-cover" />
+                                                ) : (
+                                                    <div class="absolute inset-0 bg-linear-to-br from-primary/20 via-primary/5 to-secondary/15"></div>
+                                                )
+                                            }
+
+                                            <div class="absolute inset-0 bg-linear-to-t from-black/65 via-black/10 to-transparent"></div>
+
+                                            <div class="absolute inset-x-4 bottom-4 flex items-end justify-between gap-4">
+                                                <div class="flex min-w-0 items-center gap-3">
+                                                    {
+                                                        inscripcion.equipo?.escudo ? (
+                                                            <img src={inscripcion.equipo.escudo} alt="" class="h-12 w-12 shrink-0 rounded-xl border border-white/20 bg-white/90 object-contain p-1.5 shadow-sm" />
+                                                        ) : inscripcion.torneo?.logo ? (
+                                                            <img src={inscripcion.torneo.logo} alt="" class="h-12 w-12 shrink-0 rounded-xl border border-white/20 bg-white/90 object-contain p-1.5 shadow-sm" />
+                                                        ) : (
+                                                            <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-white/15 text-white backdrop-blur">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-6 w-6 fill-current" aria-hidden="true">
+                                                                    <path d="M160-120v-80h80v-560q0-33 23.5-56.5T320-840h320q33 0 56.5 23.5T720-760v560h80v80H160Zm160-80h320v-560H320v560Zm80-80h160v-80H400v80Zm0-160h160v-80H400v80Zm0-160h160v-80H400v80Z"></path>
+                                                                </svg>
+                                                            </span>
+                                                        )
+                                                    }
+
+                                                    <div class="min-w-0">
+                                                        <h2 class="truncate text-lg font-bold text-white">
+                                                            {inscripcion.equipo?.nombre?.trim() || "Equip sense nom"}
+                                                        </h2>
+
+                                                        <p class="truncate text-xs font-medium text-white/75">
+                                                            {inscripcion.torneo?.nombre ?? "Torneig"}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <span class={`shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold ${estado.clases}`}>
+                                                    {estado.etiqueta}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <!-- CONTENIDO -->
+
+                                        <div class="p-5 sm:p-6">
+                                            <div class="flex items-start gap-3">
+                                                <span class={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${estado.clases}`}>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-4.5 w-4.5 fill-current" aria-hidden="true" set:html={estado.icono}></svg>
+                                                </span>
+
+                                                <div>
+                                                    <p class="text-sm font-semibold text-neutral-titulos">
+                                                        {estado.etiqueta}
+                                                    </p>
+
+                                                    <p class="mt-1 text-xs leading-5 text-neutral">
+                                                        {estado.descripcion}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <dl class="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                                {
+                                                    inscripcion.edicion && (
+                                                        <div class="rounded-xl bg-background px-4 py-3">
+                                                            <dt class="text-[11px] font-semibold uppercase tracking-wide text-neutral/60">
+                                                                Edició
+                                                            </dt>
+
+                                                            <dd class="mt-1 text-sm font-medium text-neutral-titulos">
+                                                                {inscripcion.edicion.nombre}
+                                                            </dd>
+                                                        </div>
+                                                    )
+                                                }
+
+                                                <div class="rounded-xl bg-background px-4 py-3">
+                                                    <dt class="text-[11px] font-semibold uppercase tracking-wide text-neutral/60">
+                                                        Accés
+                                                    </dt>
+
+                                                    <dd class="mt-1 text-sm font-medium text-neutral-titulos">
+                                                        {inscripcion.formulario.tipoAcceso === "propietario" ? "Responsable de la inscripció" : "Capità de l'equip"}
+                                                    </dd>
+                                                </div>
+
+                                                {
+                                                    inscripcion.edicion?.sede && (
+                                                        <div class="rounded-xl bg-background px-4 py-3">
+                                                            <dt class="text-[11px] font-semibold uppercase tracking-wide text-neutral/60">
+                                                                Seu
+                                                            </dt>
+
+                                                            <dd class="mt-1 text-sm font-medium text-neutral-titulos">
+                                                                {inscripcion.edicion.sede}
+                                                            </dd>
+                                                        </div>
+                                                    )
+                                                }
+
+                                                {
+                                                    fechaTorneo && (
+                                                        <div class="rounded-xl bg-background px-4 py-3">
+                                                            <dt class="text-[11px] font-semibold uppercase tracking-wide text-neutral/60">
+                                                                Data del torneig
+                                                            </dt>
+
+                                                            <dd class="mt-1 text-sm font-medium text-neutral-titulos">
+                                                                {fechaTorneo}
+                                                            </dd>
+                                                        </div>
+                                                    )
+                                                }
+                                            </dl>
+
+                                            {
+                                                inscripcion.equipo?.plaza_estado === "LISTA_ESPERA" && (
+                                                    <div class="mt-4 flex items-start gap-3 rounded-xl border border-border bg-background p-4">
+                                                        <span class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-secondary/10 text-secondary">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-4 w-4 fill-current" aria-hidden="true">
+                                                                <path d="M160-200v-80h560v80H160Zm0-160v-80h560v80H160Zm0-160v-80h560v80H160Zm0-160v-80h560v80H160Zm640 480v-560h80v560h-80Z"></path>
+                                                            </svg>
+                                                        </span>
+
+                                                        <div>
+                                                            <p class="text-sm font-semibold text-neutral-titulos">
+                                                                Llista d'espera
+                                                            </p>
+
+                                                            {
+                                                                inscripcion.equipo.posicion_lista_espera !== null && (
+                                                                    <p class="mt-1 text-xs text-neutral">
+                                                                        Posició actual: {inscripcion.equipo.posicion_lista_espera}
+                                                                    </p>
+                                                                )
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                )
+                                            }
+
+                                            <div class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+                                                <div class="text-xs text-neutral/70">
+                                                    {
+                                                        fecha && (
+                                                            <>
+                                                                Darrera actualització:{" "}
+                                                                <span class="font-medium text-neutral">
+                                                                    {fecha}
+                                                                </span>
+                                                            </>
+                                                        )
+                                                    }
+                                                </div>
+
+                                                <div class="flex flex-wrap gap-2">
+                                                    {
+                                                        enlaceTorneo && (
+                                                            <a href={enlaceTorneo} class="inline-flex items-center justify-center rounded-lg border border-border px-3.5 py-2 text-sm font-semibold text-neutral-titulos transition hover:border-primary/30 hover:text-primary">
+                                                                Veure torneig
+                                                            </a>
+                                                        )
+                                                    }
+
+                                                    {
+                                                        enlaceFormulario && (
+                                                            <a href={enlaceFormulario} class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-primary/90">
+                                                                {
+                                                                    inscripcion.formulario.estado === "EN_REVISION"
+                                                                        ? "Veure inscripció"
+                                                                        : "Modificar inscripció"
+                                                                }
+
+                                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-4 w-4 fill-current" aria-hidden="true">
+                                                                    <path d="m647-440-224 224 57 56 320-320-320-320-57 56 224 224H160v80h487Z"></path>
+                                                                </svg>
+                                                            </a>
+                                                        )
+                                                    }
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </article>
+                                );
+                            },
+                        )
+                    }
+                </div>
+            ) : total > 0 ? (
+                <div class="mt-8 rounded-2xl border border-dashed border-border bg-card/40 px-6 py-12 text-center">
+                    <span class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-6 w-6 fill-current" aria-hidden="true">
+                            <path d="M280-200h400v-80H280v80Zm0-160h400v-80H280v80Zm0-160h400v-80H280v80Zm-80 400q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Z"></path>
+                        </svg>
+                    </span>
+
+                    <h2 class="mt-4 text-lg font-semibold text-neutral-titulos">
+                        No hi ha inscripcions amb aquest estat
+                    </h2>
+
+                    <p class="mx-auto mt-2 max-w-lg text-sm leading-6 text-neutral">
+                        Prova un altre filtre per consultar la resta de les teves inscripcions.
+                    </p>
+
+                    <a href="/perfil/inscripcions" class="mt-5 inline-flex items-center justify-center rounded-lg border border-border px-4 py-2.5 text-sm font-semibold text-neutral-titulos transition hover:border-primary/30 hover:text-primary">
+                        Mostrar-les totes
+                    </a>
+                </div>
+            ) : (
+                <div class="mt-8 overflow-hidden rounded-2xl border border-border bg-card">
+                    <div class="flex flex-col items-center justify-center px-6 py-14 text-center">
+                        <span class="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-7 w-7 fill-current" aria-hidden="true">
+                                <path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h168q13-36 43.5-58t68.5-22 68.5 22 43.5 58h168q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm80-160h280v-80H280v80Zm0-160h400v-80H280v80Zm0-160h400v-80H280v80Z"></path>
+                            </svg>
+                        </span>
+
+                        <h2 class="mt-5 text-xl font-semibold text-neutral-titulos">
+                            Encara no tens cap inscripció
+                        </h2>
+
+                        <p class="mt-2 max-w-lg text-sm leading-6 text-neutral">
+                            Quan inscriguis un equip o un responsable et doni accés com a capità, la inscripció apareixerà aquí.
+                        </p>
+
+                        <a href="/tornejos" class="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary/90">
+                            Consultar tornejos
+
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-4 w-4 fill-current" aria-hidden="true">
+                                <path d="m647-440-224 224 57 56 320-320-320-320-57 56 224 224H160v80h487Z"></path>
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+            )
+        }
+    </div>
+</LayoutPerfil>
