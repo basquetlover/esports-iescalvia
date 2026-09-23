@@ -15,6 +15,9 @@ import {
     type TipoRevisionEquipo,
 } from "@utils/inscripcio/equipRevisionEmails";
 
+import { enviarNotificacionPlazaConfirmada } from "@utils/inscripcio/equipPlazaConfirmadaEmails";
+import { enviarNotificacionSinPlaza } from "@utils/inscripcio/equipSinPlazaEmails";
+
 import {
     notificarEquipoListaEspera,
 } from "@utils/inscripcio/equipListaEsperaEmails";
@@ -2696,27 +2699,49 @@ export async function cambiarPlazaEquipoAdmin({
     }
 
     // ========================================================
-    // EMAIL LISTA DE ESPERA
+    // EMAIL DE CAMBIO DE PLAZA
     // ========================================================
 
-    /*
-     * Por ahora sólo tenemos un email específico para
-     * LISTA_ESPERA.
-     *
-     * CONFIRMADA, PENDIENTE y SIN_PLAZA no generan correo
-     * desde este archivo hasta que creemos sus plantillas
-     * específicas.
-     *
-     * Si el equipo ya estaba en LISTA_ESPERA y administración
-     * modifica la posición, se enviará de nuevo el email con la
-     * posición actualizada.
-     */
-    if (
-        plazaEstado ===
-        "LISTA_ESPERA"
-    ) {
-        await enviarNotificacionListaEspera(
-            contexto.formulario.id,
+    const plazaAnterior =
+        normalizarEstadoPlaza(
+            contexto.equipo.plaza_estado,
+        );
+
+    const haCambiadoEstado =
+        plazaAnterior !== plazaEstado;
+
+    const haCambiadoPosicion =
+        plazaEstado === "LISTA_ESPERA" &&
+        contexto.equipo.posicion_lista_espera !==
+            posicionListaEspera;
+
+    try {
+        if (
+            plazaEstado === "LISTA_ESPERA" &&
+            (haCambiadoEstado || haCambiadoPosicion)
+        ) {
+            await enviarNotificacionListaEspera(
+                contexto.formulario.id,
+            );
+        } else if (
+            plazaEstado === "CONFIRMADA" &&
+            haCambiadoEstado
+        ) {
+            await enviarNotificacionPlazaConfirmada(
+                contexto.formulario.id,
+            );
+        } else if (
+            plazaEstado === "SIN_PLAZA" &&
+            haCambiadoEstado
+        ) {
+            await enviarNotificacionSinPlaza(
+                contexto.formulario.id,
+            );
+        }
+    } catch (error) {
+        console.error(
+            "L'estat de la plaça s'ha guardat, però no s'ha pogut enviar el correu:",
+            error,
         );
     }
 
