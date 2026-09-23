@@ -18,12 +18,15 @@ import {
 } from "@utils/inscripcio/equipBase";
 
 import {
+    guardarEscudoEquipo,
+} from "@utils/inscripcio/equipStorage";
+
+import {
     CAMPOS_EQUIPO,
     CAMPOS_FORMULARIO,
     CAMPOS_PARTICIPANTE,
     ESTADOS_PLAZA,
     ErrorAPI,
-    MAX_EMAIL,
     esRegistro,
     exigirPermisoEquip,
     leerIDAdmin,
@@ -348,17 +351,10 @@ function prepararFila({
     responsable,
     capacidades,
 }: {
-    formulario:
-        FormularioAdminDB;
-
-    equipo:
-        EquipoDB | null;
-
-    participantes:
-        ParticipanteDB[];
-
-    responsable:
-        ResponsableListaDB | null;
+    formulario: FormularioAdminDB;
+    equipo: EquipoDB | null;
+    participantes: ParticipanteDB[];
+    responsable: ResponsableListaDB | null;
 
     capacidades: {
         editar: boolean;
@@ -699,7 +695,7 @@ function construirResumen(
 }
 
 // ============================================================
-// ORDENAR FILAS
+// ORDEN
 // ============================================================
 
 function ordenarFilas(
@@ -750,7 +746,7 @@ function ordenarFilas(
 }
 
 // ============================================================
-// LEER ESTADO CREACIÓN
+// ESTADO CREACIÓN
 // ============================================================
 
 function leerEstadoCreacion(
@@ -780,7 +776,7 @@ function leerEstadoCreacion(
 }
 
 // ============================================================
-// LEER PLAZA
+// PLAZA
 // ============================================================
 
 function leerPlazaCreacion(
@@ -844,7 +840,8 @@ function leerPlazaCreacion(
         "LISTA_ESPERA"
     ) {
         if (
-            typeof valor.posicion_lista_espera !==
+            typeof valor
+                .posicion_lista_espera !==
                 "number" ||
             !Number.isSafeInteger(
                 valor.posicion_lista_espera,
@@ -871,7 +868,7 @@ function leerPlazaCreacion(
 }
 
 // ============================================================
-// LEER DATOS CREACIÓN
+// DATOS CREACIÓN
 // ============================================================
 
 function leerDatosCreacionAdmin(
@@ -882,10 +879,6 @@ function leerDatosCreacionAdmin(
             cuerpo,
         );
 
-    /*
-     * En una creación administrativa todos los participantes
-     * deben ser nuevos. No aceptamos IDs del cliente.
-     */
     if (
         datos.participantes.some(
             participante =>
@@ -915,7 +908,7 @@ function leerDatosCreacionAdmin(
 }
 
 // ============================================================
-// EMAIL
+// EMAILS
 // ============================================================
 
 function emailValido(
@@ -957,11 +950,12 @@ function validarFormatoEmails(
     }
 
     for (
-        let indice = 0;
+        let indice =
+            0;
         indice <
-            datos.participantes
-                .length;
-        indice += 1
+        datos.participantes.length;
+        indice +=
+            1
     ) {
         const participante =
             datos.participantes[
@@ -983,7 +977,7 @@ function validarFormatoEmails(
 }
 
 // ============================================================
-// DUPLICADOS CONTRA INSCRIPCIONES REALES
+// DUPLICADOS
 // ============================================================
 
 async function comprobarDuplicadosInscritos(
@@ -1000,9 +994,7 @@ async function comprobarDuplicadosInscritos(
                             participante.email,
                         ),
                 )
-                .filter(
-                    Boolean,
-                ),
+                .filter(Boolean),
         ),
     ];
 
@@ -1013,12 +1005,6 @@ async function comprobarDuplicadosInscritos(
         return;
     }
 
-    /*
-     * BORRADOR queda excluido.
-     *
-     * Un borrador todavía no es una inscripción presentada y,
-     * por tanto, no reserva participantes.
-     */
     const {
         data:
             formularios,
@@ -1117,6 +1103,12 @@ async function comprobarDuplicadosInscritos(
         return;
     }
 
+    /*
+     * Leemos todos los correos y normalizamos en servidor para
+     * que los antiguos registros con mayúsculas también sean
+     * detectados.
+     */
+
     const {
         data:
             coincidencias,
@@ -1138,10 +1130,6 @@ async function comprobarDuplicadosInscritos(
             .eq(
                 "activo",
                 true,
-            )
-            .in(
-                "email",
-                emails,
             );
 
     if (
@@ -1150,23 +1138,36 @@ async function comprobarDuplicadosInscritos(
         throw errorParticipantes;
     }
 
-    const coincidencia =
-        coincidencias?.find(
-            participante =>
-                participante.email &&
-                emails.includes(
-                    normalizarEmail(
-                        participante.email,
-                    ),
+    const emailsOcupados =
+        new Set(
+            (
+                coincidencias ??
+                []
+            )
+                .map(
+                    participante =>
+                        normalizarEmail(
+                            participante.email ??
+                            "",
+                        ),
+                )
+                .filter(Boolean),
+        );
+
+    const duplicado =
+        emails.find(
+            email =>
+                emailsOcupados.has(
+                    email,
                 ),
         );
 
     if (
-        coincidencia?.email
+        duplicado
     ) {
         throw new ErrorAPI(
             409,
-            `La persona amb el correu ${normalizarEmail(coincidencia.email)} ja forma part d'un altre equip d'aquesta edició.`,
+            `La persona amb el correu ${duplicado} ja forma part d'un altre equip d'aquesta edició.`,
         );
     }
 }
@@ -1235,7 +1236,8 @@ function obtenerCapitanNuevo(
     const coincidencias =
         participantes.filter(
             participante =>
-                participante.tipo_participante ===
+                participante
+                    .tipo_participante ===
                     "JUGADOR" &&
                 normalizarEmail(
                     participante.email,
@@ -1258,7 +1260,7 @@ function obtenerCapitanNuevo(
 }
 
 // ============================================================
-// DATOS PARA VALIDACIÓN
+// DATOS VALIDACIÓN
 // ============================================================
 
 function prepararDatosValidacion(
@@ -1385,12 +1387,6 @@ async function validarCreacion({
         configuracion,
     );
 
-    /*
-     * El BORRADOR puede estar incompleto.
-     *
-     * Para crear directamente como APROBADO sí exigimos
-     * absolutamente todos los requisitos del formulario.
-     */
     if (
         datos.estado ===
         "APROBADO"
@@ -1421,9 +1417,6 @@ function resolverPlazaInicial({
     puedeCambiarEstado:
         boolean;
 }) {
-    /*
-     * Un borrador nunca consume plaza.
-     */
     if (
         datos.estado ===
         "BORRADOR"
@@ -1462,7 +1455,7 @@ function resolverPlazaInicial({
 }
 
 // ============================================================
-// COMPENSACIÓN CREACIÓN
+// COMPENSACIÓN
 // ============================================================
 
 async function dejarCreacionComoBorrador({
@@ -1488,9 +1481,6 @@ async function dejarCreacionComoBorrador({
                 estado:
                     "BORRADOR",
 
-                /*
-                 * Conservamos origen ADMIN.
-                 */
                 origen:
                     "ADMIN",
 
@@ -1564,6 +1554,37 @@ async function dejarCreacionComoBorrador({
 }
 
 // ============================================================
+// LIMPIAR ESCUDO DE UNA CREACIÓN FALLIDA
+// ============================================================
+
+async function limpiarEscudoCreacion({
+    torneoID,
+    edicionID,
+    equipoID,
+}: {
+    torneoID: string;
+    edicionID: string;
+    equipoID: string;
+}) {
+    try {
+        await guardarEscudoEquipo({
+            torneoID,
+            edicionID,
+            equipoID,
+            escudo:
+                null,
+        });
+    } catch (
+        error
+    ) {
+        console.error(
+            `No s'ha pogut eliminar l'escut de la creació incompleta de l'equip ${equipoID}:`,
+            error,
+        );
+    }
+}
+
+// ============================================================
 // GET · LISTADO / PREPARAR CREACIÓN
 // ============================================================
 
@@ -1574,18 +1595,10 @@ export const obtenerListadoEquiposAdmin:
         url,
     }) => {
         try {
-            // =================================================
-            // USUARIO
-            // =================================================
-
             const usuario =
                 await exigirUsuario(
                     cookies,
                 );
-
-            // =================================================
-            // IDS
-            // =================================================
 
             const torneoID =
                 leerIDAdmin(
@@ -1602,10 +1615,6 @@ export const obtenerListadoEquiposAdmin:
                     ),
                     "edicionID",
                 );
-
-            // =================================================
-            // VISTA
-            // =================================================
 
             const vista =
                 url.searchParams
@@ -1628,10 +1637,6 @@ export const obtenerListadoEquiposAdmin:
                 );
             }
 
-            /*
-             * La pantalla de creación necesita permiso crear.
-             * La lista necesita permiso ver.
-             */
             exigirPermisoEquip(
                 usuario,
                 torneoID,
@@ -1640,10 +1645,6 @@ export const obtenerListadoEquiposAdmin:
                     ? "crear"
                     : "ver",
             );
-
-            // =================================================
-            // TORNEO + EDICIÓN
-            // =================================================
 
             const [
                 torneo,
@@ -1733,7 +1734,7 @@ export const obtenerListadoEquiposAdmin:
             }
 
             // =================================================
-            // FORMULARIOS
+            // LISTA
             // =================================================
 
             const formularios =
@@ -1747,10 +1748,6 @@ export const obtenerListadoEquiposAdmin:
                         formulario.id,
                 );
 
-            // =================================================
-            // EQUIPOS
-            // =================================================
-
             const equipos =
                 await obtenerEquiposLista(
                     idsFormularios,
@@ -1761,10 +1758,6 @@ export const obtenerListadoEquiposAdmin:
                     equipo =>
                         equipo.id,
                 );
-
-            // =================================================
-            // RESPONSABLES
-            // =================================================
 
             const idsResponsables = [
                 ...new Set(
@@ -1799,10 +1792,6 @@ export const obtenerListadoEquiposAdmin:
                         idsResponsables,
                     ),
                 ]);
-
-            // =================================================
-            // MAPAS
-            // =================================================
 
             const equipoPorFormulario =
                 new Map<
@@ -1865,19 +1854,11 @@ export const obtenerListadoEquiposAdmin:
                     ),
                 );
 
-            // =================================================
-            // CAPACIDADES
-            // =================================================
-
             const capacidades =
                 obtenerCapacidades(
                     usuario,
                     torneoID,
                 );
-
-            // =================================================
-            // FILAS
-            // =================================================
 
             const filas =
                 ordenarFilas(
@@ -1978,10 +1959,6 @@ export const obtenerListadoEquiposAdmin:
                         filas,
                     ),
 
-                /*
-                 * Incluimos BORRADOR porque Lista.tsx tiene
-                 * una vista independiente para consultarlos.
-                 */
                 filas,
 
                 capacidades,
@@ -2133,7 +2110,53 @@ async function crearEquipo({
         });
 
     // ========================================================
-    // FECHAS / ESTADO
+    // ESCUDO · STORAGE
+    // ========================================================
+
+    /*
+     * El frontend todavía envía una data URL.
+     *
+     * Aquí la transformamos en un archivo real:
+     *
+     * EquiposIMG/
+     *   {torneoID}/
+     *     {edicionID}/
+     *       escudo/
+     *         {equipoID}.{extension}
+     *
+     * En PostgreSQL solamente guardamos la URL pública.
+     */
+
+    let escudoGuardado:
+        string | null;
+
+    try {
+        escudoGuardado =
+            await guardarEscudoEquipo({
+                torneoID,
+                edicionID,
+                equipoID,
+
+                escudo:
+                    datos.equipo
+                        .escudo,
+            });
+    } catch (
+        error
+    ) {
+        console.error(
+            "Error pujant l'escut de l'equip creat des del panell:",
+            error,
+        );
+
+        throw new ErrorAPI(
+            500,
+            "No s'ha pogut pujar l'escut de l'equip.",
+        );
+    }
+
+    // ========================================================
+    // FECHAS
     // ========================================================
 
     const ahora =
@@ -2166,12 +2189,6 @@ async function crearEquipo({
                 tipo:
                     "EQUIPO",
 
-                /*
-                 * IMPORTANTE:
-                 *
-                 * Todo formulario creado desde este endpoint
-                 * proviene del panel de administración.
-                 */
                 origen:
                     "ADMIN",
 
@@ -2215,6 +2232,12 @@ async function crearEquipo({
     if (
         errorFormulario
     ) {
+        await limpiarEscudoCreacion({
+            torneoID,
+            edicionID,
+            equipoID,
+        });
+
         throw errorFormulario;
     }
 
@@ -2242,9 +2265,11 @@ async function crearEquipo({
                         .nombre ||
                     null,
 
+                /*
+                 * URL de Supabase Storage, nunca Base64.
+                 */
                 escudo:
-                    datos.equipo
-                        .escudo,
+                    escudoGuardado,
 
                 capitan_id:
                     capitan?.id ??
@@ -2275,6 +2300,12 @@ async function crearEquipo({
     if (
         errorEquipo
     ) {
+        await limpiarEscudoCreacion({
+            torneoID,
+            edicionID,
+            equipoID,
+        });
+
         await dejarCreacionComoBorrador({
             formularioID,
             equipoID:
@@ -2385,6 +2416,11 @@ async function crearEquipo({
         if (
             errorParticipantes
         ) {
+            /*
+             * El formulario/equipo quedan recuperables como
+             * BORRADOR. Conservamos el escudo porque el equipo
+             * sí existe y puede terminarse posteriormente.
+             */
             await dejarCreacionComoBorrador({
                 formularioID,
                 equipoID,
@@ -2445,6 +2481,9 @@ async function crearEquipo({
                     datos.equipo
                         .nombre,
 
+                escudo:
+                    escudoGuardado,
+
                 capitan_id:
                     capitan?.id ??
                     null,
@@ -2478,27 +2517,15 @@ export const crearEquipoAdmin:
         url,
     }) => {
         try {
-            // =================================================
-            // ORIGEN HTTP
-            // =================================================
-
             comprobarOrigen(
                 request,
                 url,
             );
 
-            // =================================================
-            // USUARIO
-            // =================================================
-
             const usuario =
                 await exigirUsuario(
                     cookies,
                 );
-
-            // =================================================
-            // JSON
-            // =================================================
 
             const cuerpo =
                 await leerJSON(
@@ -2515,10 +2542,6 @@ export const crearEquipoAdmin:
                 );
             }
 
-            // =================================================
-            // IDS
-            // =================================================
-
             const torneoID =
                 leerIDAdmin(
                     cuerpo.torneoID,
@@ -2531,19 +2554,11 @@ export const crearEquipoAdmin:
                     "edicionID",
                 );
 
-            // =================================================
-            // PERMISOS
-            // =================================================
-
             exigirPermisoEquip(
                 usuario,
                 torneoID,
                 "crear",
             );
-
-            // =================================================
-            // CREAR
-            // =================================================
 
             return await crearEquipo({
                 usuario,

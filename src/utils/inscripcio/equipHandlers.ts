@@ -8,7 +8,6 @@ import {
     ErrorAPI,
     UUID,
     cargarFormularioCompleto,
-    comprobarDuplicadosEdicion,
     comprobarOrigen,
     configuracionFormulario,
     edicionActiva,
@@ -41,7 +40,354 @@ import {
     validarEstructuraParticipantes,
     type EstadoFormulario,
     type FormularioDB,
+    type ParticipanteEntrada,
 } from "./equipBase";
+
+import {
+    notificarInscripcionEquipoEnviada,
+} from "./equipEmails";
+
+import {
+    guardarEscudoEquipo,
+} from "./equipStorage";
+
+// ============================================================
+// CONSTANTES
+// ============================================================
+
+const ESTADOS_INSCRIPCION_REAL = [
+    "EN_REVISION",
+    "APROBADO",
+    "DENEGADO",
+] as const;
+
+// ============================================================
+// DUPLICADOS ENTRE INSCRIPCIONES REALES
+// ============================================================
+
+async function comprobarDuplicadosInscritos({
+    edicionID,
+    participantes,
+    equipoActualID,
+}: {
+    edicionID: string;
+    participantes: ParticipanteEntrada[];
+    equipoActualID: string | null;
+}) {
+    const emails = [
+        ...new Set(
+            participantes
+                .map(
+                    participante =>
+                        normalizarEmail(
+                            participante.email,
+                        ),
+                )
+                .filter(Boolean),
+        ),
+    ];
+
+    if (
+        emails.length ===
+        0
+    ) {
+        return;
+    }
+
+    // ========================================================
+    // FORMULARIOS PRESENTADOS
+    // ========================================================
+
+    /*
+     * BORRADOR no reserva participantes.
+     */
+
+    const {
+        data:
+            formularios,
+
+        error:
+            errorFormularios,
+    } =
+        await supabaseAdmin
+            .from(
+                "formularios",
+            )
+            .select(
+                "id",
+            )
+            .eq(
+                "edicion_id",
+                edicionID,
+            )
+            .eq(
+                "tipo",
+                "EQUIPO",
+            )
+            .in(
+                "estado",
+                [
+                    ...ESTADOS_INSCRIPCION_REAL,
+                ],
+            );
+
+    if (
+        errorFormularios
+    ) {
+        throw errorFormularios;
+    }
+
+    if (
+        !formularios ||
+        formularios.length ===
+            0
+    ) {
+        return;
+    }
+
+    // ========================================================
+    // EQUIPOS
+    // ========================================================
+
+    const {
+        data:
+            equipos,
+
+        error:
+            errorEquipos,
+    } =
+        await supabaseAdmin
+            .from(
+                "equipos",
+            )
+            .select(
+                "id,formulario_id",
+            )
+            .in(
+                "formulario_id",
+                formularios.map(
+                    formulario =>
+                        formulario.id,
+                ),
+            );
+
+    if (
+        errorEquipos
+    ) {
+        throw errorEquipos;
+    }
+
+    const idsOtrosEquipos =
+        (
+            equipos ??
+            []
+        )
+            .filter(
+                equipo =>
+                    equipo.id !==
+                    equipoActualID,
+            )
+            .map(
+                equipo =>
+                    equipo.id,
+            )
+            .filter(
+                (
+                    id,
+                ): id is string =>
+                    typeof id ===
+                        "string" &&
+                    Boolean(
+                        id,
+                    ),
+            );
+
+    if (
+        idsOtrosEquipos.length ===
+        0
+    ) {
+        return;
+    }
+
+    // ========================================================
+    // PARTICIPANTES
+    // ========================================================
+
+    const {
+        data:
+            participantesExistentes,
+
+        error:
+            errorParticipantes,
+    } =
+        await supabaseAdmin
+            .from(
+                "participantes_equipo",
+            )
+            .select(
+                "email,equipo_id",
+            )
+            .in(
+                "equipo_id",
+                idsOtrosEquipos,
+            )
+            .eq(
+                "activo",
+                true,
+            );
+
+    if (
+        errorParticipantes
+    ) {
+        throw errorParticipantes;
+    }
+
+    const emailsOcupados =
+        new Set(
+            (
+                participantesExistentes ??
+                []
+            )
+                .map(
+                    participante =>
+                        normalizarEmail(
+                            participante.email ??
+                            "",
+                        ),
+                )
+                .filter(Boolean),
+        );
+
+    const emailDuplicado =
+        emails.find(
+            email =>
+                emailsOcupados.has(
+                    email,
+                ),
+        );
+
+    if (
+        emailDuplicado
+    ) {
+        throw new ErrorAPI(
+            409,
+            `La persona amb el correu ${emailDuplicado} ja forma part d'un altre equip d'aquesta edició.`,
+        );
+    }
+}
+
+// ============================================================
+// PARTICIPANTES PENDIENTES
+// ============================================================
+
+async function marcarParticipantesPendientes(
+    equipoID: string,
+    fecha: string,
+) {
+    const {
+        error,
+    } =
+        await supabaseAdmin
+            .from(
+                "participantes_equipo",
+            )
+            .update({
+                validacion_estado:
+                    "PENDIENTE",
+
+                updated_at:
+                    fecha,
+            })
+            .eq(
+                "equipo_id",
+                equipoID,
+            )
+            .eq(
+                "activo",
+                true,
+            );
+
+    if (
+        error
+    ) {
+        throw error;
+    }
+}
+
+// ============================================================
+// LIMPIAR ESCUDO TRAS ERROR DE CREACIÓN
+// ============================================================
+
+async function limpiarEscudoCreacion({
+    torneoID,
+    edicionID,
+    equipoID,
+}: {
+    torneoID: string;
+    edicionID: string;
+    equipoID: string;
+}) {
+    try {
+        await guardarEscudoEquipo({
+            torneoID,
+            edicionID,
+            equipoID,
+            escudo:
+                null,
+        });
+    } catch (
+        error
+    ) {
+        console.error(
+            `No s'ha pogut netejar l'escut de l'equip ${equipoID} després d'una creació fallida:`,
+            error,
+        );
+    }
+}
+
+// ============================================================
+// EMAIL
+// ============================================================
+
+async function enviarNotificacionInscripcion(
+    formularioID: string,
+) {
+    /*
+     * Un fallo del correo nunca revierte la inscripción.
+     */
+
+    try {
+        const resultado =
+            await notificarInscripcionEquipoEnviada(
+                formularioID,
+            );
+
+        if (
+            resultado.enviados >
+            0
+        ) {
+            console.info(
+                `[EMAIL] Inscripció ${formularioID}: ${resultado.enviados} correu(s) enviat(s) correctament.`,
+            );
+        }
+
+        if (
+            resultado.fallidos >
+            0
+        ) {
+            console.error(
+                `[EMAIL] Inscripció ${formularioID}: han fallat ${resultado.fallidos} de ${resultado.destinatarios} correus.`,
+            );
+        }
+    } catch (
+        error
+    ) {
+        console.error(
+            `[EMAIL] La inscripció ${formularioID} s'ha guardat, però no s'ha pogut enviar la notificació:`,
+            error,
+        );
+    }
+}
 
 // ============================================================
 // GET
@@ -472,7 +818,7 @@ export const GET: APIRoute = async ({
         }
 
         // ====================================================
-        // FORMULARIO DEL PROPIETARIO
+        // FORMULARIO PROPIETARIO
         // ====================================================
 
         let formulario =
@@ -490,7 +836,7 @@ export const GET: APIRoute = async ({
             false;
 
         // ====================================================
-        // FORMULARIO COMO CAPITÁN
+        // FORMULARIO CAPITÁN
         // ====================================================
 
         if (
@@ -670,6 +1016,10 @@ export const POST: APIRoute = async ({
             );
         }
 
+        // ====================================================
+        // EDICIÓN
+        // ====================================================
+
         const edicionID =
             exigirUUID(
                 cuerpo.edicionID,
@@ -693,6 +1043,10 @@ export const POST: APIRoute = async ({
             );
         }
 
+        // ====================================================
+        // CONFIGURACIÓN
+        // ====================================================
+
         const configuracion =
             await obtenerConfiguracionEdicion(
                 edicionID,
@@ -706,6 +1060,10 @@ export const POST: APIRoute = async ({
                 "Aquesta edició no té configurada la inscripció d'equips.",
             );
         }
+
+        // ====================================================
+        // PERÍODO
+        // ====================================================
 
         const periodo =
             estadoPeriodo(
@@ -732,6 +1090,10 @@ export const POST: APIRoute = async ({
             );
         }
 
+        // ====================================================
+        // FORMULARIO EXISTENTE
+        // ====================================================
+
         const existente =
             await obtenerFormularioPropietario(
                 edicionID,
@@ -746,6 +1108,10 @@ export const POST: APIRoute = async ({
                 "Ja tens una inscripció creada en aquesta edició.",
             );
         }
+
+        // ====================================================
+        // DATOS
+        // ====================================================
 
         const datos =
             leerDatos(
@@ -766,11 +1132,10 @@ export const POST: APIRoute = async ({
             configuracion,
         );
 
-        await comprobarDuplicadosEdicion(
-            edicionID,
-            datos.participantes,
-            null,
-        );
+        /*
+         * No comprobamos duplicados entre equipos al guardar
+         * un BORRADOR.
+         */
 
         const ahora =
             new Date()
@@ -781,6 +1146,53 @@ export const POST: APIRoute = async ({
 
         const equipoID =
             randomUUID();
+
+        // ====================================================
+        // SUBIR ESCUDO
+        // ====================================================
+
+        /*
+         * IMPORTANTE:
+         *
+         * Se sube ANTES de escribir equipos.escudo.
+         *
+         * La BD solamente recibe:
+         *
+         * https://.../storage/v1/object/public/EquiposIMG/...
+         *
+         * nunca el Base64.
+         */
+
+        let escudoGuardado:
+            string | null =
+            null;
+
+        try {
+            escudoGuardado =
+                await guardarEscudoEquipo({
+                    torneoID:
+                        edicion.torneo_id,
+
+                    edicionID,
+
+                    equipoID,
+
+                    escudo:
+                        datos.equipo.escudo,
+                });
+        } catch (
+            error
+        ) {
+            console.error(
+                "Error pujant l'escut de l'equip:",
+                error,
+            );
+
+            throw new ErrorAPI(
+                500,
+                "No s'ha pogut pujar l'escut de l'equip.",
+            );
+        }
 
         // ====================================================
         // FORMULARIO
@@ -803,6 +1215,9 @@ export const POST: APIRoute = async ({
 
                     tipo:
                         "EQUIPO",
+
+                    origen:
+                        "USUARIO",
 
                     estado:
                         "BORRADOR",
@@ -838,6 +1253,15 @@ export const POST: APIRoute = async ({
         if (
             errorFormulario
         ) {
+            await limpiarEscudoCreacion({
+                torneoID:
+                    edicion.torneo_id,
+
+                edicionID,
+
+                equipoID,
+            });
+
             throw errorFormulario;
         }
 
@@ -864,10 +1288,23 @@ export const POST: APIRoute = async ({
                         datos.equipo.nombre ||
                         null,
 
+                    /*
+                     * Aquí ya guardamos únicamente la URL
+                     * pública de Supabase Storage.
+                     */
                     escudo:
-                        datos.equipo.escudo,
+                        escudoGuardado,
 
                     capitan_id:
+                        null,
+
+                    validacion_estado:
+                        "PENDIENTE",
+
+                    plaza_estado:
+                        "PENDIENTE",
+
+                    posicion_lista_espera:
                         null,
 
                     created_at:
@@ -880,6 +1317,15 @@ export const POST: APIRoute = async ({
         if (
             errorEquipo
         ) {
+            await limpiarEscudoCreacion({
+                torneoID:
+                    edicion.torneo_id,
+
+                edicionID,
+
+                equipoID,
+            });
+
             throw errorEquipo;
         }
 
@@ -894,6 +1340,11 @@ export const POST: APIRoute = async ({
             await guardarParticipantes(
                 equipoID,
                 datos.participantes,
+            );
+
+            await marcarParticipantesPendientes(
+                equipoID,
+                ahora,
             );
         }
 
@@ -1099,20 +1550,24 @@ export const PATCH: APIRoute = async ({
             );
         }
 
+        // ====================================================
+        // CONFIGURACIÓN
+        // ====================================================
+
         const configuracion =
             configuracionFormulario(
                 acceso.formulario,
                 configuracionActual,
             );
 
+        // ====================================================
+        // DATOS
+        // ====================================================
+
         const datos =
             leerDatos(
                 cuerpo.datos,
             );
-
-        // ====================================================
-        // VALIDACIONES
-        // ====================================================
 
         validarEmails(
             datos.participantes,
@@ -1137,6 +1592,10 @@ export const PATCH: APIRoute = async ({
             );
         }
 
+        // ====================================================
+        // EQUIPO
+        // ====================================================
+
         let equipo =
             acceso.equipo;
 
@@ -1153,6 +1612,19 @@ export const PATCH: APIRoute = async ({
         ) {
             const equipoID =
                 randomUUID();
+
+            const escudoGuardado =
+                await guardarEscudoEquipo({
+                    torneoID:
+                        edicion.torneo_id,
+
+                    edicionID,
+
+                    equipoID,
+
+                    escudo:
+                        datos.equipo.escudo,
+                });
 
             const {
                 error,
@@ -1173,9 +1645,18 @@ export const PATCH: APIRoute = async ({
                             null,
 
                         escudo:
-                            datos.equipo.escudo,
+                            escudoGuardado,
 
                         capitan_id:
+                            null,
+
+                        validacion_estado:
+                            "PENDIENTE",
+
+                        plaza_estado:
+                            "PENDIENTE",
+
+                        posicion_lista_espera:
                             null,
 
                         created_at:
@@ -1188,6 +1669,15 @@ export const PATCH: APIRoute = async ({
             if (
                 error
             ) {
+                await limpiarEscudoCreacion({
+                    torneoID:
+                        edicion.torneo_id,
+
+                    edicionID,
+
+                    equipoID,
+                });
+
                 throw error;
             }
 
@@ -1218,14 +1708,22 @@ export const PATCH: APIRoute = async ({
         }
 
         // ====================================================
-        // DUPLICADOS EN LA MISMA EDICIÓN
+        // DUPLICADOS
         // ====================================================
 
-        await comprobarDuplicadosEdicion(
-            edicionID,
-            datos.participantes,
-            equipo.id,
-        );
+        if (
+            enviar
+        ) {
+            await comprobarDuplicadosInscritos({
+                edicionID,
+
+                participantes:
+                    datos.participantes,
+
+                equipoActualID:
+                    equipo.id,
+            });
+        }
 
         // ====================================================
         // CAPITÁN
@@ -1293,12 +1791,17 @@ export const PATCH: APIRoute = async ({
         }
 
         // ====================================================
-        // GUARDAR PARTICIPANTES
+        // PARTICIPANTES
         // ====================================================
 
         await guardarParticipantes(
             equipo.id,
             datos.participantes,
+        );
+
+        await marcarParticipantesPendientes(
+            equipo.id,
+            ahora,
         );
 
         // ====================================================
@@ -1379,6 +1882,51 @@ export const PATCH: APIRoute = async ({
         }
 
         // ====================================================
+        // ESCUDO
+        // ====================================================
+
+        /*
+         * Aquí ocurre la conversión:
+         *
+         * Base64
+         *    ↓
+         * Supabase Storage
+         *    ↓
+         * URL pública
+         */
+
+        let escudoGuardado:
+            string | null;
+
+        try {
+            escudoGuardado =
+                await guardarEscudoEquipo({
+                    torneoID:
+                        edicion.torneo_id,
+
+                    edicionID,
+
+                    equipoID:
+                        equipo.id,
+
+                    escudo:
+                        datos.equipo.escudo,
+                });
+        } catch (
+            error
+        ) {
+            console.error(
+                "Error actualitzant l'escut de l'equip:",
+                error,
+            );
+
+            throw new ErrorAPI(
+                500,
+                "No s'ha pogut guardar l'escut de l'equip.",
+            );
+        }
+
+        // ====================================================
         // ACTUALIZAR EQUIPO
         // ====================================================
 
@@ -1395,11 +1943,17 @@ export const PATCH: APIRoute = async ({
                         datos.equipo.nombre ||
                         null,
 
+                    /*
+                     * Nunca Base64.
+                     */
                     escudo:
-                        datos.equipo.escudo,
+                        escudoGuardado,
 
                     capitan_id:
                         capitanID,
+
+                    validacion_estado:
+                        "PENDIENTE",
 
                     updated_at:
                         ahora,
@@ -1420,13 +1974,17 @@ export const PATCH: APIRoute = async ({
         }
 
         // ====================================================
-        // ESTADO DEL FORMULARIO
+        // ESTADO ANTERIOR
         // ====================================================
 
         const estadoAnterior =
             estadoFormulario(
                 acceso.formulario.estado,
             );
+
+        // ====================================================
+        // NUEVO ESTADO
+        // ====================================================
 
         const nuevoEstado:
             EstadoFormulario =
@@ -1442,13 +2000,6 @@ export const PATCH: APIRoute = async ({
         // ====================================================
         // ACTUALIZAR FORMULARIO
         // ====================================================
-
-        /*
-         * email_contacto NO se actualiza.
-         *
-         * Siempre conserva el correo de la persona que
-         * creó originalmente el formulario.
-         */
 
         const {
             data:
@@ -1475,6 +2026,9 @@ export const PATCH: APIRoute = async ({
                                   "BORRADOR"
                               ? null
                               : acceso.formulario.enviado_at,
+
+                    completado_at:
+                        null,
 
                     updated_at:
                         ahora,
@@ -1506,6 +2060,33 @@ export const PATCH: APIRoute = async ({
                 "La inscripció ha canviat mentre la modificaves. Torna a carregar-la.",
             );
         }
+
+        // ====================================================
+        // EMAIL
+        // ====================================================
+
+        /*
+         * EN ESTE PUNTO EL EMAIL YA LEE:
+         *
+         * equipos.escudo =
+         * https://...supabase.co/storage/v1/object/public/...
+         *
+         * Por tanto ya no recibe una imagen Base64.
+         */
+
+        if (
+            enviar &&
+            nuevoEstado ===
+                "EN_REVISION"
+        ) {
+            await enviarNotificacionInscripcion(
+                formularioID,
+            );
+        }
+
+        // ====================================================
+        // RESPUESTA
+        // ====================================================
 
         return responder({
             success:
