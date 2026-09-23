@@ -1097,7 +1097,7 @@ export default function Lista({
                     )}
 
                     <div className="overflow-x-auto">
-                        <table className="w-full min-w-[1180px] border-collapse text-left">
+                        <table className="w-full min-w-295 border-collapse text-left">
                             <thead className="border-b border-border bg-background">
                                 <tr>
                                     <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-neutral">
@@ -1149,7 +1149,7 @@ export default function Lista({
                                         <tr key={equipo.formulario_id} className="transition hover:bg-background/70">
                                             <td className="px-4 py-4 align-middle">
                                                 {enlace ? (
-                                                    <a href={enlace} className="group flex min-w-[220px] items-center gap-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                                                    <a href={enlace} className="group flex min-w-55 items-center gap-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-primary">
                                                         {equipo.escudo ? (
                                                             <img src={equipo.escudo} alt="" className="h-11 w-11 shrink-0 rounded-lg border border-border bg-white object-contain p-1 transition group-hover:border-primary/40" />
                                                         ) : (
@@ -1161,7 +1161,7 @@ export default function Lista({
                                                         )}
 
                                                         <div className="min-w-0">
-                                                            <p className="max-w-[220px] truncate font-semibold text-neutral-titulos transition group-hover:text-primary">
+                                                            <p className="max-w-55 truncate font-semibold text-neutral-titulos transition group-hover:text-primary">
                                                                 {equipo.nombre || "Equip sense nom"}
                                                             </p>
 
@@ -1180,7 +1180,7 @@ export default function Lista({
                                             </td>
 
                                             <td className="px-4 py-4 align-middle">
-                                                <div className="max-w-[220px]">
+                                                <div className="max-w-55">
                                                     <p className="truncate text-sm font-medium text-neutral-titulos">
                                                         {nombreResponsable(equipo)}
                                                     </p>
@@ -1194,7 +1194,7 @@ export default function Lista({
                                             </td>
 
                                             <td className="px-4 py-4 align-middle">
-                                                <div className="max-w-[220px]">
+                                                <div className="max-w-55">
                                                     <p className="truncate text-sm font-medium text-neutral-titulos">
                                                         {textoCapitan(equipo)}
                                                     </p>
@@ -1208,7 +1208,7 @@ export default function Lista({
                                             </td>
 
                                             <td className="px-4 py-4 text-center align-middle">
-                                                <div className="inline-flex min-w-[52px] flex-col items-center rounded-lg bg-background px-3 py-2">
+                                                <div className="inline-flex min-w-13 flex-col items-center rounded-lg bg-background px-3 py-2">
                                                     <span className="text-lg font-bold text-neutral-titulos">
                                                         {equipo.participantes.total}
                                                     </span>

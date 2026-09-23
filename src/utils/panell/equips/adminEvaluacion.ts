@@ -11,6 +11,15 @@ import {
 } from "@utils/inscripcio/equipBase";
 
 import {
+    notificarRevisionEquipo,
+    type TipoRevisionEquipo,
+} from "@utils/inscripcio/equipRevisionEmails";
+
+import {
+    notificarEquipoListaEspera,
+} from "@utils/inscripcio/equipListaEsperaEmails";
+
+import {
     CAMPOS_EQUIPO,
     CAMPOS_FORMULARIO,
     ESTADOS_PLAZA,
@@ -35,7 +44,6 @@ import {
     obtenerParticipantesAdmin,
     validarEmailResponsable,
     type ContextoEquipoAdmin,
-    type EstadoFormulario,
     type EstadoPlaza,
     type ObservacionEntradaAdmin,
     type Registro,
@@ -145,15 +153,127 @@ type SnapshotEvaluacion = {
 };
 
 // ============================================================
+// EMAIL · REVISIÓN
+// ============================================================
+
+async function enviarNotificacionRevision({
+    formularioID,
+    tipo,
+    observacionesIDs = [],
+}: {
+    formularioID:
+        string;
+
+    tipo:
+        TipoRevisionEquipo;
+
+    observacionesIDs?:
+        string[];
+}) {
+    try {
+        const resultado =
+            await notificarRevisionEquipo(
+                formularioID,
+                tipo,
+                observacionesIDs,
+            );
+
+        if (
+            resultado.enviados >
+            0
+        ) {
+            console.info(
+                `[EMAIL] Revisió ${tipo} del formulari ${formularioID}: ${resultado.enviados} correu(s) enviat(s).`,
+            );
+        }
+
+        if (
+            resultado.fallidos >
+            0
+        ) {
+            console.error(
+                `[EMAIL] Revisió ${tipo} del formulari ${formularioID}: han fallat ${resultado.fallidos} de ${resultado.destinatarios} correus.`,
+            );
+        }
+    } catch (
+        error
+    ) {
+        /*
+         * IMPORTANT:
+         *
+         * La modificació administrativa ja ha estat guardada.
+         *
+         * Un problema amb el servei de correu NO ha de provocar
+         * que es desfaci una aprovació, denegació o petició de
+         * correccions.
+         */
+        console.error(
+            `[EMAIL] La revisió ${tipo} del formulari ${formularioID} s'ha guardat, però no s'ha pogut enviar la notificació:`,
+            error,
+        );
+    }
+}
+
+// ============================================================
+// EMAIL · LISTA DE ESPERA
+// ============================================================
+
+async function enviarNotificacionListaEspera(
+    formularioID:
+        string,
+) {
+    try {
+        const resultado =
+            await notificarEquipoListaEspera(
+                formularioID,
+            );
+
+        if (
+            resultado.enviados >
+            0
+        ) {
+            console.info(
+                `[EMAIL] Llista d'espera del formulari ${formularioID}: ${resultado.enviados} correu(s) enviat(s). Posició ${resultado.posicion}.`,
+            );
+        }
+
+        if (
+            resultado.fallidos >
+            0
+        ) {
+            console.error(
+                `[EMAIL] Llista d'espera del formulari ${formularioID}: han fallat ${resultado.fallidos} de ${resultado.destinatarios} correus.`,
+            );
+        }
+    } catch (
+        error
+    ) {
+        /*
+         * El canvi de plaça ja està guardat.
+         *
+         * No revertim mai la plaça per un error enviant el
+         * correu electrònic.
+         */
+        console.error(
+            `[EMAIL] La llista d'espera del formulari ${formularioID} s'ha guardat, però no s'ha pogut enviar la notificació:`,
+            error,
+        );
+    }
+}
+
+// ============================================================
 // PARTICIPANTE PARA VALIDACIÓN
 // ============================================================
 
 function convertirParticipanteValidacion(
-    participante: ParticipanteDB,
+    participante:
+        ParticipanteDB,
 ): ParticipanteEntrada {
     const genero =
-        participante.genero === "masculino" ||
-        participante.genero === "femenino"
+        participante.genero ===
+                "masculino" ||
+        participante.genero ===
+                "femenino"
             ? participante.genero
             : null;
 
@@ -163,7 +283,8 @@ function convertirParticipanteValidacion(
 
         tipo_participante:
             normalizarTipoParticipante(
-                participante.tipo_participante,
+                participante
+                    .tipo_participante,
             ),
 
         nombre:
@@ -205,12 +326,15 @@ function convertirParticipanteValidacion(
 // ============================================================
 
 function prepararDatosActuales(
-    contexto: ContextoEquipoAdmin,
-    participantes: ParticipanteDB[],
+    contexto:
+        ContextoEquipoAdmin,
+    participantes:
+        ParticipanteDB[],
 ): DatosEntrada {
     return {
         acceso_capitan:
-            contexto.formulario.acceso_capitan ===
+            contexto.formulario
+                .acceso_capitan ===
             true,
 
         equipo: {
@@ -225,7 +349,8 @@ function prepararDatosActuales(
                 contexto.equipo.escudo,
 
             capitan_id:
-                contexto.equipo.capitan_id,
+                contexto.equipo
+                    .capitan_id,
         },
 
         participantes:
@@ -240,8 +365,10 @@ function prepararDatosActuales(
 // ============================================================
 
 async function comprobarDuplicadosInscritos(
-    contexto: ContextoEquipoAdmin,
-    participantes: ParticipanteEntrada[],
+    contexto:
+        ContextoEquipoAdmin,
+    participantes:
+        ParticipanteEntrada[],
 ) {
     const emails = [
         ...new Set(
@@ -444,8 +571,10 @@ async function comprobarDuplicadosInscritos(
 // ============================================================
 
 async function validarAntesDeAprobar(
-    contexto: ContextoEquipoAdmin,
-    participantes: ParticipanteDB[],
+    contexto:
+        ContextoEquipoAdmin,
+    participantes:
+        ParticipanteDB[],
 ) {
     const [
         configuracion,
@@ -516,24 +645,30 @@ async function validarAntesDeAprobar(
 // ============================================================
 
 function crearSnapshot(
-    contexto: ContextoEquipoAdmin,
-    participantes: ParticipanteDB[],
+    contexto:
+        ContextoEquipoAdmin,
+    participantes:
+        ParticipanteDB[],
 ): SnapshotEvaluacion {
     return {
         formulario: {
             estado:
-                contexto.formulario.estado,
+                contexto.formulario
+                    .estado,
 
             enviado_at:
-                contexto.formulario.enviado_at,
+                contexto.formulario
+                    .enviado_at,
 
             completado_at:
-                contexto.formulario.completado_at,
+                contexto.formulario
+                    .completado_at,
         },
 
         equipo: {
             validacion_estado:
-                contexto.equipo.validacion_estado,
+                contexto.equipo
+                    .validacion_estado,
         },
 
         participantes:
@@ -543,7 +678,8 @@ function crearSnapshot(
                         participante.id,
 
                     validacion_estado:
-                        participante.validacion_estado,
+                        participante
+                            .validacion_estado,
                 }),
             ),
     };
@@ -554,9 +690,12 @@ function crearSnapshot(
 // ============================================================
 
 async function restaurarFormulario(
-    contexto: ContextoEquipoAdmin,
-    snapshot: SnapshotEvaluacion,
-    marcaOperacion: string,
+    contexto:
+        ContextoEquipoAdmin,
+    snapshot:
+        SnapshotEvaluacion,
+    marcaOperacion:
+        string,
 ) {
     const {
         error,
@@ -613,9 +752,12 @@ async function restaurarFormulario(
 // ============================================================
 
 async function restaurarEquipo(
-    contexto: ContextoEquipoAdmin,
-    snapshot: SnapshotEvaluacion,
-    marcaOperacion: string,
+    contexto:
+        ContextoEquipoAdmin,
+    snapshot:
+        SnapshotEvaluacion,
+    marcaOperacion:
+        string,
 ) {
     const {
         error,
@@ -662,9 +804,12 @@ async function restaurarEquipo(
 // ============================================================
 
 async function restaurarParticipantes(
-    contexto: ContextoEquipoAdmin,
-    snapshot: SnapshotEvaluacion,
-    marcaOperacion: string,
+    contexto:
+        ContextoEquipoAdmin,
+    snapshot:
+        SnapshotEvaluacion,
+    marcaOperacion:
+        string,
 ) {
     for (
         const participante
@@ -715,9 +860,12 @@ async function restaurarParticipantes(
 // ============================================================
 
 async function compensarEvaluacion(
-    contexto: ContextoEquipoAdmin,
-    snapshot: SnapshotEvaluacion,
-    marcaOperacion: string,
+    contexto:
+        ContextoEquipoAdmin,
+    snapshot:
+        SnapshotEvaluacion,
+    marcaOperacion:
+        string,
 ) {
     await restaurarFormulario(
         contexto,
@@ -743,8 +891,10 @@ async function compensarEvaluacion(
 // ============================================================
 
 async function resolverObservacionesPorIDs(
-    ids: string[],
-    usuarioID: string,
+    ids:
+        string[],
+    usuarioID:
+        string,
 ) {
     if (
         ids.length ===
@@ -784,7 +934,8 @@ async function resolverObservacionesPorIDs(
 // ============================================================
 
 async function cerrarObservacionesActivas(
-    contexto: ContextoEquipoAdmin,
+    contexto:
+        ContextoEquipoAdmin,
 ) {
     const observaciones =
         await obtenerObservacionesAdmin(
@@ -819,8 +970,10 @@ async function cerrarObservacionesActivas(
 // ============================================================
 
 async function anularObservacionesNuevas(
-    ids: string[],
-    usuarioID: string,
+    ids:
+        string[],
+    usuarioID:
+        string,
 ) {
     if (
         ids.length ===
@@ -849,9 +1002,12 @@ async function anularObservacionesNuevas(
 // ============================================================
 
 function prepararObservacionesEntrada(
-    valor: unknown,
-    contexto: ContextoEquipoAdmin,
-    participantes: ParticipanteDB[],
+    valor:
+        unknown,
+    contexto:
+        ContextoEquipoAdmin,
+    participantes:
+        ParticipanteDB[],
 ): ObservacionEntradaAdmin[] {
     if (
         !Array.isArray(
@@ -1046,6 +1202,31 @@ function mensajeCambioEstado(
     }
 
     return "La inscripció s'ha tornat a posar en revisió.";
+}
+
+// ============================================================
+// TIPO EMAIL REVISIÓN
+// ============================================================
+
+function tipoRevisionParaEstado(
+    estado:
+        EstadoCambioAdmin,
+): TipoRevisionEquipo {
+    if (
+        estado ===
+        "APROBADO"
+    ) {
+        return "APROBADO";
+    }
+
+    if (
+        estado ===
+        "DENEGADO"
+    ) {
+        return "NO_APROBADO";
+    }
+
+    return "EN_REVISION";
 }
 
 // ============================================================
@@ -1246,7 +1427,8 @@ export async function cambiarEstadoEvaluacionEquipoAdmin({
             )
             .eq(
                 "updated_at",
-                contexto.formulario.updated_at,
+                contexto.formulario
+                    .updated_at,
             )
             .select(
                 CAMPOS_FORMULARIO,
@@ -1384,6 +1566,32 @@ export async function cambiarEstadoEvaluacionEquipoAdmin({
             }
         }
 
+        // ====================================================
+        // 5. EMAIL
+        // ====================================================
+
+        /*
+         * El correo se envía cuando todos los cambios
+         * principales ya se han guardado.
+         *
+         * enviarNotificacionRevision() captura internamente
+         * cualquier error, de modo que el correo nunca provoca
+         * rollback de la revisión.
+         */
+        await enviarNotificacionRevision({
+            formularioID:
+                formularioActualizado.id,
+
+            tipo:
+                tipoRevisionParaEstado(
+                    nuevoEstado,
+                ),
+        });
+
+        // ====================================================
+        // RESPUESTA
+        // ====================================================
+
         return {
             mensaje:
                 mensajeCambioEstado(
@@ -1398,13 +1606,16 @@ export async function cambiarEstadoEvaluacionEquipoAdmin({
                     nuevoEstado,
 
                 enviado_at:
-                    formularioActualizado.enviado_at,
+                    formularioActualizado
+                        .enviado_at,
 
                 completado_at:
-                    formularioActualizado.completado_at,
+                    formularioActualizado
+                        .completado_at,
 
                 updated_at:
-                    formularioActualizado.updated_at,
+                    formularioActualizado
+                        .updated_at,
             },
 
             equipo: {
@@ -1412,11 +1623,13 @@ export async function cambiarEstadoEvaluacionEquipoAdmin({
                     equipoActualizado.id,
 
                 validacion_estado:
-                    equipoActualizado.validacion_estado ??
+                    equipoActualizado
+                        .validacion_estado ??
                     validacion,
 
                 updated_at:
-                    equipoActualizado.updated_at,
+                    equipoActualizado
+                        .updated_at,
             },
         };
     } catch (
@@ -1475,6 +1688,14 @@ export async function aprobarEquipoAdmin({
         );
     }
 
+    /*
+     * IMPORTANTE:
+     *
+     * cambiarEstadoEvaluacionEquipoAdmin() ya envía el email
+     * APROBADO.
+     *
+     * No lo volvemos a enviar aquí para evitar duplicados.
+     */
     const resultado =
         await cambiarEstadoEvaluacionEquipoAdmin({
             contexto,
@@ -1499,13 +1720,16 @@ export async function aprobarEquipoAdmin({
                 "APROBADO",
 
             enviado_at:
-                resultado.formulario.enviado_at,
+                resultado.formulario
+                    .enviado_at,
 
             completado_at:
-                resultado.formulario.completado_at,
+                resultado.formulario
+                    .completado_at,
 
             updated_at:
-                resultado.formulario.updated_at,
+                resultado.formulario
+                    .updated_at,
         },
     };
 }
@@ -1635,7 +1859,8 @@ export async function finalizarBorradorEquipoAdmin({
             )
             .eq(
                 "updated_at",
-                contexto.formulario.updated_at,
+                contexto.formulario
+                    .updated_at,
             )
             .select(
                 CAMPOS_FORMULARIO,
@@ -1759,6 +1984,22 @@ export async function finalizarBorradorEquipoAdmin({
         );
     }
 
+    // ========================================================
+    // EMAIL
+    // ========================================================
+
+    await enviarNotificacionRevision({
+        formularioID:
+            formularioActualizado.id,
+
+        tipo:
+            "APROBADO",
+    });
+
+    // ========================================================
+    // RESPUESTA
+    // ========================================================
+
     return {
         mensaje:
             "L'esborrany administratiu s'ha finalitzat i aprovat correctament.",
@@ -1771,13 +2012,16 @@ export async function finalizarBorradorEquipoAdmin({
                 "APROBADO",
 
             enviado_at:
-                formularioActualizado.enviado_at,
+                formularioActualizado
+                    .enviado_at,
 
             completado_at:
-                formularioActualizado.completado_at,
+                formularioActualizado
+                    .completado_at,
 
             updated_at:
-                formularioActualizado.updated_at,
+                formularioActualizado
+                    .updated_at,
         },
     };
 }
@@ -1803,8 +2047,6 @@ export async function solicitarCambiosEquipoAdmin({
 
     /*
      * IMPORTANTE:
-     *
-     * Ya no limitamos esta acción únicamente a EN_REVISION.
      *
      * También puede utilizarse sobre un APROBADO si después
      * administración detecta que existe un error.
@@ -1934,7 +2176,8 @@ export async function solicitarCambiosEquipoAdmin({
             )
             .eq(
                 "updated_at",
-                contexto.formulario.updated_at,
+                contexto.formulario
+                    .updated_at,
             )
             .select(
                 CAMPOS_FORMULARIO,
@@ -2084,12 +2327,14 @@ export async function solicitarCambiosEquipoAdmin({
                 observaciones
                     .filter(
                         observacion =>
-                            observacion.entidad_tipo ===
+                            observacion
+                                .entidad_tipo ===
                             "PARTICIPANTE",
                     )
                     .map(
                         observacion =>
-                            observacion.entidad_id,
+                            observacion
+                                .entidad_id,
                     ),
             ),
         ];
@@ -2172,6 +2417,30 @@ export async function solicitarCambiosEquipoAdmin({
         }
     }
 
+    // ========================================================
+    // EMAIL DE CORRECCIONES
+    // ========================================================
+
+    await enviarNotificacionRevision({
+        formularioID:
+            formularioActualizado.id,
+
+        tipo:
+            "CORRECCIONES",
+
+        /*
+         * Pasamos exclusivamente los IDs recién creados para
+         * que el email no mezcle observaciones antiguas con
+         * las de esta revisión.
+         */
+        observacionesIDs:
+            idsObservacionesNuevas,
+    });
+
+    // ========================================================
+    // RESPUESTA
+    // ========================================================
+
     return {
         mensaje:
             estadoActual ===
@@ -2187,10 +2456,12 @@ export async function solicitarCambiosEquipoAdmin({
                 "DENEGADO",
 
             completado_at:
-                formularioActualizado.completado_at,
+                formularioActualizado
+                    .completado_at,
 
             updated_at:
-                formularioActualizado.updated_at,
+                formularioActualizado
+                    .updated_at,
         },
 
         observacionesCreadas:
@@ -2232,7 +2503,8 @@ export async function cambiarPlazaEquipoAdmin({
     // ========================================================
 
     exigirMismaVersion(
-        contexto.equipo.updated_at,
+        contexto.equipo
+            .updated_at,
         cuerpo.equipo_updated_at,
         "l'equip",
     );
@@ -2278,12 +2550,15 @@ export async function cambiarPlazaEquipoAdmin({
         "LISTA_ESPERA"
     ) {
         if (
-            typeof cuerpo.posicion_lista_espera !==
+            typeof cuerpo
+                    .posicion_lista_espera !==
                 "number" ||
             !Number.isSafeInteger(
-                cuerpo.posicion_lista_espera,
+                cuerpo
+                    .posicion_lista_espera,
             ) ||
-            cuerpo.posicion_lista_espera <
+            cuerpo
+                .posicion_lista_espera <
                 1
         ) {
             throw new ErrorAPI(
@@ -2293,7 +2568,8 @@ export async function cambiarPlazaEquipoAdmin({
         }
 
         posicionListaEspera =
-            cuerpo.posicion_lista_espera;
+            cuerpo
+                .posicion_lista_espera;
     }
 
     // ========================================================
@@ -2301,7 +2577,8 @@ export async function cambiarPlazaEquipoAdmin({
     // ========================================================
 
     let notaAdmin =
-        contexto.equipo.nota_admin;
+        contexto.equipo
+            .nota_admin;
 
     if (
         Object.prototype
@@ -2364,7 +2641,8 @@ export async function cambiarPlazaEquipoAdmin({
             )
             .eq(
                 "updated_at",
-                contexto.equipo.updated_at,
+                contexto.equipo
+                    .updated_at,
             )
             .select(
                 CAMPOS_EQUIPO,
@@ -2385,6 +2663,10 @@ export async function cambiarPlazaEquipoAdmin({
             "L'equip ha canviat des que l'has carregat. Actualitza la fitxa abans de modificar la plaça.",
         );
     }
+
+    // ========================================================
+    // MENSAJE
+    // ========================================================
 
     let mensaje =
         "L'estat de la plaça ha quedat pendent.";
@@ -2413,6 +2695,35 @@ export async function cambiarPlazaEquipoAdmin({
             "L'equip s'ha marcat sense plaça.";
     }
 
+    // ========================================================
+    // EMAIL LISTA DE ESPERA
+    // ========================================================
+
+    /*
+     * Por ahora sólo tenemos un email específico para
+     * LISTA_ESPERA.
+     *
+     * CONFIRMADA, PENDIENTE y SIN_PLAZA no generan correo
+     * desde este archivo hasta que creemos sus plantillas
+     * específicas.
+     *
+     * Si el equipo ya estaba en LISTA_ESPERA y administración
+     * modifica la posición, se enviará de nuevo el email con la
+     * posición actualizada.
+     */
+    if (
+        plazaEstado ===
+        "LISTA_ESPERA"
+    ) {
+        await enviarNotificacionListaEspera(
+            contexto.formulario.id,
+        );
+    }
+
+    // ========================================================
+    // RESPUESTA
+    // ========================================================
+
     return {
         mensaje,
 
@@ -2422,17 +2733,21 @@ export async function cambiarPlazaEquipoAdmin({
 
             plaza_estado:
                 normalizarEstadoPlaza(
-                    equipoActualizado.plaza_estado,
+                    equipoActualizado
+                        .plaza_estado,
                 ),
 
             posicion_lista_espera:
-                equipoActualizado.posicion_lista_espera,
+                equipoActualizado
+                    .posicion_lista_espera,
 
             nota_admin:
-                equipoActualizado.nota_admin,
+                equipoActualizado
+                    .nota_admin,
 
             updated_at:
-                equipoActualizado.updated_at,
+                equipoActualizado
+                    .updated_at,
         },
     };
 }

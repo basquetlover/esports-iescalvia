@@ -3029,7 +3029,7 @@ export default function Detalle({
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
-                                <table className="w-full min-w-[900px] text-left">
+                                <table className="w-full min-w-225 text-left">
                                     <thead className="border-b border-border bg-background">
                                         <tr>
                                             <th className="px-4 py-3 text-xs font-semibold text-neutral">

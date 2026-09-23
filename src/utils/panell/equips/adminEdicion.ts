@@ -13,6 +13,10 @@ import {
 } from "@utils/inscripcio/equipBase";
 
 import {
+    guardarEscudoEquipo,
+} from "@utils/inscripcio/equipStorage";
+
+import {
     ErrorAPI,
     MAX_APELLIDO,
     MAX_EMAIL,
@@ -887,6 +891,63 @@ export async function editarEquipoAdmin({
     }
 
     // ========================================================
+    // ESCUDO
+    // ========================================================
+
+    /*
+     * El formulario y la creación administrativa ya convierten
+     * cualquier imagen Base64 a un archivo real de Supabase
+     * Storage.
+     *
+     * La edición administrativa debe seguir exactamente la misma
+     * regla:
+     *
+     * Base64
+     *   ↓
+     * EquiposIMG
+     *   ↓
+     * URL pública
+     *   ↓
+     * equipos.escudo
+     *
+     * Si escudo ya es una URL HTTP/HTTPS, guardarEscudoEquipo()
+     * simplemente la conserva.
+     */
+
+    let escudoGuardado:
+        string | null;
+
+    try {
+        escudoGuardado =
+            await guardarEscudoEquipo({
+                torneoID:
+                    contexto.torneo.id,
+
+                edicionID:
+                    contexto.edicion.id,
+
+                equipoID:
+                    contexto.equipo.id,
+
+                escudo:
+                    datos.equipo
+                        .escudo,
+            });
+    } catch (
+        error
+    ) {
+        console.error(
+            "Error actualitzant l'escut de l'equip des del panell:",
+            error,
+        );
+
+        throw new ErrorAPI(
+            500,
+            "No s'ha pogut guardar l'escut de l'equip.",
+        );
+    }
+
+    // ========================================================
     // EQUIPO
     // ========================================================
 
@@ -918,9 +979,16 @@ export async function editarEquipoAdmin({
                         .nombre ||
                     null,
 
+                /*
+                 * Nunca guardamos el Base64 recibido desde
+                 * React. Aquí únicamente llega:
+                 *
+                 * - URL pública de Supabase Storage
+                 * - URL HTTP/HTTPS ya existente
+                 * - null
+                 */
                 escudo:
-                    datos.equipo
-                        .escudo,
+                    escudoGuardado,
 
                 capitan_id:
                     capitan?.id ??
