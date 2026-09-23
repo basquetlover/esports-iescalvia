@@ -18,6 +18,15 @@ type EstadoFormulario =
     | "APROBADO"
     | "DENEGADO";
 
+type EstadoEvaluacion =
+    | "EN_REVISION"
+    | "APROBADO"
+    | "DENEGADO";
+
+type OrigenFormulario =
+    | "USUARIO"
+    | "ADMIN";
+
 type EstadoPlaza =
     | "PENDIENTE"
     | "CONFIRMADA"
@@ -56,11 +65,6 @@ type Edicion = {
     fecha_fin: string | null;
 };
 
-type CursoConfiguracion = {
-    curso: string;
-    grupos: string[];
-};
-
 type ConfiguracionEquipos = {
     inscripcion: {
         apertura: string | null;
@@ -76,7 +80,10 @@ type ConfiguracionEquipos = {
             | "bloquear";
     };
 
-    cursos: CursoConfiguracion[];
+    cursos: {
+        curso: string;
+        grupos: string[];
+    }[];
 
     jugadores: {
         minimo: number | null;
@@ -127,6 +134,7 @@ type Equipo = {
 type Formulario = {
     id: string;
     estado: EstadoFormulario;
+    origen: OrigenFormulario;
     usuario_id: string | null;
     email_contacto: string;
     acceso_capitan: boolean;
@@ -178,8 +186,8 @@ type Participantes = {
 
 type Observacion = {
     id: string;
-    edicion_id: string;
-    formulario_id: string;
+    edicion_id: string | null;
+    formulario_id: string | null;
     entidad_tipo: string;
     entidad_id: string | null;
     campo: string;
@@ -191,10 +199,13 @@ type Observacion = {
 };
 
 type Capacidades = {
+    crear: boolean;
     editar: boolean;
     evaluar: boolean;
     cambiarEstado: boolean;
     eliminar: boolean;
+    finalizarBorrador: boolean;
+    cambiarEvaluacion: boolean;
 };
 
 type RespuestaAPI = {
@@ -243,7 +254,9 @@ type ObservacionNueva = {
 type AccionGuardando =
     | "editar"
     | "aprobar"
+    | "finalizar"
     | "cambios"
+    | "evaluacion"
     | "plaza"
     | null;
 
@@ -341,8 +354,10 @@ const CAMPOS_PARTICIPANTE = [
 
 function nuevaClave() {
     if (
-        typeof crypto !== "undefined" &&
-        typeof crypto.randomUUID === "function"
+        typeof crypto !==
+            "undefined" &&
+        typeof crypto.randomUUID ===
+            "function"
     ) {
         return crypto.randomUUID();
     }
@@ -351,30 +366,77 @@ function nuevaClave() {
 }
 
 function participanteVacio(
-    tipo: TipoParticipante = "JUGADOR",
+    tipo: TipoParticipante =
+        "JUGADOR",
 ): ParticipanteEdicion {
     return {
-        clave: nuevaClave(),
-        id: null,
-        tipo_participante: tipo,
-        nombre: "",
-        apellido1: "",
-        apellido2: "",
-        email: "",
-        curso: "",
-        grupo: "",
-        genero: "",
+        clave:
+            nuevaClave(),
+
+        id:
+            null,
+
+        tipo_participante:
+            tipo,
+
+        nombre:
+            "",
+
+        apellido1:
+            "",
+
+        apellido2:
+            "",
+
+        email:
+            "",
+
+        curso:
+            "",
+
+        grupo:
+            "",
+
+        genero:
+            "",
     };
 }
 
-function observacionVacia(): ObservacionNueva {
+function observacionVacia():
+    ObservacionNueva {
     return {
-        clave: nuevaClave(),
-        entidad_tipo: "EQUIPO",
-        participante_id: "",
-        campo: "general",
-        mensaje: "",
+        clave:
+            nuevaClave(),
+
+        entidad_tipo:
+            "EQUIPO",
+
+        participante_id:
+            "",
+
+        campo:
+            "general",
+
+        mensaje:
+            "",
     };
+}
+
+function nombreParticipante(
+    participante: {
+        nombre: string;
+        apellido1: string;
+        apellido2: string;
+    },
+) {
+    return [
+        participante.nombre,
+        participante.apellido1,
+        participante.apellido2,
+    ]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
 }
 
 function textoEstadoFormulario(
@@ -467,17 +529,28 @@ function textoTipo(
     }
 }
 
+function textoOrigen(
+    origen: OrigenFormulario,
+) {
+    return origen ===
+        "ADMIN"
+        ? "Administració"
+        : "Usuari";
+}
+
 function mostrarGenero(
     genero: Genero | null,
 ) {
     if (
-        genero === "masculino"
+        genero ===
+        "masculino"
     ) {
         return "Masculí";
     }
 
     if (
-        genero === "femenino"
+        genero ===
+        "femenino"
     ) {
         return "Femení";
     }
@@ -488,12 +561,16 @@ function mostrarGenero(
 function mostrarFecha(
     valor: string | null,
 ) {
-    if (!valor) {
+    if (
+        !valor
+    ) {
         return "—";
     }
 
     const fecha =
-        new Date(valor);
+        new Date(
+            valor,
+        );
 
     if (
         Number.isNaN(
@@ -513,7 +590,9 @@ function mostrarFecha(
             minute: "2-digit",
             timeZone: "Europe/Madrid",
         },
-    ).format(fecha);
+    ).format(
+        fecha,
+    );
 }
 
 function observacionActiva(
@@ -531,32 +610,40 @@ function necesitaCurso(
     tipo: TipoParticipante,
 ) {
     return (
-        tipo === "JUGADOR" ||
-        tipo === "PROFESOR"
+        tipo ===
+            "JUGADOR" ||
+        tipo ===
+            "PROFESOR"
     );
 }
 
 function participanteComputable(
-    participante: ParticipanteEdicion,
-    configuracion: ConfiguracionEquipos,
+    participante:
+        ParticipanteEdicion,
+    configuracion:
+        ConfiguracionEquipos,
 ) {
     if (
-        participante.tipo_participante ===
+        participante
+            .tipo_participante ===
         "JUGADOR"
     ) {
         return true;
     }
 
     return (
-        participante.tipo_participante ===
+        participante
+            .tipo_participante ===
             "PROFESOR" &&
-        configuracion.profesores
+        configuracion
+            .profesores
             .cuentan_como_jugador
     );
 }
 
 function opcionesTipo(
-    configuracion: ConfiguracionEquipos,
+    configuracion:
+        ConfiguracionEquipos,
 ) {
     const opciones: {
         valor: TipoParticipante;
@@ -569,7 +656,8 @@ function opcionesTipo(
     ];
 
     if (
-        configuracion.profesores
+        configuracion
+            .profesores
             .permitidos
     ) {
         opciones.push({
@@ -579,7 +667,8 @@ function opcionesTipo(
     }
 
     if (
-        configuracion.entrenador
+        configuracion
+            .entrenador
             .permitido
     ) {
         opciones.push({
@@ -589,7 +678,8 @@ function opcionesTipo(
     }
 
     if (
-        configuracion.staff
+        configuracion
+            .staff
             .permitido
     ) {
         opciones.push({
@@ -602,16 +692,19 @@ function opcionesTipo(
 }
 
 function camposObservacion(
-    tipo: TipoEntidadObservacion,
+    tipo:
+        TipoEntidadObservacion,
 ) {
     if (
-        tipo === "FORMULARIO"
+        tipo ===
+        "FORMULARIO"
     ) {
         return CAMPOS_FORMULARIO;
     }
 
     if (
-        tipo === "PARTICIPANTE"
+        tipo ===
+        "PARTICIPANTE"
     ) {
         return CAMPOS_PARTICIPANTE;
     }
@@ -666,21 +759,30 @@ function leerImagen(
     );
 }
 
-function nombreParticipante(
-    participante: {
-        nombre: string;
-        apellido1: string;
-        apellido2: string;
-    },
+function mensajeConfirmacionEvaluacion(
+    actual:
+        EstadoFormulario,
+    nuevo:
+        EstadoEvaluacion,
 ) {
-    return [
-        participante.nombre,
-        participante.apellido1,
-        participante.apellido2,
-    ]
-        .filter(Boolean)
-        .join(" ")
-        .trim();
+    if (
+        nuevo ===
+        "APROBADO"
+    ) {
+        return "Vols marcar aquesta inscripció com a aprovada? Es tornaran a validar totes les dades abans d'aprovar-la.";
+    }
+
+    if (
+        nuevo ===
+        "DENEGADO"
+    ) {
+        return actual ===
+            "APROBADO"
+            ? "Vols revocar l'aprovació i marcar aquesta inscripció com a no aprovada? La plaça no es modificarà."
+            : "Vols marcar aquesta inscripció com a no aprovada? La plaça no es modificarà.";
+    }
+
+    return "Vols tornar aquesta inscripció a revisió? L'equip i els participants quedaran pendents de validació. La plaça no es modificarà.";
 }
 
 // ============================================================
@@ -702,31 +804,41 @@ export default function Detalle({
         cargando,
         setCargando,
     ] =
-        useState(true);
+        useState(
+            true,
+        );
 
     const [
         errorCarga,
         setErrorCarga,
     ] =
-        useState("");
+        useState(
+            "",
+        );
 
     const [
         errorAccion,
         setErrorAccion,
     ] =
-        useState("");
+        useState(
+            "",
+        );
 
     const [
         mensaje,
         setMensaje,
     ] =
-        useState("");
+        useState(
+            "",
+        );
 
     const [
         datos,
         setDatos,
     ] =
-        useState<RespuestaAPI | null>(
+        useState<
+            RespuestaAPI | null
+        >(
             null,
         );
 
@@ -734,13 +846,17 @@ export default function Detalle({
         editando,
         setEditando,
     ] =
-        useState(false);
+        useState(
+            false,
+        );
 
     const [
         guardando,
         setGuardando,
     ] =
-        useState<AccionGuardando>(
+        useState<
+            AccionGuardando
+        >(
             null,
         );
 
@@ -749,19 +865,32 @@ export default function Detalle({
         setDatosEdicion,
     ] =
         useState<DatosEdicion>({
-            nombre: "",
-            escudo: null,
-            responsableEmail: "",
-            vincularResponsable: false,
-            accesoCapitan: false,
-            notaAdmin: "",
+            nombre:
+                "",
+
+            escudo:
+                null,
+
+            responsableEmail:
+                "",
+
+            vincularResponsable:
+                false,
+
+            accesoCapitan:
+                false,
+
+            notaAdmin:
+                "",
         });
 
     const [
         participantesEdicion,
         setParticipantesEdicion,
     ] =
-        useState<ParticipanteEdicion[]>(
+        useState<
+            ParticipanteEdicion[]
+        >(
             [],
         );
 
@@ -769,15 +898,27 @@ export default function Detalle({
         capitanClave,
         setCapitanClave,
     ] =
-        useState("");
+        useState(
+            "",
+        );
 
     const [
         observacionesNuevas,
         setObservacionesNuevas,
     ] =
-        useState<ObservacionNueva[]>([
+        useState<
+            ObservacionNueva[]
+        >([
             observacionVacia(),
         ]);
+
+    const [
+        estadoEvaluacion,
+        setEstadoEvaluacion,
+    ] =
+        useState<EstadoEvaluacion>(
+            "EN_REVISION",
+        );
 
     const [
         plazaEstado,
@@ -791,16 +932,20 @@ export default function Detalle({
         posicionListaEspera,
         setPosicionListaEspera,
     ] =
-        useState("");
+        useState(
+            "",
+        );
 
     const [
         notaPlaza,
         setNotaPlaza,
     ] =
-        useState("");
+        useState(
+            "",
+        );
 
     // ========================================================
-    // SINCRONIZAR FORMULARIOS
+    // SINCRONIZAR
     // ========================================================
 
     const sincronizarEdicion =
@@ -902,6 +1047,23 @@ export default function Detalle({
                     "",
                 );
 
+                if (
+                    respuesta
+                        .formulario
+                        .estado !==
+                    "BORRADOR"
+                ) {
+                    setEstadoEvaluacion(
+                        respuesta
+                            .formulario
+                            .estado,
+                    );
+                } else {
+                    setEstadoEvaluacion(
+                        "EN_REVISION",
+                    );
+                }
+
                 setPlazaEstado(
                     respuesta
                         .equipo
@@ -932,7 +1094,7 @@ export default function Detalle({
         );
 
     // ========================================================
-    // CARGA
+    // CARGAR
     // ========================================================
 
     const cargar =
@@ -949,7 +1111,9 @@ export default function Detalle({
                     );
                 }
 
-                setErrorCarga("");
+                setErrorCarga(
+                    "",
+                );
 
                 try {
                     const parametros =
@@ -991,7 +1155,7 @@ export default function Detalle({
                         json.success !==
                             true
                     ) {
-                        const mensajeError =
+                        const texto =
                             json &&
                             typeof json ===
                                 "object" &&
@@ -1003,12 +1167,13 @@ export default function Detalle({
                                 : "No s'ha pogut carregar la fitxa de l'equip.";
 
                         throw new Error(
-                            mensajeError,
+                            texto,
                         );
                     }
 
                     const resultado =
-                        json as RespuestaAPI;
+                        json as
+                            RespuestaAPI;
 
                     setDatos(
                         resultado,
@@ -1044,11 +1209,14 @@ export default function Detalle({
             ],
         );
 
-    useEffect(() => {
-        void cargar();
-    }, [
-        cargar,
-    ]);
+    useEffect(
+        () => {
+            void cargar();
+        },
+        [
+            cargar,
+        ],
+    );
 
     // ========================================================
     // DERIVADOS
@@ -1057,7 +1225,8 @@ export default function Detalle({
     const observacionesActivas =
         useMemo(
             () =>
-                datos?.observaciones
+                datos
+                    ?.observaciones
                     .filter(
                         observacionActiva,
                     ) ??
@@ -1112,48 +1281,52 @@ export default function Detalle({
     const resumenEdicion =
         useMemo(
             () => {
-                if (!datos) {
+                if (
+                    !datos
+                ) {
                     return {
-                        total: 0,
-                        computables: 0,
-                        masculinos: 0,
-                        femeninos: 0,
+                        total:
+                            0,
+
+                        computables:
+                            0,
+
+                        masculinos:
+                            0,
+
+                        femeninos:
+                            0,
                     };
                 }
+
+                const computables =
+                    participantesEdicion.filter(
+                        participante =>
+                            participanteComputable(
+                                participante,
+                                datos.configuracion,
+                            ),
+                    );
 
                 return {
                     total:
                         participantesEdicion.length,
 
                     computables:
-                        participantesEdicion.filter(
-                            participante =>
-                                participanteComputable(
-                                    participante,
-                                    datos.configuracion,
-                                ),
-                        ).length,
+                        computables.length,
 
                     masculinos:
-                        participantesEdicion.filter(
+                        computables.filter(
                             participante =>
-                                participanteComputable(
-                                    participante,
-                                    datos.configuracion,
-                                ) &&
                                 participante.genero ===
-                                    "masculino",
+                                "masculino",
                         ).length,
 
                     femeninos:
-                        participantesEdicion.filter(
+                        computables.filter(
                             participante =>
-                                participanteComputable(
-                                    participante,
-                                    datos.configuracion,
-                                ) &&
                                 participante.genero ===
-                                    "femenino",
+                                "femenino",
                         ).length,
                 };
             },
@@ -1222,7 +1395,7 @@ export default function Detalle({
             json.success !==
                 true
         ) {
-            const mensajeError =
+            const texto =
                 json &&
                 typeof json ===
                     "object" &&
@@ -1234,7 +1407,7 @@ export default function Detalle({
                     : "No s'ha pogut completar l'operació.";
 
             throw new Error(
-                mensajeError,
+                texto,
             );
         }
 
@@ -1242,7 +1415,7 @@ export default function Detalle({
     }
 
     // ========================================================
-    // EDICIÓN PARTICIPANTES
+    // PARTICIPANTES · EDITAR
     // ========================================================
 
     function actualizarParticipante(
@@ -1411,11 +1584,15 @@ export default function Detalle({
         evento.target.value =
             "";
 
-        if (!archivo) {
+        if (
+            !archivo
+        ) {
             return;
         }
 
-        setErrorAccion("");
+        setErrorAccion(
+            "",
+        );
 
         if (
             !TIPOS_IMAGEN.has(
@@ -1478,8 +1655,13 @@ export default function Detalle({
             return;
         }
 
-        setErrorAccion("");
-        setMensaje("");
+        setErrorAccion(
+            "",
+        );
+
+        setMensaje(
+            "",
+        );
 
         if (
             datosEdicion
@@ -1603,12 +1785,12 @@ export default function Detalle({
                     ),
             });
 
-            setMensaje(
-                "Les dades de l'equip s'han actualitzat correctament.",
-            );
-
             setEditando(
                 false,
+            );
+
+            setMensaje(
+                "Les dades de l'equip s'han actualitzat correctament.",
             );
 
             await cargar(
@@ -1630,12 +1812,10 @@ export default function Detalle({
         }
     }
 
-    // ========================================================
-    // CANCELAR EDICIÓN
-    // ========================================================
-
     function cancelarEdicion() {
-        if (!datos) {
+        if (
+            !datos
+        ) {
             return;
         }
 
@@ -1647,7 +1827,9 @@ export default function Detalle({
             false,
         );
 
-        setErrorAccion("");
+        setErrorAccion(
+            "",
+        );
     }
 
     // ========================================================
@@ -1664,14 +1846,20 @@ export default function Detalle({
 
         if (
             !window.confirm(
-                "Vols aprovar aquesta inscripció? Les dades quedaran validades.",
+                "Vols aprovar aquesta inscripció? Es tornaran a validar totes les dades.",
             )
         ) {
             return;
         }
 
-        setErrorAccion("");
-        setMensaje("");
+        setErrorAccion(
+            "",
+        );
+
+        setMensaje(
+            "",
+        );
+
         setGuardando(
             "aprobar",
         );
@@ -1702,6 +1890,185 @@ export default function Detalle({
                     ? error.message
                     : "No s'ha pogut aprovar la inscripció.",
             );
+        } finally {
+            setGuardando(
+                null,
+            );
+        }
+    }
+
+    // ========================================================
+    // FINALIZAR BORRADOR ADMIN
+    // ========================================================
+
+    async function finalizarBorrador() {
+        if (
+            !datos ||
+            guardando ||
+            !datos.capacidades
+                .finalizarBorrador
+        ) {
+            return;
+        }
+
+        if (
+            !window.confirm(
+                "Vols finalitzar aquest esborrany administratiu? Es comprovaran totes les dades i, si són correctes, l'equip quedarà aprovat.",
+            )
+        ) {
+            return;
+        }
+
+        setErrorAccion(
+            "",
+        );
+
+        setMensaje(
+            "",
+        );
+
+        setGuardando(
+            "finalizar",
+        );
+
+        try {
+            await ejecutarPatch({
+                accion:
+                    "finalizar-borrador",
+
+                formulario_updated_at:
+                    datos.formulario
+                        .updated_at,
+            });
+
+            setMensaje(
+                "L'esborrany s'ha finalitzat i aprovat correctament.",
+            );
+
+            await cargar(
+                false,
+            );
+        } catch (
+            error
+        ) {
+            setErrorAccion(
+                error instanceof
+                    Error
+                    ? error.message
+                    : "No s'ha pogut finalitzar l'esborrany.",
+            );
+        } finally {
+            setGuardando(
+                null,
+            );
+        }
+    }
+
+    // ========================================================
+    // CAMBIAR EVALUACIÓN
+    // ========================================================
+
+    async function guardarEstadoEvaluacion() {
+        if (
+            !datos ||
+            guardando ||
+            !datos.capacidades
+                .cambiarEvaluacion ||
+            datos.formulario
+                .estado ===
+                "BORRADOR"
+        ) {
+            return;
+        }
+
+        if (
+            estadoEvaluacion ===
+            datos.formulario
+                .estado
+        ) {
+            return;
+        }
+
+        if (
+            !window.confirm(
+                mensajeConfirmacionEvaluacion(
+                    datos.formulario
+                        .estado,
+                    estadoEvaluacion,
+                ),
+            )
+        ) {
+            return;
+        }
+
+        setErrorAccion(
+            "",
+        );
+
+        setMensaje(
+            "",
+        );
+
+        setGuardando(
+            "evaluacion",
+        );
+
+        try {
+            await ejecutarPatch({
+                accion:
+                    "cambiar-evaluacion",
+
+                formulario_updated_at:
+                    datos.formulario
+                        .updated_at,
+
+                estado:
+                    estadoEvaluacion,
+            });
+
+            if (
+                estadoEvaluacion ===
+                "APROBADO"
+            ) {
+                setMensaje(
+                    "La inscripció s'ha aprovat correctament.",
+                );
+            } else if (
+                estadoEvaluacion ===
+                "DENEGADO"
+            ) {
+                setMensaje(
+                    "La inscripció s'ha marcat com a no aprovada.",
+                );
+            } else {
+                setMensaje(
+                    "La inscripció s'ha tornat a posar en revisió.",
+                );
+            }
+
+            await cargar(
+                false,
+            );
+        } catch (
+            error
+        ) {
+            setErrorAccion(
+                error instanceof
+                    Error
+                    ? error.message
+                    : "No s'ha pogut modificar l'estat de l'avaluació.",
+            );
+
+            if (
+                datos.formulario
+                    .estado !==
+                "BORRADOR"
+            ) {
+                setEstadoEvaluacion(
+                    datos.formulario
+                        .estado,
+                );
+            }
         } finally {
             setGuardando(
                 null,
@@ -1755,6 +2122,10 @@ export default function Detalle({
         );
     }
 
+    // ========================================================
+    // SOLICITAR CAMBIOS
+    // ========================================================
+
     async function solicitarCambios() {
         if (
             !datos ||
@@ -1787,9 +2158,11 @@ export default function Detalle({
             of preparadas
         ) {
             if (
-                observacion.entidad_tipo ===
+                observacion
+                    .entidad_tipo ===
                     "PARTICIPANTE" &&
-                !observacion.participante_id
+                !observacion
+                    .participante_id
             ) {
                 setErrorAccion(
                     "Selecciona el participant al qual correspon cada observació.",
@@ -1801,14 +2174,20 @@ export default function Detalle({
 
         if (
             !window.confirm(
-                "Vols retornar aquesta inscripció perquè es facin les correccions indicades?",
+                "Vols marcar la inscripció com a pendent de correccions?",
             )
         ) {
             return;
         }
 
-        setErrorAccion("");
-        setMensaje("");
+        setErrorAccion(
+            "",
+        );
+
+        setMensaje(
+            "",
+        );
+
         setGuardando(
             "cambios",
         );
@@ -1857,7 +2236,11 @@ export default function Detalle({
             ]);
 
             setMensaje(
-                "La inscripció s'ha retornat amb les correccions indicades.",
+                datos.formulario
+                    .estado ===
+                    "APROBADO"
+                    ? "L'aprovació s'ha revocat i s'han registrat les correccions."
+                    : "La inscripció s'ha retornat amb les correccions indicades.",
             );
 
             await cargar(
@@ -1870,7 +2253,7 @@ export default function Detalle({
                 error instanceof
                     Error
                     ? error.message
-                    : "No s'ha pogut retornar la inscripció.",
+                    : "No s'ha pogut registrar la correcció.",
             );
         } finally {
             setGuardando(
@@ -1899,16 +2282,17 @@ export default function Detalle({
             plazaEstado ===
             "LISTA_ESPERA"
         ) {
-            const numero =
+            const valor =
                 Number(
                     posicionListaEspera,
                 );
 
             if (
                 !Number.isSafeInteger(
-                    numero,
+                    valor,
                 ) ||
-                numero < 1
+                valor <
+                    1
             ) {
                 setErrorAccion(
                     "Indica una posició vàlida de la llista d'espera.",
@@ -1918,11 +2302,17 @@ export default function Detalle({
             }
 
             posicion =
-                numero;
+                valor;
         }
 
-        setErrorAccion("");
-        setMensaje("");
+        setErrorAccion(
+            "",
+        );
+
+        setMensaje(
+            "",
+        );
+
         setGuardando(
             "plaza",
         );
@@ -1943,7 +2333,8 @@ export default function Detalle({
                     posicion,
 
                 nota_admin:
-                    notaPlaza.trim(),
+                    notaPlaza
+                        .trim(),
             });
 
             setMensaje(
@@ -1973,7 +2364,9 @@ export default function Detalle({
     // CARGANDO
     // ========================================================
 
-    if (cargando) {
+    if (
+        cargando
+    ) {
         return (
             <div className="flex min-h-96 items-center justify-center">
                 <Cargando />
@@ -1982,7 +2375,7 @@ export default function Detalle({
     }
 
     // ========================================================
-    // ERROR DE CARGA
+    // ERROR
     // ========================================================
 
     if (
@@ -1998,7 +2391,7 @@ export default function Detalle({
                     {errorCarga || "L'equip no està disponible."}
                 </p>
 
-                <a href={volver} className="mt-5 inline-flex items-center rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-semibold text-neutral-titulos transition hover:border-primary/30 hover:text-primary">
+                <a href={volver} className="mt-5 inline-flex rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-semibold text-neutral-titulos transition hover:border-primary/30 hover:text-primary">
                     Tornar als equips
                 </a>
             </div>
@@ -2024,9 +2417,7 @@ export default function Detalle({
     return (
         <div className="flex flex-col gap-6">
 
-            {/* =================================================
-                MENSAJES
-            ================================================= */}
+            {/* MENSAJES */}
 
             {mensaje && (
                 <div role="status" className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm font-medium text-primary">
@@ -2040,9 +2431,7 @@ export default function Detalle({
                 </div>
             )}
 
-            {/* =================================================
-                CABECERA
-            ================================================= */}
+            {/* CABECERA */}
 
             <section className="overflow-hidden rounded-2xl border border-border bg-card">
                 <div className="flex flex-col gap-5 p-5 md:flex-row md:items-center md:justify-between md:p-6">
@@ -2065,6 +2454,10 @@ export default function Detalle({
 
                                 <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${claseEstadoFormulario(formulario.estado)}`}>
                                     {textoEstadoFormulario(formulario.estado)}
+                                </span>
+
+                                <span className="rounded-full bg-background px-2.5 py-1 text-[10px] font-semibold text-neutral">
+                                    {textoOrigen(formulario.origen)}
                                 </span>
                             </div>
 
@@ -2091,15 +2484,11 @@ export default function Detalle({
                                 setErrorAccion("");
                                 setEditando(true);
                             }} className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-semibold text-neutral-titulos transition hover:border-primary/30 hover:bg-primary/5 hover:text-primary">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" className="h-4 w-4 fill-current" aria-hidden="true">
-                                    <path d="M200-200h57l391-391-57-57-391 391v57Zm-80 80v-170l528-528q12-12 28-18t33-6q17 0 33.5 6.5T772-817l45 45q13 13 19 29t6 33q0 17-6 33t-19 29L290-120H120Z" />
-                                </svg>
-
                                 Editar dades
                             </button>
                         )}
 
-                        <a href={volver} className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-semibold text-neutral-titulos transition hover:border-primary/30 hover:text-primary">
+                        <a href={volver} className="inline-flex items-center rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-semibold text-neutral-titulos transition hover:border-primary/30 hover:text-primary">
                             Tornar
                         </a>
                     </div>
@@ -2110,11 +2499,33 @@ export default function Detalle({
                         Aquesta inscripció està pendent d'avaluació.
                     </div>
                 )}
+
+                {formulario.estado === "APROBADO" && (
+                    <div className="border-t border-primary/20 bg-primary/5 px-5 py-3 text-xs font-medium text-primary md:px-6">
+                        Aquesta inscripció està aprovada. L'estat encara pot ser modificat per administració.
+                    </div>
+                )}
+
+                {formulario.estado === "DENEGADO" && (
+                    <div className="border-t border-error/20 bg-error/5 px-5 py-3 text-xs font-medium text-error md:px-6">
+                        Aquesta inscripció està marcada com a pendent de correccions.
+                    </div>
+                )}
+
+                {formulario.estado === "BORRADOR" && formulario.origen === "ADMIN" && (
+                    <div className="border-t border-primary/20 bg-primary/5 px-5 py-3 text-xs font-medium text-primary md:px-6">
+                        Esborrany creat des del panell d'administració.
+                    </div>
+                )}
+
+                {formulario.estado === "BORRADOR" && formulario.origen === "USUARIO" && (
+                    <div className="border-t border-border bg-background px-5 py-3 text-xs font-medium text-neutral md:px-6">
+                        Esborrany creat per l'usuari. Encara no s'ha presentat com a inscripció.
+                    </div>
+                )}
             </section>
 
-            {/* =================================================
-                EDICIÓN
-            ================================================= */}
+            {/* EDICIÓN */}
 
             {editando ? (
                 <section className="rounded-2xl border border-primary/30 bg-card">
@@ -2125,7 +2536,7 @@ export default function Detalle({
                             </h2>
 
                             <p className="mt-1 text-sm text-neutral">
-                                Els canvis administratius no modificaran l'estat actual de la inscripció.
+                                Modifica les dades administratives de l'equip.
                             </p>
                         </div>
 
@@ -2155,7 +2566,6 @@ export default function Detalle({
 
                                 <label className="mt-3 inline-flex cursor-pointer rounded-lg border border-border bg-background px-3 py-2 text-xs font-semibold text-neutral-titulos transition hover:text-primary">
                                     Canviar escut
-
                                     <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={(evento) => void seleccionarEscudo(evento)} className="sr-only" />
                                 </label>
 
@@ -2211,7 +2621,7 @@ export default function Detalle({
                                     </span>
 
                                     <span className="mt-1 block text-xs text-neutral">
-                                        L'usuari podrà veure aquesta inscripció des del seu perfil.
+                                        L'usuari podrà consultar aquesta inscripció des del seu perfil.
                                     </span>
                                 </span>
                             </label>
@@ -2229,6 +2639,7 @@ export default function Detalle({
 
                                 <p className="mt-1 text-xs text-neutral">
                                     {resumenEdicion.total} participants · {resumenEdicion.computables} computables
+                                    {configuracion.genero.activo ? ` · ${resumenEdicion.masculinos} masculins · ${resumenEdicion.femeninos} femenins` : ""}
                                 </p>
                             </div>
 
@@ -2242,6 +2653,12 @@ export default function Detalle({
                         </div>
 
                         <div className="mt-4 flex flex-col gap-4">
+                            {participantesEdicion.length === 0 && (
+                                <div className="rounded-xl border border-dashed border-border bg-background p-6 text-center text-sm text-neutral">
+                                    Encara no hi ha participants.
+                                </div>
+                            )}
+
                             {participantesEdicion.map((participante, indice) => {
                                 const cursoSeleccionado =
                                     configuracion.cursos.find(
@@ -2270,15 +2687,9 @@ export default function Detalle({
                                                         {nombreParticipante(participante) || textoTipo(participante.tipo_participante)}
                                                     </p>
 
-                                                    {participante.id ? (
-                                                        <p className="text-[10px] text-neutral">
-                                                            Participant existent
-                                                        </p>
-                                                    ) : (
-                                                        <p className="text-[10px] font-semibold text-primary">
-                                                            Nou participant
-                                                        </p>
-                                                    )}
+                                                    <p className="text-[10px] text-neutral">
+                                                        {participante.id ? "Participant existent" : "Nou participant"}
+                                                    </p>
                                                 </div>
                                             </div>
 
@@ -2457,8 +2868,6 @@ export default function Detalle({
                         </div>
                     </div>
 
-                    {/* ACCIONES EDICIÓN */}
-
                     <div className="flex flex-wrap justify-end gap-2 p-5 md:p-6">
                         <button type="button" disabled={guardando !== null} onClick={cancelarEdicion} className="rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-semibold text-neutral-titulos transition hover:border-primary/30 disabled:opacity-50">
                             Cancel·lar
@@ -2475,9 +2884,7 @@ export default function Detalle({
                 </section>
             ) : (
                 <>
-                    {/* =================================================
-                        RESUMEN
-                    ================================================= */}
+                    {/* RESUMEN */}
 
                     <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
                         <div className="rounded-xl border border-border bg-card p-4">
@@ -2521,9 +2928,7 @@ export default function Detalle({
                         </div>
                     </section>
 
-                    {/* =================================================
-                        DATOS
-                    ================================================= */}
+                    {/* RESPONSABLE Y CAPITÁN */}
 
                     <div className="grid gap-6 xl:grid-cols-2">
                         <section className="rounded-2xl border border-border bg-card p-5 md:p-6">
@@ -2609,9 +3014,7 @@ export default function Detalle({
                         </section>
                     </div>
 
-                    {/* =================================================
-                        PARTICIPANTES READ ONLY
-                    ================================================= */}
+                    {/* PARTICIPANTES */}
 
                     <section className="overflow-hidden rounded-2xl border border-border bg-card">
                         <div className="border-b border-border p-5 md:p-6">
@@ -2661,6 +3064,7 @@ export default function Detalle({
                                                 <td className="px-4 py-3">
                                                     <p className="text-sm font-semibold text-neutral-titulos">
                                                         {participante.nombre_completo || "Sense nom"}
+
                                                         {participante.es_capitan && (
                                                             <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
                                                                 Capità
@@ -2699,7 +3103,145 @@ export default function Detalle({
             )}
 
             {/* =================================================
-                EVALUACIÓN
+                ESTADO DE EVALUACIÓN
+            ================================================= */}
+
+            {!editando && capacidades.cambiarEvaluacion && formulario.estado !== "BORRADOR" && (
+                <section className="rounded-2xl border border-border bg-card">
+                    <div className="border-b border-border p-5 md:p-6">
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral">
+                            Administració
+                        </p>
+
+                        <h2 className="mt-1 text-xl font-semibold text-neutral-titulos">
+                            Estat de l'avaluació
+                        </h2>
+
+                        <p className="mt-2 max-w-3xl text-sm leading-6 text-neutral">
+                            L'estat no és definitiu. Si després de l'aprovació detectes un problema, pots tornar la inscripció a revisió o marcar-la com a no aprovada. La plaça es manté independent.
+                        </p>
+                    </div>
+
+                    <div className="p-5 md:p-6">
+                        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+                            <label>
+                                <span className="text-xs font-semibold text-neutral-titulos">
+                                    Estat
+                                </span>
+
+                                <select value={estadoEvaluacion} disabled={guardando !== null} onChange={(evento) => setEstadoEvaluacion(evento.target.value as EstadoEvaluacion)} className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-neutral-titulos outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:opacity-50">
+                                    <option value="EN_REVISION">
+                                        En revisió
+                                    </option>
+
+                                    <option value="APROBADO">
+                                        Aprovada
+                                    </option>
+
+                                    <option value="DENEGADO">
+                                        Requereix canvis / No aprovada
+                                    </option>
+                                </select>
+                            </label>
+
+                            <button type="button" disabled={guardando !== null || estadoEvaluacion === formulario.estado} onClick={() => void guardarEstadoEvaluacion()} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40">
+                                {guardando === "evaluacion" && (
+                                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                                )}
+
+                                Desar estat
+                            </button>
+                        </div>
+
+                        {estadoEvaluacion === "APROBADO" && estadoEvaluacion !== formulario.estado && (
+                            <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
+                                <p className="text-xs leading-5 text-primary">
+                                    Abans d'aprovar es tornaran a validar participants, correus, cursos, grups, capità, límits de l'equip i possibles duplicats.
+                                </p>
+                            </div>
+                        )}
+
+                        {estadoEvaluacion === "EN_REVISION" && estadoEvaluacion !== formulario.estado && (
+                            <div className="mt-4 rounded-xl border border-secondary/20 bg-secondary/5 p-4">
+                                <p className="text-xs leading-5 text-secondary">
+                                    L'equip i tots els participants tornaran a quedar pendents de validació. La plaça actual no canviarà.
+                                </p>
+                            </div>
+                        )}
+
+                        {estadoEvaluacion === "DENEGADO" && estadoEvaluacion !== formulario.estado && (
+                            <div className="mt-4 rounded-xl border border-error/20 bg-error/5 p-4">
+                                <p className="text-xs leading-5 text-error">
+                                    Aquesta opció canvia directament l'estat a no aprovada. Si vols indicar a l'usuari què ha de corregir, utilitza la secció de correccions.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                </section>
+            )}
+
+            {/* =================================================
+                BORRADOR ADMIN
+            ================================================= */}
+
+            {!editando && formulario.estado === "BORRADOR" && formulario.origen === "ADMIN" && (
+                <section className="rounded-2xl border border-primary/30 bg-card">
+                    <div className="p-5 md:p-6">
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+                            Esborrany administratiu
+                        </p>
+
+                        <h2 className="mt-1 text-xl font-semibold text-neutral-titulos">
+                            Finalitzar la inscripció
+                        </h2>
+
+                        <p className="mt-2 max-w-3xl text-sm leading-6 text-neutral">
+                            Pots continuar editant aquest equip mentre sigui un esborrany. Quan totes les dades siguin correctes, finalitzar-lo executarà totes les validacions i el convertirà directament en aprovat.
+                        </p>
+
+                        <div className="mt-4 rounded-xl border border-border bg-background p-4">
+                            <p className="text-sm font-semibold text-neutral-titulos">
+                                Validació completa
+                            </p>
+
+                            <p className="mt-1 text-xs leading-5 text-neutral">
+                                Es comprovaran participants, correus, cursos, grups, mínims i màxims, gènere, capità i possibles duplicats amb altres equips.
+                            </p>
+                        </div>
+
+                        {capacidades.finalizarBorrador ? (
+                            <button type="button" disabled={guardando !== null} onClick={() => void finalizarBorrador()} className="mt-5 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">
+                                {guardando === "finalizar" && (
+                                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                                )}
+
+                                Finalitzar i aprovar
+                            </button>
+                        ) : (
+                            <p className="mt-4 text-xs font-medium text-neutral">
+                                No tens permís per finalitzar aquest esborrany.
+                            </p>
+                        )}
+                    </div>
+                </section>
+            )}
+
+            {/* BORRADOR USUARIO */}
+
+            {!editando && formulario.estado === "BORRADOR" && formulario.origen === "USUARIO" && (
+                <section className="rounded-2xl border border-border bg-background p-5 md:p-6">
+                    <p className="text-sm font-semibold text-neutral-titulos">
+                        Aquesta inscripció encara és un esborrany de l'usuari
+                    </p>
+
+                    <p className="mt-1 text-xs leading-5 text-neutral">
+                        Encara no s'ha presentat per a revisió. L'usuari o el capità autoritzat l'ha d'enviar des del formulari d'inscripció.
+                    </p>
+                </section>
+            )}
+
+            {/* =================================================
+                EVALUACIÓN EN REVISIÓN
             ================================================= */}
 
             {!editando && formulario.estado === "EN_REVISION" && capacidades.evaluar && (
@@ -2725,7 +3267,7 @@ export default function Detalle({
                             </p>
 
                             <p className="mt-1 text-xs leading-5 text-neutral">
-                                Aprovar valida l'equip i tots els participants. La plaça es continuarà gestionant per separat.
+                                Aprovar tornarà a comprovar les dades reals guardades.
                             </p>
 
                             <button type="button" disabled={guardando !== null} onClick={() => void aprobar()} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50">
@@ -2743,7 +3285,7 @@ export default function Detalle({
                             </h3>
 
                             <p className="mt-1 text-xs leading-5 text-neutral">
-                                Cada observació pot apuntar al formulari, a l'equip o a un participant concret.
+                                Cada observació pot correspondre al formulari, a l'equip o a un participant concret.
                             </p>
 
                             <div className="mt-4 flex flex-col gap-3">
@@ -2862,24 +3404,141 @@ export default function Detalle({
             )}
 
             {/* =================================================
-                BORRADOR
+                CORREGIR UN APROBADO
             ================================================= */}
 
-            {!editando && formulario.estado === "BORRADOR" && (
-                <section className="rounded-2xl border border-border bg-background p-5">
-                    <p className="text-sm font-semibold text-neutral-titulos">
-                        Aquesta inscripció encara és un esborrany
-                    </p>
+            {!editando && formulario.estado === "APROBADO" && capacidades.evaluar && (
+                <section className="rounded-2xl border border-error/20 bg-card">
+                    <div className="border-b border-border p-5 md:p-6">
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-error">
+                            Revisió posterior
+                        </p>
 
-                    <p className="mt-1 text-xs leading-5 text-neutral">
-                        L'administració pot modificar-ne les dades, però no es pot avaluar fins que s'hagi enviat.
-                    </p>
+                        <h2 className="mt-1 text-xl font-semibold text-neutral-titulos">
+                            Has detectat un error després d'aprovar?
+                        </h2>
+
+                        <p className="mt-2 max-w-3xl text-sm leading-6 text-neutral">
+                            Pots revocar l'aprovació indicant les correccions necessàries. L'estat passarà a requerir canvis i la plaça no es modificarà.
+                        </p>
+                    </div>
+
+                    <div className="p-5 md:p-6">
+                        <div className="flex flex-col gap-3">
+                            {observacionesNuevas.map((observacion, indice) => {
+                                const campos =
+                                    camposObservacion(
+                                        observacion.entidad_tipo,
+                                    );
+
+                                return (
+                                    <article key={observacion.clave} className="rounded-xl border border-border bg-background p-4">
+                                        <div className="mb-4 flex items-center justify-between gap-3">
+                                            <p className="text-xs font-semibold text-neutral-titulos">
+                                                Correcció {indice + 1}
+                                            </p>
+
+                                            <button type="button" onClick={() => eliminarObservacion(observacion.clave)} className="text-xs font-semibold text-error">
+                                                Eliminar
+                                            </button>
+                                        </div>
+
+                                        <div className="grid gap-4 lg:grid-cols-3">
+                                            <label>
+                                                <span className="text-[11px] font-semibold text-neutral-titulos">
+                                                    Element
+                                                </span>
+
+                                                <select value={observacion.entidad_tipo} onChange={(evento) => actualizarObservacion(observacion.clave, {
+                                                    entidad_tipo: evento.target.value as TipoEntidadObservacion,
+                                                    participante_id: "",
+                                                    campo: "general",
+                                                })} className="mt-1.5 w-full rounded-lg border border-border bg-card px-3 py-2.5 text-sm text-neutral-titulos outline-none focus:border-primary">
+                                                    <option value="EQUIPO">
+                                                        Equip
+                                                    </option>
+
+                                                    <option value="PARTICIPANTE">
+                                                        Participant
+                                                    </option>
+
+                                                    <option value="FORMULARIO">
+                                                        Formulari
+                                                    </option>
+                                                </select>
+                                            </label>
+
+                                            {observacion.entidad_tipo === "PARTICIPANTE" && (
+                                                <label>
+                                                    <span className="text-[11px] font-semibold text-neutral-titulos">
+                                                        Participant
+                                                    </span>
+
+                                                    <select value={observacion.participante_id} onChange={(evento) => actualizarObservacion(observacion.clave, {
+                                                        participante_id: evento.target.value,
+                                                    })} className="mt-1.5 w-full rounded-lg border border-border bg-card px-3 py-2.5 text-sm text-neutral-titulos outline-none focus:border-primary">
+                                                        <option value="">
+                                                            Selecciona...
+                                                        </option>
+
+                                                        {participantes.filas.map((participante) => (
+                                                            <option key={participante.id} value={participante.id}>
+                                                                {participante.nombre_completo || participante.email || "Participant"}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </label>
+                                            )}
+
+                                            <label>
+                                                <span className="text-[11px] font-semibold text-neutral-titulos">
+                                                    Camp
+                                                </span>
+
+                                                <select value={observacion.campo} onChange={(evento) => actualizarObservacion(observacion.clave, {
+                                                    campo: evento.target.value,
+                                                })} className="mt-1.5 w-full rounded-lg border border-border bg-card px-3 py-2.5 text-sm text-neutral-titulos outline-none focus:border-primary">
+                                                    {campos.map((campo) => (
+                                                        <option key={campo.valor} value={campo.valor}>
+                                                            {campo.nombre}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </label>
+                                        </div>
+
+                                        <label className="mt-4 block">
+                                            <span className="text-[11px] font-semibold text-neutral-titulos">
+                                                Què s'ha de corregir?
+                                            </span>
+
+                                            <textarea rows={3} maxLength={2000} value={observacion.mensaje} onChange={(evento) => actualizarObservacion(observacion.clave, {
+                                                mensaje: evento.target.value,
+                                            })} placeholder="Indica el problema detectat..." className="mt-1.5 w-full resize-y rounded-lg border border-border bg-card px-3 py-2.5 text-sm text-neutral-titulos outline-none placeholder:text-neutral/50 focus:border-primary" />
+                                        </label>
+                                    </article>
+                                );
+                            })}
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                            <button type="button" onClick={() => setObservacionesNuevas((actuales) => [...actuales, observacionVacia()])} className="rounded-lg border border-border bg-background px-3 py-2 text-xs font-semibold text-neutral-titulos transition hover:text-primary">
+                                + Afegir correcció
+                            </button>
+
+                            <button type="button" disabled={guardando !== null} onClick={() => void solicitarCambios()} className="inline-flex items-center gap-2 rounded-lg bg-error px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50">
+                                {guardando === "cambios" && (
+                                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                                )}
+
+                                Revocar aprovació i sol·licitar canvis
+                            </button>
+                        </div>
+                    </div>
                 </section>
             )}
 
-            {/* =================================================
-                OBSERVACIONES ACTIVAS
-            ================================================= */}
+            {/* OBSERVACIONES ACTIVAS */}
 
             {!editando && observacionesActivas.length > 0 && (
                 <section className="rounded-2xl border border-error/20 bg-card">
@@ -2892,8 +3551,13 @@ export default function Detalle({
                     <div className="flex flex-col gap-3 p-5 md:p-6">
                         {observacionesActivas.map((observacion) => {
                             const participante =
-                                observacion.entidad_tipo === "PARTICIPANTE"
-                                    ? participantes.filas.find((fila) => fila.id === observacion.entidad_id)
+                                observacion.entidad_tipo ===
+                                "PARTICIPANTE"
+                                    ? participantes.filas.find(
+                                          fila =>
+                                              fila.id ===
+                                              observacion.entidad_id,
+                                      )
                                     : null;
 
                             return (
@@ -2918,9 +3582,7 @@ export default function Detalle({
                 </section>
             )}
 
-            {/* =================================================
-                PLAZA
-            ================================================= */}
+            {/* PLAZA */}
 
             {!editando && capacidades.cambiarEstado && formulario.estado !== "BORRADOR" && (
                 <section className="rounded-2xl border border-border bg-card p-5 md:p-6">
@@ -2930,7 +3592,7 @@ export default function Detalle({
                         </h2>
 
                         <p className="mt-1 text-sm text-neutral">
-                            L'estat de la plaça és independent de l'avaluació de la inscripció.
+                            La plaça és independent de l'estat d'avaluació. Revocar una aprovació no modifica automàticament aquesta informació.
                         </p>
                     </div>
 
@@ -2941,11 +3603,20 @@ export default function Detalle({
                             </span>
 
                             <select value={plazaEstado} onChange={(evento) => {
-                                const nuevo = evento.target.value as EstadoPlaza;
-                                setPlazaEstado(nuevo);
+                                const nuevo =
+                                    evento.target.value as EstadoPlaza;
 
-                                if (nuevo !== "LISTA_ESPERA") {
-                                    setPosicionListaEspera("");
+                                setPlazaEstado(
+                                    nuevo,
+                                );
+
+                                if (
+                                    nuevo !==
+                                    "LISTA_ESPERA"
+                                ) {
+                                    setPosicionListaEspera(
+                                        "",
+                                    );
                                 }
                             }} className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-neutral-titulos outline-none focus:border-primary">
                                 <option value="PENDIENTE">
@@ -2997,9 +3668,7 @@ export default function Detalle({
                 </section>
             )}
 
-            {/* =================================================
-                HISTORIAL
-            ================================================= */}
+            {/* INFORMACIÓN */}
 
             {!editando && (
                 <section className="rounded-2xl border border-border bg-card p-5 md:p-6">
@@ -3007,7 +3676,17 @@ export default function Detalle({
                         Informació de la inscripció
                     </h2>
 
-                    <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                        <div>
+                            <p className="text-xs font-semibold text-neutral">
+                                Origen
+                            </p>
+
+                            <p className="mt-1 text-sm text-neutral-titulos">
+                                {textoOrigen(formulario.origen)}
+                            </p>
+                        </div>
+
                         <div>
                             <p className="text-xs font-semibold text-neutral">
                                 Creada
@@ -3030,7 +3709,7 @@ export default function Detalle({
 
                         <div>
                             <p className="text-xs font-semibold text-neutral">
-                                Avaluació
+                                Darrera avaluació
                             </p>
 
                             <p className="mt-1 text-sm text-neutral-titulos">
