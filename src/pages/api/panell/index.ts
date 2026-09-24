@@ -180,14 +180,14 @@ function estadoParaFrontend(
 
     if (
         normalizado ===
-            "SIN_ESTADO"
+        "SIN_ESTADO"
     ) {
         return null;
     }
 
     if (
         normalizado ===
-            "DESCONOCIDO"
+        "DESCONOCIDO"
     ) {
         return (
             estado?.trim() ??
@@ -885,20 +885,477 @@ export const GET:
             // RESUMEN EDICIÓN
             // =================================================
 
-            /*
-             * Estos contadores quedan preparados en el contrato
-             * de la API.
-             *
-             * Se conectarán cuando existan las nuevas tablas
-             * de equipos, voluntarios, participantes, partidos
-             * y formularios.
-             *
-             * null significa:
-             *
-             * "dato todavía no disponible"
-             *
-             * NO significa cero.
-             */
+            let equiposInscritos:
+                number | null =
+                null;
+
+            let voluntarios:
+                number | null =
+                null;
+
+            let participantes:
+                number | null =
+                null;
+
+            let partidos:
+                number | null =
+                null;
+
+            let formulariosCompletados:
+                number | null =
+                null;
+
+            let formulariosError:
+                number | null =
+                null;
+
+            if (
+                edicionSeleccionada
+            ) {
+                // =============================================
+                // FORMULARIOS DE LA EDICIÓN
+                // =============================================
+
+                const {
+                    data:
+                        formulariosResumen,
+                    error:
+                        errorFormulariosResumen,
+                } =
+                    await supabaseAdmin
+                        .from(
+                            "formularios",
+                        )
+                        .select(
+                            "id,tipo,estado,enviado_at,completado_at,created_at,updated_at",
+                        )
+                        .eq(
+                            "edicion_id",
+                            edicionSeleccionada.id,
+                        );
+
+                if (
+                    errorFormulariosResumen
+                ) {
+                    throw errorFormulariosResumen;
+                }
+
+                const formularios =
+                    formulariosResumen ??
+                    [];
+
+                // =============================================
+                // FORMULARIOS ENVIADOS
+                // =============================================
+
+                const formulariosEnviados =
+                    formularios.filter(
+                        formulario =>
+                            formulario.enviado_at !==
+                            null,
+                    );
+
+                // =============================================
+                // EQUIPOS INSCRITOS
+                // =============================================
+
+                const formulariosEquipo =
+                    formulariosEnviados.filter(
+                        formulario =>
+                            formulario.tipo
+                                ?.trim()
+                                .toUpperCase() ===
+                            "EQUIPO",
+                    );
+
+                const idsFormulariosEquipo =
+                    formulariosEquipo.map(
+                        formulario =>
+                            formulario.id,
+                    );
+
+                const equiposResumen:
+                    {
+                        id:
+                            string;
+
+                        formulario_id:
+                            string;
+                    }[] = [];
+
+                for (
+                    let inicio =
+                        0;
+                    inicio <
+                    idsFormulariosEquipo.length;
+                    inicio +=
+                        100
+                ) {
+                    const grupo =
+                        idsFormulariosEquipo.slice(
+                            inicio,
+                            inicio +
+                                100,
+                        );
+
+                    if (
+                        grupo.length ===
+                        0
+                    ) {
+                        continue;
+                    }
+
+                    const {
+                        data,
+                        error,
+                    } =
+                        await supabaseAdmin
+                            .from(
+                                "equipos",
+                            )
+                            .select(
+                                "id,formulario_id",
+                            )
+                            .in(
+                                "formulario_id",
+                                grupo,
+                            );
+
+                    if (
+                        error
+                    ) {
+                        throw error;
+                    }
+
+                    equiposResumen.push(
+                        ...(
+                            data ??
+                            []
+                        ),
+                    );
+                }
+
+                equiposInscritos =
+                    equiposResumen.length;
+
+                // =============================================
+                // PARTICIPANTES
+                // =============================================
+
+                const idsEquipos =
+                    equiposResumen.map(
+                        equipo =>
+                            equipo.id,
+                    );
+
+                participantes =
+                    0;
+
+                for (
+                    let inicio =
+                        0;
+                    inicio <
+                    idsEquipos.length;
+                    inicio +=
+                        100
+                ) {
+                    const grupo =
+                        idsEquipos.slice(
+                            inicio,
+                            inicio +
+                                100,
+                        );
+
+                    if (
+                        grupo.length ===
+                        0
+                    ) {
+                        continue;
+                    }
+
+                    const {
+                        count,
+                        error,
+                    } =
+                        await supabaseAdmin
+                            .from(
+                                "participantes_equipo",
+                            )
+                            .select(
+                                "id",
+                                {
+                                    count:
+                                        "exact",
+
+                                    head:
+                                        true,
+                                },
+                            )
+                            .in(
+                                "equipo_id",
+                                grupo,
+                            )
+                            .eq(
+                                "activo",
+                                true,
+                            );
+
+                    if (
+                        error
+                    ) {
+                        throw error;
+                    }
+
+                    participantes +=
+                        count ??
+                        0;
+                }
+
+                // =============================================
+                // VOLUNTARIOS
+                // =============================================
+
+                const formulariosVoluntario =
+                    formulariosEnviados.filter(
+                        formulario =>
+                            formulario.tipo
+                                ?.trim()
+                                .toUpperCase() ===
+                            "VOLUNTARIO",
+                    );
+
+                const idsFormulariosVoluntario =
+                    formulariosVoluntario.map(
+                        formulario =>
+                            formulario.id,
+                    );
+
+                voluntarios =
+                    0;
+
+                for (
+                    let inicio =
+                        0;
+                    inicio <
+                    idsFormulariosVoluntario.length;
+                    inicio +=
+                        100
+                ) {
+                    const grupo =
+                        idsFormulariosVoluntario.slice(
+                            inicio,
+                            inicio +
+                                100,
+                        );
+
+                    if (
+                        grupo.length ===
+                        0
+                    ) {
+                        continue;
+                    }
+
+                    const {
+                        count,
+                        error,
+                    } =
+                        await supabaseAdmin
+                            .from(
+                                "voluntarios",
+                            )
+                            .select(
+                                "id",
+                                {
+                                    count:
+                                        "exact",
+
+                                    head:
+                                        true,
+                                },
+                            )
+                            .in(
+                                "formulario_id",
+                                grupo,
+                            );
+
+                    if (
+                        error
+                    ) {
+                        throw error;
+                    }
+
+                    voluntarios +=
+                        count ??
+                        0;
+                }
+
+                // =============================================
+                // FORMULARIOS COMPLETADOS
+                // =============================================
+
+                /*
+                 * Un formulario se considera completado cuando
+                 * tiene registrada una fecha en completado_at.
+                 *
+                 * Su estado posterior (EN_REVISION, APROBADO,
+                 * DENEGADO, etc.) no cambia el hecho de que el
+                 * formulario haya sido completado.
+                 */
+
+                formulariosCompletados =
+                    formularios.filter(
+                        formulario =>
+                            formulario.completado_at !==
+                            null,
+                    ).length;
+
+                // =============================================
+                // FORMULARIOS CON ERROR
+                // =============================================
+
+                /*
+                 * Un formulario aparece como "amb error" cuando:
+                 *
+                 * 1. pertenece a esta edición;
+                 * 2. NO ha llegado a enviarse:
+                 *      enviado_at === null
+                 * 3. existe un error registrado en auditoria
+                 *    cuyo referencia_id sea el ID del formulario.
+                 *
+                 * El Set evita contar varias veces un mismo
+                 * formulario aunque tenga varios registros
+                 * relacionados con errores.
+                 */
+
+                const idsFormulariosNoEnviados =
+                    formularios
+                        .filter(
+                            formulario =>
+                                formulario.enviado_at ===
+                                null,
+                        )
+                        .map(
+                            formulario =>
+                                formulario.id,
+                        );
+
+                const formulariosConError =
+                    new Set<
+                        string
+                    >();
+
+                for (
+                    let inicio =
+                        0;
+                    inicio <
+                    idsFormulariosNoEnviados.length;
+                    inicio +=
+                        100
+                ) {
+                    const grupo =
+                        idsFormulariosNoEnviados.slice(
+                            inicio,
+                            inicio +
+                                100,
+                        );
+
+                    if (
+                        grupo.length ===
+                        0
+                    ) {
+                        continue;
+                    }
+
+                    const {
+                        data:
+                            auditorias,
+                        error:
+                            errorAuditorias,
+                    } =
+                        await supabaseAdmin
+                            .from(
+                                "auditoria",
+                            )
+                            .select(
+                                "referencia_id,numero_errores,ultimo_error_codigo,ultimo_error_mensaje,ultimo_error_at",
+                            )
+                            .in(
+                                "referencia_id",
+                                grupo,
+                            );
+
+                    if (
+                        errorAuditorias
+                    ) {
+                        throw errorAuditorias;
+                    }
+
+                    for (
+                        const auditoria
+                        of auditorias ??
+                        []
+                    ) {
+                        if (
+                            !auditoria.referencia_id
+                        ) {
+                            continue;
+                        }
+
+                        const tieneError =
+                            (
+                                auditoria.numero_errores ??
+                                0
+                            ) >
+                                0 ||
+                            (
+                                typeof auditoria.ultimo_error_codigo ===
+                                    "string" &&
+                                auditoria.ultimo_error_codigo.trim()
+                                    .length >
+                                    0
+                            ) ||
+                            (
+                                typeof auditoria.ultimo_error_mensaje ===
+                                    "string" &&
+                                auditoria.ultimo_error_mensaje.trim()
+                                    .length >
+                                    0
+                            ) ||
+                            auditoria.ultimo_error_at !==
+                                null;
+
+                        if (
+                            tieneError
+                        ) {
+                            formulariosConError.add(
+                                auditoria.referencia_id,
+                            );
+                        }
+                    }
+                }
+
+                formulariosError =
+                    formulariosConError.size;
+
+                // =============================================
+                // PARTIDOS
+                // =============================================
+
+                /*
+                 * Todavía no existe una fuente de datos
+                 * conectada aquí para los partidos.
+                 *
+                 * null = dato todavía no conectado
+                 * 0    = existen datos y no hay partidos
+                 */
+
+                partidos =
+                    null;
+            }
+
+            // =================================================
+            // ACTIVIDAD RECIENTE DE LA EDICIÓN
+            // =================================================
 
             const actividadEdicion =
                 edicionSeleccionada
@@ -983,23 +1440,17 @@ export const GET:
             const resumenEdicion =
                 edicionSeleccionada
                     ? {
-                          equiposInscritos:
-                              null,
+                          equiposInscritos,
 
-                          voluntarios:
-                              null,
+                          voluntarios,
 
-                          participantes:
-                              null,
+                          participantes,
 
-                          partidos:
-                              null,
+                          partidos,
 
-                          formulariosCompletados:
-                              null,
+                          formulariosCompletados,
 
-                          formulariosError:
-                              null,
+                          formulariosError,
 
                           actividad:
                               actividadEdicion,

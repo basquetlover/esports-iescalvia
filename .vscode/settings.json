@@ -4,5 +4,10 @@
     "editor.colorDecorators": true,
     "editor.quickSuggestions": {
         "strings": "on"
-    }
+    },
+  "editor.codeActionsOnSave": {
+    "source.fixAll.prettier": "explicit",
+    "source.fixAll.eslint": "explicit",
+  },
+
 }
