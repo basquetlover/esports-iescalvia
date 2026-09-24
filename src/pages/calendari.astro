@@ -1,0 +1,692 @@
+---
+import Layout from "@layouts/Layout.astro";
+
+import Calendari, {
+  type EventoCalendario,
+  type TipoEventoCalendario,
+  type TorneoCalendario,
+} from "@components/calendari/Calendari";
+
+import { supabaseAdmin } from "@utils/supabase";
+
+export const prerender = false;
+
+// ============================================================
+// TIPOS
+// ============================================================
+
+type Registro = Record<string, unknown>;
+
+type TorneoDB = {
+  id: string;
+
+  nombre: string | null;
+
+  deporte: string | null;
+
+  activo: boolean | null;
+};
+
+type EdicionDB = {
+  id: string;
+
+  torneo_id: string;
+
+  nombre: string | null;
+
+  fecha_inicio: string | null;
+
+  fecha_fin: string | null;
+
+  estado: string | null;
+
+  sede: string | null;
+};
+
+type ConfiguracionDB = {
+  edicion_id: string;
+
+  equipos: unknown;
+
+  voluntarios: unknown;
+};
+
+type PeriodoInscripcion = {
+  apertura: string;
+
+  cierre: string;
+};
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function esRegistro(valor: unknown): valor is Registro {
+  return valor !== null && typeof valor === "object" && !Array.isArray(valor);
+}
+
+// ============================================================
+// FECHA ACTUAL
+// ============================================================
+
+function fechaMadridActual(): string {
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Madrid",
+
+    year: "numeric",
+
+    month: "2-digit",
+
+    day: "2-digit",
+  }).formatToParts(new Date());
+
+  const valores = Object.fromEntries(
+    partes.map((parte) => [parte.type, parte.value]),
+  );
+
+  return `${valores.year}-${valores.month}-${valores.day}`;
+}
+
+// ============================================================
+// FECHAS
+// ============================================================
+
+function normalizarFecha(valor: unknown): string | null {
+  if (typeof valor !== "string" || !valor.trim()) {
+    return null;
+  }
+
+  const texto = valor.trim();
+
+  // ========================================================
+  // YYYY-MM-DD
+  // ========================================================
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
+    return texto;
+  }
+
+  // ========================================================
+  // ISO CON HORA
+  // ========================================================
+
+  const fecha = new Date(texto);
+
+  if (Number.isNaN(fecha.getTime())) {
+    return null;
+  }
+
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Madrid",
+
+    year: "numeric",
+
+    month: "2-digit",
+
+    day: "2-digit",
+  }).formatToParts(fecha);
+
+  const valores = Object.fromEntries(
+    partes.map((parte) => [parte.type, parte.value]),
+  );
+
+  return `${valores.year}-${valores.month}-${valores.day}`;
+}
+
+// ============================================================
+// INSCRIPCIÓN
+// ============================================================
+
+function obtenerInscripcion(configuracion: unknown): PeriodoInscripcion | null {
+  if (!esRegistro(configuracion)) {
+    return null;
+  }
+
+  const inscripcion = configuracion.inscripcion;
+
+  if (!esRegistro(inscripcion)) {
+    return null;
+  }
+
+  const apertura = normalizarFecha(inscripcion.apertura);
+
+  const cierre = normalizarFecha(inscripcion.cierre);
+
+  if (!apertura || !cierre) {
+    return null;
+  }
+
+  if (cierre < apertura) {
+    return null;
+  }
+
+  return {
+    apertura,
+    cierre,
+  };
+}
+
+// ============================================================
+// ESTADO INSCRIPCIÓN
+// ============================================================
+
+function estadoInscripcion(
+  apertura: string,
+
+  cierre: string,
+
+  hoy: string,
+): string {
+  if (hoy < apertura) {
+    return "Pròximament";
+  }
+
+  if (hoy > cierre) {
+    return "Tancada";
+  }
+
+  return "Inscripció oberta";
+}
+
+// ============================================================
+// ESTADO EDICIÓN
+// ============================================================
+
+function nombreEstado(estado: string | null): string {
+  const valor = estado?.trim().toLowerCase() ?? "";
+
+  if (valor === "activa" || valor === "activo" || valor === "actiu") {
+    return "En curs";
+  }
+
+  if (
+    valor === "en_preparacio" ||
+    valor === "en preparacio" ||
+    valor === "en preparació"
+  ) {
+    return "Pròximament";
+  }
+
+  if (
+    valor === "finalizada" ||
+    valor === "finalizado" ||
+    valor === "finalitzada" ||
+    valor === "finalitzat"
+  ) {
+    return "Finalitzada";
+  }
+
+  return "Disponible";
+}
+
+// ============================================================
+// HASH
+// ============================================================
+
+function hashTexto(valor: string): number {
+  let hash = 0;
+
+  for (let i = 0; i < valor.length; i++) {
+    hash = (hash << 5) - hash + valor.charCodeAt(i);
+
+    hash |= 0;
+  }
+
+  return Math.abs(hash);
+}
+
+// ============================================================
+// COLOR ACTIVIDAD
+// ============================================================
+
+/*
+ * Calendari.tsx tiene 12 colores.
+ *
+ * Se organizan en 4 grupos:
+ *
+ * torneo A -> 0, 1, 2
+ * torneo B -> 3, 4, 5
+ * torneo C -> 6, 7, 8
+ * torneo D -> 9, 10, 11
+ *
+ * Dentro de cada grupo:
+ *
+ * +0 = inscripción equipos
+ * +1 = inscripción voluntariado
+ * +2 = jornada
+ *
+ * Aunque dos torneos puedan compartir grupo,
+ * dentro de un mismo torneo las tres actividades
+ * siempre tendrán colores diferentes.
+ */
+function colorActividad(
+  torneoID: string,
+
+  tipo: TipoEventoCalendario,
+): number {
+  const grupo = hashTexto(torneoID) % 4;
+
+  const base = grupo * 3;
+
+  switch (tipo) {
+    case "inscripcion_equipos":
+      return base + 0;
+
+    case "inscripcion_voluntarios":
+      return base + 1;
+
+    case "jornada":
+      return base + 2;
+  }
+}
+
+// ============================================================
+// MES
+// ============================================================
+
+function mesValido(valor: string | null): valor is string {
+  if (!valor || !/^\d{4}-\d{2}$/.test(valor)) {
+    return false;
+  }
+
+  const mes = Number(valor.slice(5, 7));
+
+  return mes >= 1 && mes <= 12;
+}
+
+// ============================================================
+// PARÁMETROS
+// ============================================================
+
+const hoy = fechaMadridActual();
+
+const parametroMes = Astro.url.searchParams.get("mes");
+
+const parametroTorneo = Astro.url.searchParams.get("torneo") ?? "";
+
+const mesInicial = mesValido(parametroMes) ? parametroMes : hoy.slice(0, 7);
+
+// ============================================================
+// DATOS DB
+// ============================================================
+
+let errorCarga = false;
+
+let torneosDB: TorneoDB[] = [];
+
+let edicionesDB: EdicionDB[] = [];
+
+let configuracionesDB: ConfiguracionDB[] = [];
+
+try {
+  // ========================================================
+  // TORNEOS
+  // ========================================================
+
+  const {
+    data: torneosData,
+
+    error: errorTorneos,
+  } = await supabaseAdmin
+    .from("torneos")
+    .select(
+      `
+                id,
+                nombre,
+                deporte,
+                activo
+            `,
+    )
+    .eq("activo", true)
+    .order("nombre", {
+      ascending: true,
+
+      nullsFirst: false,
+    });
+
+  if (errorTorneos) {
+    throw errorTorneos;
+  }
+
+  torneosDB = (torneosData ?? []) as TorneoDB[];
+
+  // ========================================================
+  // EDICIONES
+  // ========================================================
+
+  const idsTorneos = torneosDB.map((torneo) => torneo.id);
+
+  if (idsTorneos.length > 0) {
+    const {
+      data: edicionesData,
+
+      error: errorEdiciones,
+    } = await supabaseAdmin
+      .from("ediciones")
+      .select(
+        `
+                    id,
+                    torneo_id,
+                    nombre,
+                    fecha_inicio,
+                    fecha_fin,
+                    estado,
+                    sede
+                `,
+      )
+      .in("torneo_id", idsTorneos);
+
+    if (errorEdiciones) {
+      throw errorEdiciones;
+    }
+
+    edicionesDB = (edicionesData ?? []) as EdicionDB[];
+  }
+
+  // ========================================================
+  // CONFIGURACIONES
+  // ========================================================
+
+  const idsEdiciones = edicionesDB.map((edicion) => edicion.id);
+
+  if (idsEdiciones.length > 0) {
+    const {
+      data: configuracionesData,
+
+      error: errorConfiguraciones,
+    } = await supabaseAdmin
+      .from("configuracion_ediciones")
+      .select(
+        `
+                    edicion_id,
+                    equipos,
+                    voluntarios
+                `,
+      )
+      .in("edicion_id", idsEdiciones);
+
+    if (errorConfiguraciones) {
+      throw errorConfiguraciones;
+    }
+
+    configuracionesDB = (configuracionesData ?? []) as ConfiguracionDB[];
+  }
+} catch (error) {
+  console.error("Error carregant el calendari públic:", error);
+
+  errorCarga = true;
+}
+
+// ============================================================
+// TORNEOS REACT
+// ============================================================
+
+const torneos: TorneoCalendario[] = torneosDB.map((torneo) => ({
+  id: torneo.id,
+
+  nombre: torneo.nombre?.trim() || "Torneig",
+
+  deporte: torneo.deporte?.trim() || "",
+}));
+
+// ============================================================
+// MAPA TORNEOS
+// ============================================================
+
+const torneosPorId = new Map(torneos.map((torneo) => [torneo.id, torneo]));
+
+// ============================================================
+// CONFIGURACIONES
+// ============================================================
+
+const configuracionPorEdicion = new Map(
+  configuracionesDB.map((configuracion) => [
+    configuracion.edicion_id,
+    configuracion,
+  ]),
+);
+
+// ============================================================
+// EVENTOS
+// ============================================================
+
+const eventos: EventoCalendario[] = [];
+
+// ============================================================
+// RECORRER EDICIONES
+// ============================================================
+
+for (const edicion of edicionesDB) {
+  const torneo = torneosPorId.get(edicion.torneo_id);
+
+  if (!torneo) {
+    continue;
+  }
+
+  const nombreEdicion = edicion.nombre?.trim() || "";
+
+  const nombreCompleto = nombreEdicion
+    ? `${torneo.nombre} · ${nombreEdicion}`
+    : torneo.nombre;
+
+  const sede = edicion.sede?.trim() || "";
+
+  // ========================================================
+  // JORNADAS DE JUEGO
+  // ========================================================
+
+  const fechaInicio = normalizarFecha(edicion.fecha_inicio);
+
+  const fechaFinOriginal = normalizarFecha(edicion.fecha_fin);
+
+  if (fechaInicio) {
+    const fechaFin =
+      fechaFinOriginal && fechaFinOriginal >= fechaInicio
+        ? fechaFinOriginal
+        : fechaInicio;
+
+    const tipo: TipoEventoCalendario = "jornada";
+
+    eventos.push({
+      id: `jornada-${edicion.id}`,
+
+      torneoId: torneo.id,
+
+      torneo: torneo.nombre,
+
+      deporte: torneo.deporte,
+
+      edicion: nombreEdicion,
+
+      titulo: nombreCompleto,
+
+      tipo,
+
+      fechaInicio,
+
+      fechaFin,
+
+      estado: nombreEstado(edicion.estado),
+
+      sede,
+
+      enlace: `/tornejos/${encodeURIComponent(torneo.id)}`,
+
+      color: colorActividad(torneo.id, tipo),
+    });
+  }
+
+  // ========================================================
+  // CONFIGURACIÓN EDICIÓN
+  // ========================================================
+
+  const configuracion = configuracionPorEdicion.get(edicion.id);
+
+  if (!configuracion) {
+    continue;
+  }
+
+  // ========================================================
+  // INSCRIPCIÓN EQUIPOS
+  // ========================================================
+
+  const inscripcionEquipos = obtenerInscripcion(configuracion.equipos);
+
+  if (inscripcionEquipos) {
+    const tipo: TipoEventoCalendario = "inscripcion_equipos";
+
+    eventos.push({
+      id: `inscripcion-equipos-${edicion.id}`,
+
+      torneoId: torneo.id,
+
+      torneo: torneo.nombre,
+
+      deporte: torneo.deporte,
+
+      edicion: nombreEdicion,
+
+      titulo: `Inscripció d'equips · ${nombreCompleto}`,
+
+      tipo,
+
+      fechaInicio: inscripcionEquipos.apertura,
+
+      fechaFin: inscripcionEquipos.cierre,
+
+      estado: estadoInscripcion(
+        inscripcionEquipos.apertura,
+        inscripcionEquipos.cierre,
+        hoy,
+      ),
+
+      sede,
+
+      enlace: `/tornejos/${encodeURIComponent(torneo.id)}?seccio=inscripcio`,
+
+      color: colorActividad(torneo.id, tipo),
+    });
+  }
+
+  // ========================================================
+  // INSCRIPCIÓN VOLUNTARIADO
+  // ========================================================
+
+  const inscripcionVoluntariado = obtenerInscripcion(configuracion.voluntarios);
+
+  if (inscripcionVoluntariado) {
+    const tipo: TipoEventoCalendario = "inscripcion_voluntarios";
+
+    eventos.push({
+      id: `inscripcion-voluntariat-${edicion.id}`,
+
+      torneoId: torneo.id,
+
+      torneo: torneo.nombre,
+
+      deporte: torneo.deporte,
+
+      edicion: nombreEdicion,
+
+      titulo: `Inscripció de voluntariat · ${nombreCompleto}`,
+
+      tipo,
+
+      fechaInicio: inscripcionVoluntariado.apertura,
+
+      fechaFin: inscripcionVoluntariado.cierre,
+
+      estado: estadoInscripcion(
+        inscripcionVoluntariado.apertura,
+        inscripcionVoluntariado.cierre,
+        hoy,
+      ),
+
+      sede,
+
+      enlace: `/tornejos/${encodeURIComponent(torneo.id)}?seccio=voluntariat`,
+
+      color: colorActividad(torneo.id, tipo),
+    });
+  }
+}
+
+// ============================================================
+// ORDENAR EVENTOS
+// ============================================================
+
+eventos.sort((a, b) => {
+  const fecha = a.fechaInicio.localeCompare(b.fechaInicio);
+
+  if (fecha !== 0) {
+    return fecha;
+  }
+
+  /*
+   * Si empiezan el mismo día:
+   *
+   * 1. equipos
+   * 2. voluntariado
+   * 3. jornada
+   */
+  const prioridad: Record<TipoEventoCalendario, number> = {
+    inscripcion_equipos: 0,
+
+    inscripcion_voluntarios: 1,
+
+    jornada: 2,
+  };
+
+  const diferenciaTipo = prioridad[a.tipo] - prioridad[b.tipo];
+
+  if (diferenciaTipo !== 0) {
+    return diferenciaTipo;
+  }
+
+  return a.titulo.localeCompare(b.titulo, "ca");
+});
+
+// ============================================================
+// TORNEO INICIAL
+// ============================================================
+
+const torneoInicial =
+  parametroTorneo && torneosPorId.has(parametroTorneo) ? parametroTorneo : "";
+
+// ============================================================
+// SEO
+// ============================================================
+
+const descripcion =
+  "Consulta el calendari de competicions, inscripcions i activitats esportives d'Esports IES Calvià.";
+---
+
+<Layout title="Calendari" description={descripcion}>
+  {
+    errorCarga ? (
+      <main class="min-h-screen bg-background">
+        <section class="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
+          <div class="rounded-xl border border-error/30 bg-error-container p-6">
+            <h1 class="text-xl font-semibold text-error-foreground">
+              No s'ha pogut carregar el calendari
+            </h1>
+
+            <p class="mt-2 text-sm text-error-foreground/80">
+              S'ha produït un error carregant les dades. Torna-ho a provar més
+              tard.
+            </p>
+          </div>
+        </section>
+      </main>
+    ) : (
+      <Calendari
+        client:load
+        torneos={torneos}
+        eventos={eventos}
+        hoy={hoy}
+        mesInicial={mesInicial}
+        torneoInicial={torneoInicial}
+      />
+    )
+  }
+</Layout>
