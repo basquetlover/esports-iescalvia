@@ -1,0 +1,763 @@
+---
+import { supabaseAdmin } from "@utils/supabase";
+
+// ============================================================
+// PROPS
+// ============================================================
+
+type Props = {
+    torneoID: string;
+    edicionID: string;
+};
+
+const {
+    torneoID,
+    edicionID,
+} = Astro.props;
+
+// ============================================================
+// TIPOS
+// ============================================================
+
+type Fase = {
+    id: string;
+    edicion_id: string;
+    nombre: string;
+    tipo: "GRUPOS";
+    orden: number;
+    estado: string;
+};
+
+type Grupo = {
+    id: string;
+    fase_id: string;
+    nombre: string;
+    orden: number;
+    estado: string;
+    version_clasificacion: number;
+};
+
+type Plaza = {
+    id: string;
+
+    destino_fase_id:
+        string;
+
+    destino_tipo:
+        string;
+
+    grupo_id:
+        string | null;
+
+    orden:
+        number;
+
+    origen_tipo:
+        string;
+
+    equipo_origen_id:
+        string | null;
+
+    equipo_resuelto_id:
+        string | null;
+};
+
+type Equipo = {
+    id: string;
+    nombre: string;
+    escudo: string | null;
+};
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function nombreEstado(
+    estado: string,
+) {
+    switch (
+        estado
+            .trim()
+            .toUpperCase()
+    ) {
+        case "BORRADOR":
+            return "Esborrany";
+
+        case "PREPARADA":
+            return "Preparada";
+
+        case "PREPARADO":
+            return "Preparat";
+
+        case "EN_CURSO":
+            return "En curs";
+
+        case "CERRADA":
+        case "CERRADO":
+            return "Finalitzada";
+
+        default:
+            return estado;
+    }
+}
+
+// ============================================================
+// FASES DE GRUPOS
+// ============================================================
+
+const {
+    data:
+        fasesData,
+    error:
+        errorFases,
+} =
+    await supabaseAdmin
+        .from(
+            "competicion_fases",
+        )
+        .select(
+            "id,edicion_id,nombre,tipo,orden,estado",
+        )
+        .eq(
+            "edicion_id",
+            edicionID,
+        )
+        .eq(
+            "tipo",
+            "GRUPOS",
+        )
+        .order(
+            "orden",
+            {
+                ascending:
+                    true,
+            },
+        );
+
+if (
+    errorFases
+) {
+    console.error(
+        "Error carregant les fases de grups:",
+        errorFases,
+    );
+}
+
+const fases =
+    (
+        fasesData ??
+        []
+    ) as Fase[];
+
+const idsFases =
+    fases.map(
+        fase =>
+            fase.id,
+    );
+
+// ============================================================
+// GRUPOS
+// ============================================================
+
+let grupos:
+    Grupo[] =
+    [];
+
+let plazas:
+    Plaza[] =
+    [];
+
+if (
+    idsFases.length >
+    0
+) {
+    const [
+        gruposRespuesta,
+        plazasRespuesta,
+    ] =
+        await Promise.all([
+            supabaseAdmin
+                .from(
+                    "competicion_grupos",
+                )
+                .select(
+                    "id,fase_id,nombre,orden,estado,version_clasificacion",
+                )
+                .in(
+                    "fase_id",
+                    idsFases,
+                )
+                .order(
+                    "orden",
+                    {
+                        ascending:
+                            true,
+                    },
+                ),
+
+            supabaseAdmin
+                .from(
+                    "competicion_plazas",
+                )
+                .select(
+                    "id,destino_fase_id,destino_tipo,grupo_id,orden,origen_tipo,equipo_origen_id,equipo_resuelto_id",
+                )
+                .eq(
+                    "edicion_id",
+                    edicionID,
+                )
+                .eq(
+                    "destino_tipo",
+                    "GRUPO",
+                )
+                .in(
+                    "destino_fase_id",
+                    idsFases,
+                )
+                .order(
+                    "orden",
+                    {
+                        ascending:
+                            true,
+                    },
+                ),
+        ]);
+
+    if (
+        gruposRespuesta.error
+    ) {
+        console.error(
+            "Error carregant els grups:",
+            gruposRespuesta.error,
+        );
+    }
+
+    if (
+        plazasRespuesta.error
+    ) {
+        console.error(
+            "Error carregant les places dels grups:",
+            plazasRespuesta.error,
+        );
+    }
+
+    grupos =
+        (
+            gruposRespuesta.data ??
+            []
+        ) as Grupo[];
+
+    plazas =
+        (
+            plazasRespuesta.data ??
+            []
+        ) as Plaza[];
+}
+
+// ============================================================
+// EQUIPOS
+// ============================================================
+
+const idsEquipos =
+    Array.from(
+        new Set(
+            plazas
+                .map(
+                    plaza =>
+                        plaza.equipo_resuelto_id ??
+                        plaza.equipo_origen_id,
+                )
+                .filter(
+                    (
+                        id,
+                    ): id is string =>
+                        typeof id ===
+                        "string" &&
+                        Boolean(
+                            id,
+                        ),
+                ),
+        ),
+    );
+
+let equipos:
+    Equipo[] =
+    [];
+
+if (
+    idsEquipos.length >
+    0
+) {
+    const {
+        data:
+            equiposData,
+        error:
+            errorEquipos,
+    } =
+        await supabaseAdmin
+            .from(
+                "equipos",
+            )
+            .select(
+                "id,nombre,escudo",
+            )
+            .in(
+                "id",
+                idsEquipos,
+            );
+
+    if (
+        errorEquipos
+    ) {
+        console.error(
+            "Error carregant els equips dels grups:",
+            errorEquipos,
+        );
+    }
+
+    equipos =
+        (
+            equiposData ??
+            []
+        ).map(
+            equipo => ({
+                id:
+                    equipo.id,
+
+                nombre:
+                    equipo.nombre ??
+                    "Equip",
+
+                escudo:
+                    equipo.escudo ??
+                    null,
+            }),
+        );
+}
+
+const equiposPorID =
+    new Map<
+        string,
+        Equipo
+    >(
+        equipos.map(
+            equipo => [
+                equipo.id,
+                equipo,
+            ],
+        ),
+    );
+
+// ============================================================
+// FASE ACTIVA
+// ============================================================
+
+const faseParametro =
+    Astro.url.searchParams.get(
+        "fase",
+    );
+
+const faseSeleccionada =
+    fases.find(
+        fase =>
+            fase.id ===
+            faseParametro,
+    ) ??
+    fases[0] ??
+    null;
+
+const gruposFase =
+    faseSeleccionada
+        ? grupos
+              .filter(
+                  grupo =>
+                      grupo.fase_id ===
+                      faseSeleccionada.id,
+              )
+              .sort(
+                  (
+                      a,
+                      b,
+                  ) =>
+                      a.orden -
+                      b.orden,
+              )
+        : [];
+
+// ============================================================
+// PLAZAS DE GRUPO
+// ============================================================
+
+function plazasGrupo(
+    grupoID: string,
+) {
+    return plazas
+        .filter(
+            plaza =>
+                plaza.grupo_id ===
+                grupoID,
+        )
+        .sort(
+            (
+                a,
+                b,
+            ) =>
+                a.orden -
+                b.orden,
+        );
+}
+
+const rutaTorneo =
+    `/tornejos/${torneoID}`;
+---
+
+<div
+    class="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8"
+>
+    <!-- ======================================================
+        CABECERA
+    ======================================================= -->
+
+    <div class="mb-8">
+        <p
+            class="text-xs font-semibold uppercase tracking-[0.18em] text-primary"
+        >
+            Competició
+        </p>
+
+        <h2
+            class="mt-2 text-3xl font-bold tracking-tight text-neutral-titulos"
+        >
+            Fase de grups
+        </h2>
+
+        <p
+            class="mt-2 max-w-3xl text-sm leading-6 text-neutral sm:text-base"
+        >
+            Consulta la composició dels grups i el desenvolupament
+            de la competició.
+        </p>
+    </div>
+
+    {
+        !faseSeleccionada ? (
+            <div
+                class="rounded-2xl border border-dashed border-border bg-card/40 px-6 py-12 text-center"
+            >
+                <h3
+                    class="text-lg font-semibold text-neutral-titulos"
+                >
+                    No hi ha cap fase de grups
+                </h3>
+            </div>
+        ) : (
+            <>
+                <!-- ==========================================
+                    SELECTOR DE FASE
+                =========================================== -->
+
+                {
+                    fases.length > 1 && (
+                        <div
+                            class="mb-7 overflow-x-auto rounded-xl border border-border bg-card"
+                        >
+                            <div
+                                class="flex min-w-max"
+                            >
+                                {
+                                    fases.map(
+                                        fase => {
+                                            const activa =
+                                                fase.id ===
+                                                faseSeleccionada.id;
+
+                                            return (
+                                                <a
+                                                    href={`${rutaTorneo}?seccio=competicio&fase=${fase.id}`}
+                                                    aria-current={
+                                                        activa
+                                                            ? "page"
+                                                            : undefined
+                                                    }
+                                                    class:list={[
+                                                        "relative flex min-h-14 items-center gap-2 px-5 text-sm transition",
+                                                        activa
+                                                            ? "font-semibold text-primary"
+                                                            : "font-medium text-neutral hover:text-neutral-titulos",
+                                                    ]}
+                                                >
+                                                    <span
+                                                        class:list={[
+                                                            "flex h-6 w-6 items-center justify-center rounded-md text-[11px] font-bold",
+                                                            activa
+                                                                ? "bg-primary text-white"
+                                                                : "bg-background text-neutral",
+                                                        ]}
+                                                    >
+                                                        {
+                                                            fase.orden +
+                                                            1
+                                                        }
+                                                    </span>
+
+                                                    {
+                                                        fase.nombre
+                                                    }
+
+                                                    {
+                                                        activa && (
+                                                            <span
+                                                                class="absolute inset-x-4 bottom-0 h-0.5 rounded-full bg-primary"
+                                                            ></span>
+                                                        )
+                                                    }
+                                                </a>
+                                            );
+                                        },
+                                    )
+                                }
+                            </div>
+                        </div>
+                    )
+                }
+
+                <!-- ==========================================
+                    FASE
+                =========================================== -->
+
+                <div
+                    class="mb-6 flex flex-wrap items-center justify-between gap-3"
+                >
+                    <div>
+                        <h3
+                            class="text-2xl font-bold text-neutral-titulos"
+                        >
+                            {
+                                faseSeleccionada.nombre
+                            }
+                        </h3>
+
+                        <p
+                            class="mt-1 text-sm text-neutral"
+                        >
+                            {
+                                gruposFase.length
+                            }{" "}
+                            {
+                                gruposFase.length ===
+                                1
+                                    ? "grup"
+                                    : "grups"
+                            }
+                        </p>
+                    </div>
+
+                    <span
+                        class="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-neutral"
+                    >
+                        {
+                            nombreEstado(
+                                faseSeleccionada.estado,
+                            )
+                        }
+                    </span>
+                </div>
+
+                <!-- ==========================================
+                    GRUPOS
+                =========================================== -->
+
+                {
+                    gruposFase.length > 0 ? (
+                        <div
+                            class="grid gap-5 lg:grid-cols-2 xl:grid-cols-3"
+                        >
+                            {
+                                gruposFase.map(
+                                    grupo => {
+                                        const participantes =
+                                            plazasGrupo(
+                                                grupo.id,
+                                            );
+
+                                        return (
+                                            <article
+                                                class="overflow-hidden rounded-2xl border border-border bg-card"
+                                            >
+                                                <div
+                                                    class="flex items-center justify-between gap-3 border-b border-border/60 px-5 py-4"
+                                                >
+                                                    <div>
+                                                        <h4
+                                                            class="text-lg font-bold text-neutral-titulos"
+                                                        >
+                                                            {
+                                                                grupo.nombre
+                                                            }
+                                                        </h4>
+
+                                                        <p
+                                                            class="mt-0.5 text-xs text-neutral"
+                                                        >
+                                                            {
+                                                                participantes.length
+                                                            }{" "}
+                                                            {
+                                                                participantes.length ===
+                                                                1
+                                                                    ? "equip"
+                                                                    : "equips"
+                                                            }
+                                                        </p>
+                                                    </div>
+
+                                                    <span
+                                                        class="rounded-full bg-background px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-neutral"
+                                                    >
+                                                        {
+                                                            nombreEstado(
+                                                                grupo.estado,
+                                                            )
+                                                        }
+                                                    </span>
+                                                </div>
+
+                                                <!-- ==============================
+                                                    CABECERA CLASIFICACIÓN
+                                                =============================== -->
+
+                                                <div
+                                                    class="grid grid-cols-[36px_1fr] items-center gap-3 border-b border-border/50 bg-background/40 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-neutral"
+                                                >
+                                                    <span>
+                                                        Pos.
+                                                    </span>
+
+                                                    <span>
+                                                        Equip
+                                                    </span>
+                                                </div>
+
+                                                <!-- ==============================
+                                                    EQUIPOS
+                                                =============================== -->
+
+                                                <div
+                                                    class="divide-y divide-border/50"
+                                                >
+                                                    {
+                                                        participantes.map(
+                                                            (
+                                                                plaza,
+                                                                indice,
+                                                            ) => {
+                                                                const equipoID =
+                                                                    plaza.equipo_resuelto_id ??
+                                                                    plaza.equipo_origen_id ??
+                                                                    "";
+
+                                                                const equipo =
+                                                                    equiposPorID.get(
+                                                                        equipoID,
+                                                                    );
+
+                                                                return (
+                                                                    <div
+                                                                        class="grid min-h-16 grid-cols-[36px_1fr] items-center gap-3 px-4 py-3"
+                                                                    >
+                                                                        <div
+                                                                            class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary"
+                                                                        >
+                                                                            {
+                                                                                indice +
+                                                                                1
+                                                                            }
+                                                                        </div>
+
+                                                                        <div
+                                                                            class="flex min-w-0 items-center gap-3"
+                                                                        >
+                                                                            {
+                                                                                equipo?.escudo ? (
+                                                                                    <div
+                                                                                        class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-white"
+                                                                                    >
+                                                                                        <img
+                                                                                            src={
+                                                                                                equipo.escudo
+                                                                                            }
+                                                                                            alt=""
+                                                                                            class="h-full w-full object-contain p-1"
+                                                                                        />
+                                                                                    </div>
+                                                                                ) : (
+                                                                                    <div
+                                                                                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-background text-sm font-bold text-primary"
+                                                                                    >
+                                                                                        {
+                                                                                            equipo?.nombre
+                                                                                                ?.charAt(
+                                                                                                    0,
+                                                                                                )
+                                                                                                .toUpperCase() ??
+                                                                                            "E"
+                                                                                        }
+                                                                                    </div>
+                                                                                )
+                                                                            }
+
+                                                                            <p
+                                                                                class="truncate text-sm font-semibold text-neutral-titulos"
+                                                                            >
+                                                                                {
+                                                                                    equipo?.nombre ??
+                                                                                    "Equip per determinar"
+                                                                                }
+                                                                            </p>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            },
+                                                        )
+                                                    }
+
+                                                    {
+                                                        participantes.length ===
+                                                            0 && (
+                                                            <div
+                                                                class="px-5 py-10 text-center"
+                                                            >
+                                                                <p
+                                                                    class="text-sm font-medium text-neutral"
+                                                                >
+                                                                    Encara
+                                                                    no hi ha
+                                                                    equips
+                                                                    assignats.
+                                                                </p>
+                                                            </div>
+                                                        )
+                                                    }
+                                                </div>
+                                            </article>
+                                        );
+                                    },
+                                )
+                            }
+                        </div>
+                    ) : (
+                        <div
+                            class="rounded-2xl border border-dashed border-border bg-card/40 px-6 py-12 text-center"
+                        >
+                            <p
+                                class="font-semibold text-neutral-titulos"
+                            >
+                                Encara no hi ha grups configurats
+                            </p>
+                        </div>
+                    )
+                }
+            </>
+        )
+    }
+</div>

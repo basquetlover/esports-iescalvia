@@ -1,21 +1,21 @@
 import { MENU_ADMIN } from "./Menu";
 
 export type OpcionMenuPanel = {
-    id: string;
-    nombre: string;
-    enlace: string;
-    seccion: string;
-    accion?: string;
-    estado: "Activa" | "Pròximament";
-    contexto: "general" | "torneo" | "edicion";
-    parametros?: Record<string, string>;
+  id: string;
+  nombre: string;
+  enlace: string;
+  seccion: string;
+  accion?: string;
+  estado: "Activa" | "Pròximament";
+  contexto: "general" | "torneo" | "edicion";
+  parametros?: Record<string, string>;
 };
 
 export type GrupoMenuPanel = {
-    id: string;
-    nombre: string;
-    requiereEdicion?: boolean;
-    opciones: OpcionMenuPanel[];
+  id: string;
+  nombre: string;
+  requiereEdicion?: boolean;
+  opciones: OpcionMenuPanel[];
 };
 
 // ============================================================
@@ -23,34 +23,26 @@ export type GrupoMenuPanel = {
 // ============================================================
 
 export const MENU_PANEL_GENERAL: GrupoMenuPanel[] = [
-    {
-        id: "general",
-        nombre: "Administració",
+  {
+    id: "general",
+    nombre: "Administració",
 
-        opciones: MENU_ADMIN.map(
-            (item): OpcionMenuPanel => ({
-                id: item.id,
+    opciones: MENU_ADMIN.map(
+      (item): OpcionMenuPanel => ({
+        id: item.id,
 
-                nombre:
-                    item.nombre,
+        nombre: item.nombre,
 
-                enlace:
-                    item.enlace,
+        enlace: item.enlace,
 
-                seccion:
-                    item.enlace.split("/")[2] ||
-                    "panell",
+        seccion: item.enlace.split("/")[2] || "panell",
 
-                estado:
-                    item.estado === "Activa"
-                        ? "Activa"
-                        : "Pròximament",
+        estado: item.estado === "Activa" ? "Activa" : "Pròximament",
 
-                contexto:
-                    "general",
-            }),
-        ),
-    },
+        contexto: "general",
+      }),
+    ),
+  },
 ];
 
 // ============================================================
@@ -58,264 +50,196 @@ export const MENU_PANEL_GENERAL: GrupoMenuPanel[] = [
 // ============================================================
 
 export const MENU_PANEL_TORNEO: GrupoMenuPanel[] = [
+  // ========================================================
+  // INICIO
+  // ========================================================
 
-    // ========================================================
-    // INICIO
-    // ========================================================
+  {
+    id: "resumen",
 
-    {
-        id: "resumen",
+    nombre: "Resum",
 
-        nombre:
-            "Resum",
+    opciones: [
+      {
+        id: "inici-torneig",
 
-        opciones: [
-            {
-                id:
-                    "inici-torneig",
+        nombre: "Inici",
 
-                nombre:
-                    "Inici",
+        enlace: "/panell",
 
-                enlace:
-                    "/panell",
+        seccion: "panell",
 
-                seccion:
-                    "panell",
+        estado: "Activa",
 
-                estado:
-                    "Activa",
+        contexto: "edicion",
+      },
+    ],
+  },
 
-                contexto:
-                    "edicion",
-            },
-        ],
-    },
+  // ========================================================
+  // EDICIÓN SELECCIONADA
+  // ========================================================
+  //
+  // Cuando existe una edición seleccionada, sus herramientas
+  // aparecen inmediatamente después de Inicio.
+  //
+  // Si no existe edicionID, NavBar oculta automáticamente
+  // este grupo mediante requiereEdicion.
+  // ========================================================
 
-    // ========================================================
-    // EDICIÓN SELECCIONADA
-    // ========================================================
-    //
-    // Cuando existe una edición seleccionada, sus herramientas
-    // aparecen inmediatamente después de Inicio.
-    //
-    // Si no existe edicionID, NavBar oculta automáticamente
-    // este grupo mediante requiereEdicion.
-    // ========================================================
+  {
+    id: "edicion",
 
-    {
-        id:
-            "edicion",
+    nombre: "Edició seleccionada",
 
-        nombre:
-            "Edició seleccionada",
+    requiereEdicion: true,
 
-        requiereEdicion:
-            true,
+    opciones: [
+      {
+        id: "voluntaris",
 
-        opciones: [
-            {
-                id:
-                    "voluntaris",
+        nombre: "Voluntaris",
 
-                nombre:
-                    "Voluntaris",
+        enlace: "/panell/voluntaris",
 
-                enlace:
-                    "/panell/voluntaris",
+        seccion: "voluntaris",
 
-                seccion:
-                    "voluntaris",
+        estado: "Activa",
 
-                estado:
-                    "Activa",
+        contexto: "edicion",
+      },
 
-                contexto:
-                    "edicion",
-            },
+      {
+        id: "equips",
 
-            {
-                id:
-                    "equips",
+        nombre: "Equips i participants",
 
-                nombre:
-                    "Equips i participants",
+        enlace: "/panell/equips",
 
-                enlace:
-                    "/panell/equips",
+        seccion: "equips",
 
-                seccion:
-                    "equips",
+        estado: "Activa",
 
-                estado:
-                    "Activa",
+        contexto: "edicion",
+      },
 
-                contexto:
-                    "edicion",
-            },
+      {
+        id: "competicio",
 
-            {
-                id:
-                    "competicio",
+        nombre: "Format de competició",
 
-                nombre:
-                    "Format de competició",
+        enlace: "/panell/competicio",
 
-                enlace:
-                    "/panell/competicio",
+        seccion: "competicio",
 
-                seccion:
-                    "competicio",
+        estado: "Activa",
 
-                estado:
-                    "Pròximament",
+        contexto: "edicion",
+      },
 
-                contexto:
-                    "edicion",
-            },
+      {
+        id: "partits",
 
-            {
-                id:
-                    "partits",
+        nombre: "Calendari i resultats",
 
-                nombre:
-                    "Calendari i resultats",
+        enlace: "/panell/partits",
 
-                enlace:
-                    "/panell/partits",
+        seccion: "partits",
 
-                seccion:
-                    "partits",
+        estado: "Pròximament",
 
-                estado:
-                    "Pròximament",
+        contexto: "edicion",
+      },
 
-                contexto:
-                    "edicion",
-            },
+      {
+        id: "classificacions",
 
-            {
-                id:
-                    "classificacions",
+        nombre: "Classificacions",
 
-                nombre:
-                    "Classificacions",
+        enlace: "/panell/classificacions",
 
-                enlace:
-                    "/panell/classificacions",
+        seccion: "classificacions",
 
-                seccion:
-                    "classificacions",
+        estado: "Pròximament",
 
-                estado:
-                    "Pròximament",
+        contexto: "edicion",
+      },
 
-                contexto:
-                    "edicion",
-            },
+      {
+        id: "configuracio-edicio",
 
-            {
-                id:
-                    "configuracio-edicio",
+        nombre: "Configuració de l’edició",
 
-                nombre:
-                    "Configuració de l’edició",
+        enlace: "/panell/configuracio-edicio",
 
-                enlace:
-                    "/panell/configuracio-edicio",
+        seccion: "configuracio-edicio",
 
-                seccion:
-                    "configuracio-edicio",
+        estado: "Pròximament",
 
-                estado:
-                    "Pròximament",
+        contexto: "edicion",
+      },
+    ],
+  },
 
-                contexto:
-                    "edicion",
-            },
-        ],
-    },
+  // ========================================================
+  // TORNEO
+  // ========================================================
+  //
+  // Las opciones generales del torneo quedan debajo de las
+  // herramientas de la edición cuando hay una seleccionada.
+  // ========================================================
 
-    // ========================================================
-    // TORNEO
-    // ========================================================
-    //
-    // Las opciones generales del torneo quedan debajo de las
-    // herramientas de la edición cuando hay una seleccionada.
-    // ========================================================
+  {
+    id: "torneo",
 
-    {
-        id:
-            "torneo",
+    nombre: "Torneig",
 
-        nombre:
-            "Torneig",
+    opciones: [
+      {
+        id: "informacio-torneig",
 
-        opciones: [
-            {
-                id:
-                    "informacio-torneig",
+        nombre: "Informació del torneig",
 
-                nombre:
-                    "Informació del torneig",
+        enlace: "/panell/info/torneig",
 
-                enlace:
-                    "/panell/info/torneig",
+        seccion: "tornejos",
 
-                seccion:
-                    "tornejos",
+        estado: "Activa",
 
-                estado:
-                    "Activa",
+        contexto: "torneo",
 
-                contexto:
-                    "torneo",
+        parametros: {
+          accio: "ver",
+        },
+      },
 
-                parametros: {
-                    accio:
-                        "ver",
-                },
-            },
+      {
+        id: "edicions",
 
-            {
-                id:
-                    "edicions",
+        nombre: "Edicions",
 
-                nombre:
-                    "Edicions",
+        enlace: "/panell/edicions",
 
-                enlace:
-                    "/panell/edicions",
+        seccion: "edicions",
 
-                seccion:
-                    "edicions",
+        estado: "Activa",
 
-                estado:
-                    "Activa",
+        contexto: "torneo",
+      },
 
-                contexto:
-                    "torneo",
-            },
+      {
+        id: "organitzacio",
 
-            {
-                id:
-                    "organitzacio",
+        nombre: "Organització i permisos",
 
-                nombre:
-                    "Organització i permisos",
+        enlace: "/panell/permisos",
 
-                enlace:
-                    "/panell/permisos",
+        seccion: "permisos",
 
-                seccion:
-                    "permisos",
+        estado: "Pròximament",
 
-                estado:
-                    "Pròximament",
-
-                contexto:
-                    "torneo",
-            },
-        ],
-    },
+        contexto: "torneo",
+      },
+    ],
+  },
 ];

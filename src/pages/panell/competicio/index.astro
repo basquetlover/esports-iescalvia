@@ -1,0 +1,46 @@
+---
+import Gestor from "@components/panel/competicio/Gestor";
+import LayoutPanel from "@layouts/LayoutPanel.astro";
+
+export const prerender = false;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+
+const torneoID = Astro.url.searchParams.get("torneoID")?.trim() ?? "";
+
+const edicionID = Astro.url.searchParams.get("edicionID")?.trim() ?? "";
+
+if (!torneoID || !edicionID) {
+  return Astro.redirect("/panell", 303);
+}
+---
+
+<LayoutPanel title="Format de competició" seccion="competicio" accion="ver">
+  <div class="w-full p-4">
+    <div
+      class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"
+    >
+      <div>
+        <p
+          class="text-xs font-semibold uppercase tracking-[0.14em] text-primary"
+        >
+          Edició seleccionada
+        </p>
+
+        <h1
+          class="mt-1 text-3xl font-bold tracking-tight text-neutral-titulos max-md:text-2xl"
+        >
+          Format de competició
+        </h1>
+
+        <p class="mt-1 max-w-3xl text-sm leading-6 text-neutral">
+          Defineix les fases de la competició, els grups i les rondes
+          eliminatòries. Els equips, encreuaments i partits es configuraran
+          sobre aquesta estructura.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <Gestor torneoID={torneoID} edicionID={edicionID} client:load />
+</LayoutPanel>

@@ -1,0 +1,1487 @@
+---
+import { supabaseAdmin } from "@utils/supabase";
+
+// ============================================================
+// PROPS
+// ============================================================
+
+type Props = {
+    torneoID: string;
+    edicionID: string;
+};
+
+const {
+    torneoID,
+    edicionID,
+} = Astro.props;
+
+// ============================================================
+// TIPOS
+// ============================================================
+
+type Fase = {
+    id: string;
+    edicion_id: string;
+    nombre: string;
+    tipo: "ELIMINATORIA";
+    orden: number;
+    estado: string;
+};
+
+type Ronda = {
+    id: string;
+    fase_id: string;
+    tipo: string;
+    nombre: string;
+    orden: number;
+};
+
+type Partido = {
+    id: string;
+    edicion_id: string;
+    fase_id: string;
+    tipo: string;
+
+    grupo_id:
+        string | null;
+
+    ronda_id:
+        string | null;
+
+    codigo:
+        string;
+
+    nombre:
+        string | null;
+
+    orden:
+        number;
+
+    estado:
+        string;
+
+    fecha_hora:
+        string | null;
+
+    pista:
+        string | null;
+};
+
+type Plaza = {
+    id: string;
+
+    destino_fase_id:
+        string;
+
+    destino_tipo:
+        string;
+
+    partido_id:
+        string | null;
+
+    lado:
+        "LOCAL" |
+        "VISITANTE" |
+        null;
+
+    orden:
+        number;
+
+    origen_tipo:
+        string;
+
+    equipo_origen_id:
+        string | null;
+
+    origen_grupo_id:
+        string | null;
+
+    origen_fase_id:
+        string | null;
+
+    origen_posicion:
+        number | null;
+
+    origen_partido_id:
+        string | null;
+
+    equipo_resuelto_id:
+        string | null;
+};
+
+type Equipo = {
+    id: string;
+    nombre: string;
+    escudo: string | null;
+};
+
+type Grupo = {
+    id: string;
+    nombre: string;
+};
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function nombreEstado(
+    estado: string,
+) {
+    switch (
+        estado
+            .trim()
+            .toUpperCase()
+    ) {
+        case "BORRADOR":
+            return "Esborrany";
+
+        case "PREPARADA":
+            return "Preparada";
+
+        case "PROGRAMADO":
+            return "Programat";
+
+        case "EN_CURSO":
+            return "En curs";
+
+        case "FINALIZADO":
+            return "Finalitzat";
+
+        case "SUSPENDIDO":
+            return "Suspès";
+
+        case "CANCELADO":
+            return "Cancel·lat";
+
+        case "CERRADA":
+        case "CERRADO":
+            return "Finalitzada";
+
+        default:
+            return estado;
+    }
+}
+
+function nombreTipoRonda(
+    tipo: string,
+) {
+    switch (
+        tipo
+            .trim()
+            .toUpperCase()
+    ) {
+        case "TREINTADOSAVOS":
+            return "Trenta-dosens";
+
+        case "DIECISEISAVOS":
+            return "Setzens";
+
+        case "OCTAVOS":
+            return "Vuitens";
+
+        case "CUARTOS":
+            return "Quarts";
+
+        case "SEMIFINAL":
+            return "Semifinal";
+
+        case "FINAL":
+            return "Final";
+
+        case "TERCER_PUESTO":
+            return "Tercer lloc";
+
+        case "CLASIFICACION":
+            return "Classificació";
+
+        case "PERSONALIZADA":
+            return "Ronda";
+
+        default:
+            return tipo;
+    }
+}
+
+function formatearFechaHora(
+    valor:
+        string |
+        null,
+) {
+    if (
+        !valor
+    ) {
+        return "";
+    }
+
+    const fecha =
+        new Date(
+            valor,
+        );
+
+    if (
+        Number.isNaN(
+            fecha.getTime(),
+        )
+    ) {
+        return "";
+    }
+
+    return new Intl.DateTimeFormat(
+        "ca-ES",
+        {
+            day:
+                "2-digit",
+
+            month:
+                "short",
+
+            hour:
+                "2-digit",
+
+            minute:
+                "2-digit",
+
+            timeZone:
+                "Europe/Madrid",
+        },
+    ).format(
+        fecha,
+    );
+}
+
+// ============================================================
+// FASES ELIMINATORIAS
+// ============================================================
+
+const {
+    data:
+        fasesData,
+    error:
+        errorFases,
+} =
+    await supabaseAdmin
+        .from(
+            "competicion_fases",
+        )
+        .select(
+            "id,edicion_id,nombre,tipo,orden,estado",
+        )
+        .eq(
+            "edicion_id",
+            edicionID,
+        )
+        .eq(
+            "tipo",
+            "ELIMINATORIA",
+        )
+        .order(
+            "orden",
+            {
+                ascending:
+                    true,
+            },
+        );
+
+if (
+    errorFases
+) {
+    console.error(
+        "Error carregant les fases eliminatòries:",
+        errorFases,
+    );
+}
+
+const fases =
+    (
+        fasesData ??
+        []
+    ) as Fase[];
+
+const idsFases =
+    fases.map(
+        fase =>
+            fase.id,
+    );
+
+// ============================================================
+// RONDAS
+// ============================================================
+
+let rondas:
+    Ronda[] =
+    [];
+
+if (
+    idsFases.length >
+    0
+) {
+    const {
+        data,
+        error,
+    } =
+        await supabaseAdmin
+            .from(
+                "competicion_rondas",
+            )
+            .select(
+                "id,fase_id,tipo,nombre,orden",
+            )
+            .in(
+                "fase_id",
+                idsFases,
+            )
+            .order(
+                "orden",
+                {
+                    ascending:
+                        true,
+                },
+            );
+
+    if (
+        error
+    ) {
+        console.error(
+            "Error carregant les rondes:",
+            error,
+        );
+    }
+
+    rondas =
+        (
+            data ??
+            []
+        ) as Ronda[];
+}
+
+// ============================================================
+// PARTIDOS
+// ============================================================
+
+const {
+    data:
+        partidosData,
+    error:
+        errorPartidos,
+} =
+    await supabaseAdmin
+        .from(
+            "competicion_partidos",
+        )
+        .select(
+            "id,edicion_id,fase_id,tipo,grupo_id,ronda_id,codigo,nombre,orden,estado,fecha_hora,pista",
+        )
+        .eq(
+            "edicion_id",
+            edicionID,
+        )
+        .eq(
+            "tipo",
+            "ELIMINATORIA",
+        )
+        .order(
+            "orden",
+            {
+                ascending:
+                    true,
+            },
+        );
+
+if (
+    errorPartidos
+) {
+    console.error(
+        "Error carregant els partits eliminatoris:",
+        errorPartidos,
+    );
+}
+
+const partidos =
+    (
+        partidosData ??
+        []
+    ) as Partido[];
+
+// ============================================================
+// PLAZAS
+// ============================================================
+
+const {
+    data:
+        plazasData,
+    error:
+        errorPlazas,
+} =
+    await supabaseAdmin
+        .from(
+            "competicion_plazas",
+        )
+        .select(
+            "id,destino_fase_id,destino_tipo,partido_id,lado,orden,origen_tipo,equipo_origen_id,origen_grupo_id,origen_fase_id,origen_posicion,origen_partido_id,equipo_resuelto_id",
+        )
+        .eq(
+            "edicion_id",
+            edicionID,
+        )
+        .eq(
+            "destino_tipo",
+            "PARTIDO",
+        )
+        .order(
+            "orden",
+            {
+                ascending:
+                    true,
+            },
+        );
+
+if (
+    errorPlazas
+) {
+    console.error(
+        "Error carregant els encreuaments:",
+        errorPlazas,
+    );
+}
+
+const plazas =
+    (
+        plazasData ??
+        []
+    ) as Plaza[];
+
+// ============================================================
+// EQUIPOS
+// ============================================================
+
+const idsEquipos =
+    Array.from(
+        new Set(
+            plazas
+                .flatMap(
+                    plaza => [
+                        plaza.equipo_origen_id,
+                        plaza.equipo_resuelto_id,
+                    ],
+                )
+                .filter(
+                    (
+                        id,
+                    ): id is string =>
+                        typeof id ===
+                            "string" &&
+                        Boolean(
+                            id,
+                        ),
+                ),
+        ),
+    );
+
+let equipos:
+    Equipo[] =
+    [];
+
+if (
+    idsEquipos.length >
+    0
+) {
+    const {
+        data:
+            equiposData,
+        error:
+            errorEquipos,
+    } =
+        await supabaseAdmin
+            .from(
+                "equipos",
+            )
+            .select(
+                "id,nombre,escudo",
+            )
+            .in(
+                "id",
+                idsEquipos,
+            );
+
+    if (
+        errorEquipos
+    ) {
+        console.error(
+            "Error carregant els equips de l'eliminatòria:",
+            errorEquipos,
+        );
+    }
+
+    equipos =
+        (
+            equiposData ??
+            []
+        ).map(
+            equipo => ({
+                id:
+                    equipo.id,
+
+                nombre:
+                    equipo.nombre ??
+                    "Equip",
+
+                escudo:
+                    equipo.escudo ??
+                    null,
+            }),
+        );
+}
+
+// ============================================================
+// GRUPOS DE ORIGEN
+// ============================================================
+
+const idsGruposOrigen =
+    Array.from(
+        new Set(
+            plazas
+                .map(
+                    plaza =>
+                        plaza.origen_grupo_id,
+                )
+                .filter(
+                    (
+                        id,
+                    ): id is string =>
+                        typeof id ===
+                            "string" &&
+                        Boolean(
+                            id,
+                        ),
+                ),
+        ),
+    );
+
+let gruposOrigen:
+    Grupo[] =
+    [];
+
+if (
+    idsGruposOrigen.length >
+    0
+) {
+    const {
+        data,
+        error,
+    } =
+        await supabaseAdmin
+            .from(
+                "competicion_grupos",
+            )
+            .select(
+                "id,nombre",
+            )
+            .in(
+                "id",
+                idsGruposOrigen,
+            );
+
+    if (
+        error
+    ) {
+        console.error(
+            "Error carregant els grups d'origen:",
+            error,
+        );
+    }
+
+    gruposOrigen =
+        (
+            data ??
+            []
+        ) as Grupo[];
+}
+
+// ============================================================
+// MAPAS
+// ============================================================
+
+const equiposPorID =
+    new Map<
+        string,
+        Equipo
+    >(
+        equipos.map(
+            equipo => [
+                equipo.id,
+                equipo,
+            ],
+        ),
+    );
+
+const gruposPorID =
+    new Map<
+        string,
+        Grupo
+    >(
+        gruposOrigen.map(
+            grupo => [
+                grupo.id,
+                grupo,
+            ],
+        ),
+    );
+
+const partidosPorID =
+    new Map<
+        string,
+        Partido
+    >(
+        partidos.map(
+            partido => [
+                partido.id,
+                partido,
+            ],
+        ),
+    );
+
+// ============================================================
+// FASE ACTIVA
+// ============================================================
+
+const faseParametro =
+    Astro.url.searchParams.get(
+        "fase",
+    );
+
+const faseSeleccionada =
+    fases.find(
+        fase =>
+            fase.id ===
+            faseParametro,
+    ) ??
+    fases[0] ??
+    null;
+
+const rondasFase =
+    faseSeleccionada
+        ? rondas
+              .filter(
+                  ronda =>
+                      ronda.fase_id ===
+                      faseSeleccionada.id,
+              )
+              .sort(
+                  (
+                      a,
+                      b,
+                  ) =>
+                      a.orden -
+                      b.orden,
+              )
+        : [];
+
+// ============================================================
+// PARTIDOS DE RONDA
+// ============================================================
+
+function partidosRonda(
+    rondaID: string,
+) {
+    if (
+        !faseSeleccionada
+    ) {
+        return [];
+    }
+
+    return partidos
+        .filter(
+            partido =>
+                partido.fase_id ===
+                    faseSeleccionada.id &&
+                partido.ronda_id ===
+                    rondaID,
+        )
+        .sort(
+            (
+                a,
+                b,
+            ) =>
+                a.orden -
+                b.orden,
+        );
+}
+
+// ============================================================
+// PLAZA DEL PARTIDO
+// ============================================================
+
+function plazaPartido(
+    partidoID:
+        string,
+
+    lado:
+        "LOCAL" |
+        "VISITANTE",
+) {
+    return (
+        plazas.find(
+            plaza =>
+                plaza.partido_id ===
+                    partidoID &&
+                plaza.lado ===
+                    lado,
+        ) ??
+        null
+    );
+}
+
+// ============================================================
+// DESCRIPCIÓN PLAZA
+// ============================================================
+
+function descripcionPlaza(
+    plaza:
+        Plaza |
+        null,
+) {
+    if (
+        !plaza
+    ) {
+        return {
+            equipo:
+                null,
+
+            principal:
+                "Per determinar",
+
+            secundario:
+                "",
+        };
+    }
+
+    const equipoResuelto =
+        plaza.equipo_resuelto_id
+            ? equiposPorID.get(
+                  plaza.equipo_resuelto_id,
+              ) ??
+              null
+            : null;
+
+    if (
+        plaza.origen_tipo ===
+        "EQUIPO"
+    ) {
+        const equipo =
+            equipoResuelto ??
+            (
+                plaza.equipo_origen_id
+                    ? equiposPorID.get(
+                          plaza.equipo_origen_id,
+                      ) ??
+                      null
+                    : null
+            );
+
+        return {
+            equipo,
+
+            principal:
+                equipo?.nombre ??
+                "Equip",
+
+            secundario:
+                "",
+        };
+    }
+
+    if (
+        plaza.origen_tipo ===
+        "POSICION_GRUPO"
+    ) {
+        const grupo =
+            plaza.origen_grupo_id
+                ? gruposPorID.get(
+                      plaza.origen_grupo_id,
+                  )
+                : null;
+
+        const origen =
+            `${plaza.origen_posicion ?? "?"}a posició · ${
+                grupo?.nombre ??
+                "Grup"
+            }`;
+
+        return {
+            equipo:
+                equipoResuelto,
+
+            principal:
+                equipoResuelto?.nombre ??
+                origen,
+
+            secundario:
+                equipoResuelto
+                    ? origen
+                    : "",
+        };
+    }
+
+    if (
+        plaza.origen_tipo ===
+        "GANADOR_PARTIDO"
+    ) {
+        const partidoOrigen =
+            plaza.origen_partido_id
+                ? partidosPorID.get(
+                      plaza.origen_partido_id,
+                  )
+                : null;
+
+        const origen =
+            `Guanyador · ${
+                partidoOrigen?.nombre ??
+                partidoOrigen?.codigo ??
+                "Partit"
+            }`;
+
+        return {
+            equipo:
+                equipoResuelto,
+
+            principal:
+                equipoResuelto?.nombre ??
+                origen,
+
+            secundario:
+                equipoResuelto
+                    ? origen
+                    : "",
+        };
+    }
+
+    if (
+        plaza.origen_tipo ===
+        "PERDEDOR_PARTIDO"
+    ) {
+        const partidoOrigen =
+            plaza.origen_partido_id
+                ? partidosPorID.get(
+                      plaza.origen_partido_id,
+                  )
+                : null;
+
+        const origen =
+            `Perdedor · ${
+                partidoOrigen?.nombre ??
+                partidoOrigen?.codigo ??
+                "Partit"
+            }`;
+
+        return {
+            equipo:
+                equipoResuelto,
+
+            principal:
+                equipoResuelto?.nombre ??
+                origen,
+
+            secundario:
+                equipoResuelto
+                    ? origen
+                    : "",
+        };
+    }
+
+    if (
+        plaza.origen_tipo ===
+        "LIBRE"
+    ) {
+        return {
+            equipo:
+                null,
+
+            principal:
+                "Lliure",
+
+            secundario:
+                "Bye",
+        };
+    }
+
+    return {
+        equipo:
+            equipoResuelto,
+
+        principal:
+            equipoResuelto?.nombre ??
+            "Per determinar",
+
+        secundario:
+            "",
+    };
+}
+
+const rutaTorneo =
+    `/tornejos/${torneoID}`;
+---
+
+<div
+    class="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8"
+>
+    <!-- ======================================================
+        CABECERA
+    ======================================================= -->
+
+    <div
+        class="mb-8"
+    >
+        <p
+            class="text-xs font-semibold uppercase tracking-[0.18em] text-primary"
+        >
+            Eliminatòria
+        </p>
+
+        <h2
+            class="mt-2 text-3xl font-bold tracking-tight text-neutral-titulos"
+        >
+            Quadre eliminatori
+        </h2>
+
+        <p
+            class="mt-2 max-w-3xl text-sm leading-6 text-neutral sm:text-base"
+        >
+            Consulta les rondes, els encreuaments i el recorregut
+            dels equips fins a la final.
+        </p>
+    </div>
+
+    {
+        !faseSeleccionada ? (
+            <div
+                class="rounded-2xl border border-dashed border-border bg-card/40 px-6 py-12 text-center"
+            >
+                <h3
+                    class="text-lg font-semibold text-neutral-titulos"
+                >
+                    No hi ha cap fase eliminatòria
+                </h3>
+            </div>
+        ) : (
+            <>
+                <!-- ==========================================
+                    SELECTOR DE FASE
+                =========================================== -->
+
+                {
+                    fases.length > 1 && (
+                        <div
+                            class="mb-7 overflow-x-auto rounded-xl border border-border bg-card"
+                        >
+                            <div
+                                class="flex min-w-max"
+                            >
+                                {
+                                    fases.map(
+                                        fase => {
+                                            const activa =
+                                                fase.id ===
+                                                faseSeleccionada.id;
+
+                                            return (
+                                                <a
+                                                    href={`${rutaTorneo}?seccio=eliminatoria&fase=${fase.id}`}
+                                                    aria-current={
+                                                        activa
+                                                            ? "page"
+                                                            : undefined
+                                                    }
+                                                    class:list={[
+                                                        "relative flex min-h-14 items-center gap-2 px-5 text-sm transition",
+                                                        activa
+                                                            ? "font-semibold text-primary"
+                                                            : "font-medium text-neutral hover:text-neutral-titulos",
+                                                    ]}
+                                                >
+                                                    <span
+                                                        class:list={[
+                                                            "flex h-6 w-6 items-center justify-center rounded-md text-[11px] font-bold",
+                                                            activa
+                                                                ? "bg-primary text-white"
+                                                                : "bg-background text-neutral",
+                                                        ]}
+                                                    >
+                                                        {
+                                                            fase.orden +
+                                                            1
+                                                        }
+                                                    </span>
+
+                                                    {
+                                                        fase.nombre
+                                                    }
+
+                                                    {
+                                                        activa && (
+                                                            <span
+                                                                class="absolute inset-x-4 bottom-0 h-0.5 rounded-full bg-primary"
+                                                            ></span>
+                                                        )
+                                                    }
+                                                </a>
+                                            );
+                                        },
+                                    )
+                                }
+                            </div>
+                        </div>
+                    )
+                }
+
+                <!-- ==========================================
+                    CABECERA FASE
+                =========================================== -->
+
+                <div
+                    class="mb-7 flex flex-wrap items-center justify-between gap-3"
+                >
+                    <div>
+                        <h3
+                            class="text-2xl font-bold text-neutral-titulos"
+                        >
+                            {
+                                faseSeleccionada.nombre
+                            }
+                        </h3>
+
+                        <p
+                            class="mt-1 text-sm text-neutral"
+                        >
+                            {
+                                rondasFase.length
+                            }{" "}
+                            {
+                                rondasFase.length ===
+                                1
+                                    ? "ronda"
+                                    : "rondes"
+                            }
+                        </p>
+                    </div>
+
+                    <span
+                        class="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-neutral"
+                    >
+                        {
+                            nombreEstado(
+                                faseSeleccionada.estado,
+                            )
+                        }
+                    </span>
+                </div>
+
+                <!-- ==========================================
+                    BRACKET
+                =========================================== -->
+
+                {
+                    rondasFase.length > 0 ? (
+                        <div
+                            class="overflow-x-auto pb-5"
+                        >
+                            <div
+                                class="flex min-w-max items-start gap-6"
+                            >
+                                {
+                                    rondasFase.map(
+                                        ronda => {
+                                            const partidosActuales =
+                                                partidosRonda(
+                                                    ronda.id,
+                                                );
+
+                                            return (
+                                                <section
+                                                    class="w-80 shrink-0"
+                                                >
+                                                    <!-- ======================
+                                                        CABECERA RONDA
+                                                    ======================= -->
+
+                                                    <div
+                                                        class="mb-3"
+                                                    >
+                                                        <h4
+                                                            class="font-bold text-neutral-titulos"
+                                                        >
+                                                            {
+                                                                ronda.nombre
+                                                            }
+                                                        </h4>
+
+                                                        <p
+                                                            class="mt-0.5 text-xs text-neutral"
+                                                        >
+                                                            {
+                                                                nombreTipoRonda(
+                                                                    ronda.tipo,
+                                                                )
+                                                            }{" "}
+                                                            ·{" "}
+                                                            {
+                                                                partidosActuales.length
+                                                            }{" "}
+                                                            {
+                                                                partidosActuales.length ===
+                                                                1
+                                                                    ? "partit"
+                                                                    : "partits"
+                                                            }
+                                                        </p>
+                                                    </div>
+
+                                                    <!-- ======================
+                                                        PARTIDOS
+                                                    ======================= -->
+
+                                                    <div
+                                                        class="flex flex-col gap-5"
+                                                    >
+                                                        {
+                                                            partidosActuales.map(
+                                                                partido => {
+                                                                    const local =
+                                                                        descripcionPlaza(
+                                                                            plazaPartido(
+                                                                                partido.id,
+                                                                                "LOCAL",
+                                                                            ),
+                                                                        );
+
+                                                                    const visitante =
+                                                                        descripcionPlaza(
+                                                                            plazaPartido(
+                                                                                partido.id,
+                                                                                "VISITANTE",
+                                                                            ),
+                                                                        );
+
+                                                                    const fecha =
+                                                                        formatearFechaHora(
+                                                                            partido.fecha_hora,
+                                                                        );
+
+                                                                    return (
+                                                                        <article
+                                                                            class="overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
+                                                                        >
+                                                                            <!-- ==================
+                                                                                PARTIDO
+                                                                            =================== -->
+
+                                                                            <div
+                                                                                class="flex items-start justify-between gap-3 border-b border-border/50 px-4 py-3"
+                                                                            >
+                                                                                <div
+                                                                                    class="min-w-0"
+                                                                                >
+                                                                                    <h5
+                                                                                        class="truncate text-sm font-bold text-neutral-titulos"
+                                                                                    >
+                                                                                        {
+                                                                                            partido.nombre ??
+                                                                                            partido.codigo
+                                                                                        }
+                                                                                    </h5>
+
+                                                                                    <p
+                                                                                        class="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-neutral"
+                                                                                    >
+                                                                                        {
+                                                                                            partido.codigo
+                                                                                        }
+                                                                                    </p>
+                                                                                </div>
+
+                                                                                <span
+                                                                                    class="shrink-0 rounded-full bg-background px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-neutral"
+                                                                                >
+                                                                                    {
+                                                                                        nombreEstado(
+                                                                                            partido.estado,
+                                                                                        )
+                                                                                    }
+                                                                                </span>
+                                                                            </div>
+
+                                                                            <!-- ==================
+                                                                                LOCAL / VISITANTE
+                                                                            =================== -->
+
+                                                                            <div
+                                                                                class="divide-y divide-border/50"
+                                                                            >
+                                                                                <!-- LOCAL -->
+
+                                                                                <div
+                                                                                    class="flex min-h-18 items-center gap-3 px-4 py-3"
+                                                                                >
+                                                                                    <div
+                                                                                        class="w-14 shrink-0"
+                                                                                    >
+                                                                                        <p
+                                                                                            class="text-[9px] font-bold uppercase tracking-wider text-neutral"
+                                                                                        >
+                                                                                            Local
+                                                                                        </p>
+                                                                                    </div>
+
+                                                                                    {
+                                                                                        local.equipo?.escudo ? (
+                                                                                            <div
+                                                                                                class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-white"
+                                                                                            >
+                                                                                                <img
+                                                                                                    src={
+                                                                                                        local.equipo.escudo
+                                                                                                    }
+                                                                                                    alt=""
+                                                                                                    class="h-full w-full object-contain p-1"
+                                                                                                />
+                                                                                            </div>
+                                                                                        ) : (
+                                                                                            <div
+                                                                                                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary"
+                                                                                            >
+                                                                                                {
+                                                                                                    local.equipo?.nombre
+                                                                                                        ?.charAt(
+                                                                                                            0,
+                                                                                                        )
+                                                                                                        .toUpperCase() ??
+                                                                                                    "?"
+                                                                                                }
+                                                                                            </div>
+                                                                                        )
+                                                                                    }
+
+                                                                                    <div
+                                                                                        class="min-w-0 flex-1"
+                                                                                    >
+                                                                                        <p
+                                                                                            class="truncate text-sm font-semibold text-neutral-titulos"
+                                                                                        >
+                                                                                            {
+                                                                                                local.principal
+                                                                                            }
+                                                                                        </p>
+
+                                                                                        {
+                                                                                            local.secundario && (
+                                                                                                <p
+                                                                                                    class="mt-0.5 truncate text-[11px] text-neutral"
+                                                                                                >
+                                                                                                    {
+                                                                                                        local.secundario
+                                                                                                    }
+                                                                                                </p>
+                                                                                            )
+                                                                                        }
+                                                                                    </div>
+                                                                                </div>
+
+                                                                                <!-- VISITANTE -->
+
+                                                                                <div
+                                                                                    class="flex min-h-18 items-center gap-3 px-4 py-3"
+                                                                                >
+                                                                                    <div
+                                                                                        class="w-14 shrink-0"
+                                                                                    >
+                                                                                        <p
+                                                                                            class="text-[9px] font-bold uppercase tracking-wider text-neutral"
+                                                                                        >
+                                                                                            Visitant
+                                                                                        </p>
+                                                                                    </div>
+
+                                                                                    {
+                                                                                        visitante.equipo?.escudo ? (
+                                                                                            <div
+                                                                                                class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-white"
+                                                                                            >
+                                                                                                <img
+                                                                                                    src={
+                                                                                                        visitante.equipo.escudo
+                                                                                                    }
+                                                                                                    alt=""
+                                                                                                    class="h-full w-full object-contain p-1"
+                                                                                                />
+                                                                                            </div>
+                                                                                        ) : (
+                                                                                            <div
+                                                                                                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary"
+                                                                                            >
+                                                                                                {
+                                                                                                    visitante.equipo?.nombre
+                                                                                                        ?.charAt(
+                                                                                                            0,
+                                                                                                        )
+                                                                                                        .toUpperCase() ??
+                                                                                                    "?"
+                                                                                                }
+                                                                                            </div>
+                                                                                        )
+                                                                                    }
+
+                                                                                    <div
+                                                                                        class="min-w-0 flex-1"
+                                                                                    >
+                                                                                        <p
+                                                                                            class="truncate text-sm font-semibold text-neutral-titulos"
+                                                                                        >
+                                                                                            {
+                                                                                                visitante.principal
+                                                                                            }
+                                                                                        </p>
+
+                                                                                        {
+                                                                                            visitante.secundario && (
+                                                                                                <p
+                                                                                                    class="mt-0.5 truncate text-[11px] text-neutral"
+                                                                                                >
+                                                                                                    {
+                                                                                                        visitante.secundario
+                                                                                                    }
+                                                                                                </p>
+                                                                                            )
+                                                                                        }
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+
+                                                                            <!-- ==================
+                                                                                FECHA / PISTA
+                                                                            =================== -->
+
+                                                                            {
+                                                                                (
+                                                                                    fecha ||
+                                                                                    partido.pista
+                                                                                ) && (
+                                                                                    <div
+                                                                                        class="flex flex-wrap gap-x-4 gap-y-1 border-t border-border/50 bg-background/40 px-4 py-2.5 text-[11px] text-neutral"
+                                                                                    >
+                                                                                        {
+                                                                                            fecha && (
+                                                                                                <span
+                                                                                                    class="inline-flex items-center gap-1.5"
+                                                                                                >
+                                                                                                    <svg
+                                                                                                        xmlns="http://www.w3.org/2000/svg"
+                                                                                                        viewBox="0 0 24 24"
+                                                                                                        fill="none"
+                                                                                                        stroke="currentColor"
+                                                                                                        stroke-width="1.8"
+                                                                                                        stroke-linecap="round"
+                                                                                                        stroke-linejoin="round"
+                                                                                                        class="h-3.5 w-3.5"
+                                                                                                        aria-hidden="true"
+                                                                                                    >
+                                                                                                        <circle
+                                                                                                            cx="12"
+                                                                                                            cy="12"
+                                                                                                            r="9"
+                                                                                                        ></circle>
+
+                                                                                                        <path
+                                                                                                            d="M12 7v5l3 2"
+                                                                                                        ></path>
+                                                                                                    </svg>
+
+                                                                                                    {
+                                                                                                        fecha
+                                                                                                    }
+                                                                                                </span>
+                                                                                            )
+                                                                                        }
+
+                                                                                        {
+                                                                                            partido.pista && (
+                                                                                                <span
+                                                                                                    class="inline-flex items-center gap-1.5"
+                                                                                                >
+                                                                                                    <svg
+                                                                                                        xmlns="http://www.w3.org/2000/svg"
+                                                                                                        viewBox="0 0 24 24"
+                                                                                                        fill="none"
+                                                                                                        stroke="currentColor"
+                                                                                                        stroke-width="1.8"
+                                                                                                        stroke-linecap="round"
+                                                                                                        stroke-linejoin="round"
+                                                                                                        class="h-3.5 w-3.5"
+                                                                                                        aria-hidden="true"
+                                                                                                    >
+                                                                                                        <path
+                                                                                                            d="M12 21s7-5.2 7-12a7 7 0 1 0-14 0c0 6.8 7 12 7 12Z"
+                                                                                                        ></path>
+
+                                                                                                        <circle
+                                                                                                            cx="12"
+                                                                                                            cy="9"
+                                                                                                            r="2"
+                                                                                                        ></circle>
+                                                                                                    </svg>
+
+                                                                                                    {
+                                                                                                        partido.pista
+                                                                                                    }
+                                                                                                </span>
+                                                                                            )
+                                                                                        }
+                                                                                    </div>
+                                                                                )
+                                                                            }
+                                                                        </article>
+                                                                    );
+                                                                },
+                                                            )
+                                                        }
+
+                                                        {
+                                                            partidosActuales.length ===
+                                                                0 && (
+                                                                <div
+                                                                    class="rounded-xl border border-dashed border-border bg-card/40 p-6 text-center"
+                                                                >
+                                                                    <p
+                                                                        class="text-sm text-neutral"
+                                                                    >
+                                                                        Encara
+                                                                        no hi ha
+                                                                        partits
+                                                                        en aquesta
+                                                                        ronda.
+                                                                    </p>
+                                                                </div>
+                                                            )
+                                                        }
+                                                    </div>
+                                                </section>
+                                            );
+                                        },
+                                    )
+                                }
+                            </div>
+                        </div>
+                    ) : (
+                        <div
+                            class="rounded-2xl border border-dashed border-border bg-card/40 px-6 py-12 text-center"
+                        >
+                            <p
+                                class="font-semibold text-neutral-titulos"
+                            >
+                                Encara no hi ha rondes configurades
+                            </p>
+                        </div>
+                    )
+                }
+            </>
+        )
+    }
+</div>
