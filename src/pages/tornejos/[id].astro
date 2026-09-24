@@ -770,9 +770,9 @@ const descripcionPagina =
                             seccionActiva === "voluntariat" &&
                             mostrarVoluntariado && (
                                 <Voluntariat
+                                    edicionID={edicion.id}
                                     configuracion={
-                                        configuracion?.voluntarios ??
-                                        null
+                                        configuracion?.voluntarios ?? null
                                     }
                                     banner={torneo.banner}
                                 />

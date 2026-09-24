@@ -1,11 +1,14 @@
 ---
-type Props = {
-    configuracion:
-        unknown;
+import FormularioVoluntario from "@components/formularios/FormularioVoluntario";
 
-    banner:
-        string;
+type Props = {
+    configuracion: unknown;
+    banner: string;
+    edicionID: string;
 };
+
+// Conserva aquí el resto de tipos y funciones existentes.
+
 
 type EstadoInscripcion =
     | "oberta"
@@ -35,11 +38,12 @@ type TipoVoluntariado = {
         | "bloquear";
 };
 
+
 const {
     configuracion,
     banner,
-} =
-    Astro.props as Props;
+    edicionID,
+} = Astro.props as Props;
 
 // ============================================================
 // HELPERS
@@ -824,204 +828,26 @@ const tipos:
         </section>
 
         <!-- =================================================
-            FORMULARIO
-        ================================================== -->
+    FORMULARIO
+================================================== -->
 
-        <section
-            id="formulari-voluntariat"
-            class="scroll-mt-24 overflow-hidden rounded-2xl border border-border bg-background"
-        >
-            <div class="bg-primary px-6 py-5 sm:px-8">
-                <h2 class="text-xl font-bold text-white">
-                    Formulari d'inscripció
-                </h2>
+<section
+    id="formulari-voluntariat"
+    class="scroll-mt-24 overflow-hidden rounded-2xl border border-border bg-background"
+>
+    <div class="bg-primary px-6 py-5 sm:px-8">
+        <h2 class="text-xl font-bold text-white">
+            Inscripció de voluntariat
+        </h2>
 
-                <p class="mt-1 text-sm text-white/75">
-                    Completa les dades per sol·licitar una plaça
-                    com a voluntari.
-                </p>
-            </div>
+        <p class="mt-1 text-sm text-white/75">
+            Consulta l'estat de la teva sol·licitud o completa la inscripció.
+        </p>
+    </div>
 
-            <div class="p-6 sm:p-8">
-                {
-                    estado ===
-                        "oberta" ? (
-                        <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
-
-                            <div>
-                                <label
-                                    for="voluntari-nom"
-                                    class="text-sm font-medium text-neutral-titulos"
-                                >
-                                    Nom complet
-                                </label>
-
-                                <input
-                                    id="voluntari-nom"
-                                    type="text"
-                                    placeholder="Nom i llinatges"
-                                    class="mt-2 w-full rounded-lg border border-border bg-card px-3.5 py-3 text-sm text-neutral outline-none transition placeholder:text-neutral/50 focus:border-primary focus:ring-2 focus:ring-primary/10"
-                                />
-                            </div>
-
-                            <div>
-                                <label
-                                    for="voluntari-email"
-                                    class="text-sm font-medium text-neutral-titulos"
-                                >
-                                    Correu electrònic
-                                </label>
-
-                                <input
-                                    id="voluntari-email"
-                                    type="email"
-                                    placeholder="nom@exemple.com"
-                                    class="mt-2 w-full rounded-lg border border-border bg-card px-3.5 py-3 text-sm text-neutral outline-none transition placeholder:text-neutral/50 focus:border-primary focus:ring-2 focus:ring-primary/10"
-                                />
-                            </div>
-
-                            <div>
-                                <label
-                                    for="voluntari-curs"
-                                    class="text-sm font-medium text-neutral-titulos"
-                                >
-                                    Curs / grup
-                                </label>
-
-                                <input
-                                    id="voluntari-curs"
-                                    type="text"
-                                    placeholder="Ex. 1r Batxillerat A"
-                                    class="mt-2 w-full rounded-lg border border-border bg-card px-3.5 py-3 text-sm text-neutral outline-none transition placeholder:text-neutral/50 focus:border-primary focus:ring-2 focus:ring-primary/10"
-                                />
-                            </div>
-
-                            <div>
-                                <label
-                                    for="voluntari-rol"
-                                    class="text-sm font-medium text-neutral-titulos"
-                                >
-                                    Rol preferit
-                                </label>
-
-                                <select
-                                    id="voluntari-rol"
-                                    class="mt-2 w-full rounded-lg border border-border bg-card px-3.5 py-3 text-sm text-neutral outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10"
-                                >
-                                    <option value="">
-                                        Selecciona un rol
-                                    </option>
-
-                                    {
-                                        tipos.map(
-                                            tipo => (
-                                                <option value={tipo.id}>
-                                                    {tipo.nombre}
-                                                </option>
-                                            )
-                                        )
-                                    }
-                                </select>
-                            </div>
-
-                            <div class="md:col-span-2">
-                                <label
-                                    for="voluntari-motivacio"
-                                    class="text-sm font-medium text-neutral-titulos"
-                                >
-                                    Per què vols ser voluntari?
-                                </label>
-
-                                <textarea
-                                    id="voluntari-motivacio"
-                                    rows="4"
-                                    placeholder="Explica'ns breument per què t'agradaria participar..."
-                                    class="mt-2 w-full resize-y rounded-lg border border-border bg-card px-3.5 py-3 text-sm text-neutral outline-none transition placeholder:text-neutral/50 focus:border-primary focus:ring-2 focus:ring-primary/10"
-                                ></textarea>
-                            </div>
-
-                            <div class="md:col-span-2">
-                                <label class="flex items-start gap-3">
-                                    <input
-                                        type="checkbox"
-                                        class="mt-1 h-4 w-4 rounded border-border accent-primary"
-                                    />
-
-                                    <span class="text-sm leading-6 text-neutral">
-                                        Accepto que l'organització es posi
-                                        en contacte amb mi per gestionar
-                                        aquesta sol·licitud de voluntariat.
-                                    </span>
-                                </label>
-                            </div>
-
-                            <div class="md:col-span-2">
-                                <button
-                                    type="button"
-                                    class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:bg-primary/90"
-                                >
-                                    Enviar sol·licitud
-
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="1.8"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        class="h-4 w-4"
-                                        aria-hidden="true"
-                                    >
-                                        <path d="M5 12h14"></path>
-                                        <path d="m13 6 6 6-6 6"></path>
-                                    </svg>
-                                </button>
-
-                                <p class="mt-3 text-xs leading-5 text-neutral/70">
-                                    El formulari encara s'ha de connectar
-                                    amb l'API d'inscripcions de voluntariat.
-                                </p>
-                            </div>
-                        </div>
-                    ) : estado ===
-                        "proximament" ? (
-                        <div class="py-8 text-center">
-                            <h3 class="text-lg font-semibold text-neutral-titulos">
-                                Les inscripcions encara no estan obertes
-                            </h3>
-
-                            <p class="mx-auto mt-2 max-w-lg text-sm leading-6 text-neutral">
-                                Podràs enviar la teva sol·licitud a partir de{" "}
-                                {fechaVisible(apertura)}.
-                            </p>
-                        </div>
-                    ) : estado ===
-                        "tancada" ? (
-                        <div class="py-8 text-center">
-                            <h3 class="text-lg font-semibold text-neutral-titulos">
-                                El període d'inscripció ha finalitzat
-                            </h3>
-
-                            <p class="mx-auto mt-2 max-w-lg text-sm leading-6 text-neutral">
-                                Ja no s'accepten noves sol·licituds de
-                                voluntariat per aquesta edició.
-                            </p>
-                        </div>
-                    ) : (
-                        <div class="py-8 text-center">
-                            <h3 class="text-lg font-semibold text-neutral-titulos">
-                                Formulari no disponible
-                            </h3>
-
-                            <p class="mx-auto mt-2 max-w-lg text-sm leading-6 text-neutral">
-                                Encara no s'ha configurat el període
-                                d'inscripció de voluntariat.
-                            </p>
-                        </div>
-                    )
-                }
-            </div>
-        </section>
+    <div class="p-6 sm:p-8">
+        <FormularioVoluntario edicionID={edicionID} client:load />
+    </div>
+</section>
     </div>
 </section>
