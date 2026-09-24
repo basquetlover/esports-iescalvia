@@ -1,0 +1,256 @@
+---
+interface Props {
+  title?: string;
+
+  description?: string;
+
+  canonical?: string;
+
+  image?: string;
+
+  imageAlt?: string;
+
+  type?: "website" | "article";
+
+  indexable?: boolean;
+
+  structuredData?: Record<string, unknown> | Record<string, unknown>[];
+}
+
+const {
+  title,
+  description,
+  canonical,
+  image = "/og.png",
+  imageAlt = "Esports IES Calvià",
+  type = "website",
+  indexable = true,
+  structuredData,
+} = Astro.props;
+
+// ============================================================
+// CONFIGURACIÓN GLOBAL
+// ============================================================
+
+const NOMBRE_WEB = "Esports IES Calvià";
+
+const TITULO_DEFECTO =
+  "Esports IES Calvià | Tornejos i competicions esportives";
+
+const DESCRIPCION_DEFECTO =
+  "Consulta els tornejos, calendaris, inscripcions, notícies i activitats esportives de l'IES Calvià.";
+
+// ============================================================
+// URL BASE
+// ============================================================
+
+const base = Astro.site ?? Astro.url.origin;
+
+const urlInicio = new URL("/", base);
+
+// ============================================================
+// TÍTULO
+// ============================================================
+
+const tituloCompleto = title ? `${title} | ${NOMBRE_WEB}` : TITULO_DEFECTO;
+
+// ============================================================
+// DESCRIPCIÓN
+// ============================================================
+
+const descripcionFinal = description?.trim() || DESCRIPCION_DEFECTO;
+
+// ============================================================
+// CANONICAL
+// ============================================================
+
+const urlCanonical = canonical
+  ? new URL(canonical, base)
+  : new URL(Astro.url.pathname, base);
+
+// ============================================================
+// OPEN GRAPH
+// ============================================================
+
+const urlImagen = new URL(image, base);
+
+// ============================================================
+// LOGO
+// ============================================================
+
+const urlLogo = new URL("/logo-temporal.png", base);
+
+// ============================================================
+// ROBOTS
+// ============================================================
+
+const robots = indexable
+  ? [
+      "index",
+      "follow",
+      "max-image-preview:large",
+      "max-snippet:-1",
+      "max-video-preview:-1",
+    ].join(", ")
+  : "noindex, nofollow";
+
+// ============================================================
+// SCHEMA IDS
+// ============================================================
+
+const idOrganizacion = new URL("/#organization", base).href;
+
+const idWebsite = new URL("/#website", base).href;
+
+const idWebPage = `${urlCanonical.href}#webpage`;
+
+// ============================================================
+// DATOS ESTRUCTURADOS GENERALES
+// ============================================================
+
+const datosEstructuradosBase = {
+  "@context": "https://schema.org",
+
+  "@graph": [
+    {
+      "@type": "Organization",
+
+      "@id": idOrganizacion,
+
+      name: "IES Calvià",
+
+      url: urlInicio.href,
+
+      logo: {
+        "@type": "ImageObject",
+
+        url: urlLogo.href,
+      },
+    },
+
+    {
+      "@type": "WebSite",
+
+      "@id": idWebsite,
+
+      url: urlInicio.href,
+
+      name: NOMBRE_WEB,
+
+      inLanguage: "ca",
+
+      publisher: {
+        "@id": idOrganizacion,
+      },
+    },
+
+    {
+      "@type": "WebPage",
+
+      "@id": idWebPage,
+
+      url: urlCanonical.href,
+
+      name: tituloCompleto,
+
+      description: descripcionFinal,
+
+      inLanguage: "ca",
+
+      isPartOf: {
+        "@id": idWebsite,
+      },
+
+      about: {
+        "@id": idOrganizacion,
+      },
+
+      primaryImageOfPage: {
+        "@type": "ImageObject",
+
+        url: urlImagen.href,
+      },
+    },
+  ],
+};
+
+// ============================================================
+// DATOS ESTRUCTURADOS EXTRA
+// ============================================================
+
+const datosEstructuradosExtra = structuredData
+  ? Array.isArray(structuredData)
+    ? structuredData
+    : [structuredData]
+  : [];
+
+// ============================================================
+// JSON-LD
+// ============================================================
+
+function serializarJSONLD(valor: unknown): string {
+  return JSON.stringify(valor)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026");
+}
+---
+
+<title>{tituloCompleto}</title>
+
+<meta name="description" content={descripcionFinal} />
+
+<meta name="robots" content={robots} />
+
+<link rel="canonical" href={urlCanonical.href} />
+
+<!-- ==========================================================
+     OPEN GRAPH
+=========================================================== -->
+
+<meta property="og:type" content={type} />
+
+<meta property="og:site_name" content={NOMBRE_WEB} />
+
+<meta property="og:locale" content="ca_ES" />
+
+<meta property="og:title" content={tituloCompleto} />
+
+<meta property="og:description" content={descripcionFinal} />
+
+<meta property="og:url" content={urlCanonical.href} />
+
+<meta property="og:image" content={urlImagen.href} />
+
+<meta property="og:image:alt" content={imageAlt} />
+
+<meta property="og:image:type" content="image/png" />
+
+<!-- ==========================================================
+     TWITTER / X
+=========================================================== -->
+
+<meta name="twitter:card" content="summary_large_image" />
+
+<meta name="twitter:title" content={tituloCompleto} />
+
+<meta name="twitter:description" content={descripcionFinal} />
+
+<meta name="twitter:image" content={urlImagen.href} />
+
+<meta name="twitter:image:alt" content={imageAlt} />
+
+<!-- ==========================================================
+     JSON-LD
+=========================================================== -->
+
+<script
+  type="application/ld+json"
+  set:html={serializarJSONLD(datosEstructuradosBase)}
+/>
+
+{
+  datosEstructuradosExtra.map((datos) => (
+    <script type="application/ld+json" set:html={serializarJSONLD(datos)} />
+  ))
+}
