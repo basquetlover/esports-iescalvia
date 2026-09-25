@@ -2,49 +2,33 @@
 import CompeticioClient from "@components/tornejos/competicio/CompeticioClient";
 
 type Props = {
-    torneoID: string;
-    edicionID: string;
+  torneoID: string;
+  edicionID: string;
 };
 
-const {
-    torneoID,
-    edicionID,
-} = Astro.props;
+const { torneoID, edicionID } = Astro.props;
 ---
 
-<section
-    class="w-full bg-background"
-    aria-labelledby="competicio-titol"
->
-    <div
-        class="mx-auto w-full max-w-7xl px-4 pt-10 sm:px-6 lg:px-8"
-    >
-        <div class="mb-8">
-            <p
-                class="text-xs font-semibold uppercase tracking-[0.18em] text-primary"
-            >
-                Competició
-            </p>
+<section class="w-full bg-background" aria-labelledby="competicio-titol">
+  <div class="mx-auto w-full max-w-7xl px-4 pt-10 sm:px-6 lg:px-8">
+    <div class="mb-8">
+      <p class="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+        Competició
+      </p>
 
-            <h2
-                id="competicio-titol"
-                class="mt-2 text-3xl font-bold tracking-tight text-neutral-titulos"
-            >
-                Fase de grups
-            </h2>
+      <h2
+        id="competicio-titol"
+        class="mt-2 text-3xl font-bold tracking-tight text-neutral-titulos"
+      >
+        Fase de grups
+      </h2>
 
-            <p
-                class="mt-2 max-w-3xl text-sm leading-6 text-neutral sm:text-base"
-            >
-                Consulta la classificació, les darreres jornades
-                i els pròxims partits de cada grup.
-            </p>
-        </div>
+      <p class="mt-2 max-w-3xl text-sm leading-6 text-neutral sm:text-base">
+        Consulta la classificació, les darreres jornades i els pròxims partits
+        de cada grup.
+      </p>
     </div>
+  </div>
 
-    <CompeticioClient
-        client:load
-        torneoID={torneoID}
-        edicionID={edicionID}
-    />
+  <CompeticioClient client:load torneoID={torneoID} edicionID={edicionID} />
 </section>
