@@ -1,203 +1,405 @@
-import type { APIRoute } from "astro";
-
-import { tieneAccesoTorneo, tienePermiso } from "@const/Permisos";
-
-import { supabaseAdmin } from "@utils/supabase";
+import type {
+    APIRoute,
+} from "astro";
 
 import {
-  ErrorAPI,
-  UUID,
-  exigirUsuario,
-  responder,
+    tieneAccesoTorneo,
+    tienePermiso,
+} from "@const/Permisos";
+
+import {
+    supabaseAdmin,
+} from "@utils/supabase";
+
+import {
+    ErrorAPI,
+    UUID,
+    exigirUsuario,
+    responder,
 } from "@utils/inscripcio/equipBase";
 
-export const prerender = false;
+export const prerender =
+    false;
 
 // ============================================================
 // TIPOS
 // ============================================================
 
-type Usuario = Awaited<ReturnType<typeof exigirUsuario>>;
+type Usuario =
+    Awaited<
+        ReturnType<
+            typeof exigirUsuario
+        >
+    >;
 
-type LadoPartido = "LOCAL" | "VISITANTE";
+type LadoPartido =
+    | "LOCAL"
+    | "VISITANTE";
 
 type TorneoDB = {
-  id: string;
-  nombre: string | null;
-  deporte: string | null;
-  logo: string | null;
+    id: string;
+
+    nombre:
+        string | null;
+
+    deporte:
+        string | null;
+
+    logo:
+        string | null;
 };
 
 type EdicionDB = {
-  id: string;
-  torneo_id: string | null;
-  nombre: string | null;
-  estado: string | null;
-  sede: string | null;
-  fecha_inicio: string | null;
-  fecha_fin: string | null;
+    id: string;
+
+    torneo_id:
+        string | null;
+
+    nombre:
+        string | null;
+
+    estado:
+        string | null;
+
+    sede:
+        string | null;
+
+    fecha_inicio:
+        string | null;
+
+    fecha_fin:
+        string | null;
 };
 
 type PartidoDB = {
-  id: string;
-  edicion_id: string;
-  fase_id: string;
-  fase_tipo: "GRUPOS" | "ELIMINATORIA";
+    id: string;
 
-  tipo: "GRUPO" | "ELIMINATORIA";
+    edicion_id:
+        string;
 
-  grupo_id: string | null;
-  ronda_id: string | null;
-  codigo: string;
-  nombre: string | null;
-  orden: number;
-  jornada: number | null;
-  estado: string;
-  fecha_hora: string | null;
-  pista: string | null;
-  duracion_estimada_min: number | null;
-  publicado: boolean;
-  finalizado_at: string | null;
-  created_at: string | null;
-  updated_at: string | null;
+    fase_id:
+        string;
+
+    fase_tipo:
+        | "GRUPOS"
+        | "ELIMINATORIA";
+
+    tipo:
+        | "GRUPO"
+        | "ELIMINATORIA";
+
+    grupo_id:
+        string | null;
+
+    ronda_id:
+        string | null;
+
+    codigo:
+        string;
+
+    nombre:
+        string | null;
+
+    orden:
+        number;
+
+    jornada:
+        number | null;
+
+    estado:
+        string;
+
+    fecha_hora:
+        string | null;
+
+    pista:
+        string | null;
+
+    duracion_estimada_min:
+        number | null;
+
+    publicado:
+        boolean;
+
+    finalizado_at:
+        string | null;
+
+    created_at:
+        string | null;
+
+    updated_at:
+        string | null;
 };
 
 type ParticipanteActa = {
-  id: string;
-  equipo_id: string;
-  nombre: string | null;
-  apellido1: string | null;
-  apellido2: string | null;
-  tipo_participante: string | null;
-  validacion_estado: string | null;
-  orden: number | null;
-  activo: boolean | null;
+    id: string;
+
+    equipo_id:
+        string;
+
+    nombre:
+        string | null;
+
+    apellido1:
+        string | null;
+
+    apellido2:
+        string | null;
+
+    tipo_participante:
+        string | null;
+
+    validacion_estado:
+        string | null;
+
+    orden:
+        number | null;
+
+    activo:
+        boolean | null;
 };
 
 type EquipoActa = {
-  id: string;
-  nombre: string;
-  escudo: string | null;
-  jugadores: ParticipanteActa[];
+    id: string;
+
+    nombre:
+        string;
+
+    escudo:
+        string | null;
+
+    jugadores:
+        ParticipanteActa[];
 };
 
 type PlazaPartido = {
-  id: string;
-  lado: LadoPartido | null;
-  origen_tipo: string | null;
-  equipo_origen_id: string | null;
-  origen_grupo_id: string | null;
-  origen_fase_id: string | null;
-  origen_posicion: number | null;
-  origen_partido_id: string | null;
-  equipo_resuelto_id: string | null;
+    id: string;
+
+    lado:
+        LadoPartido | null;
+
+    origen_tipo:
+        string | null;
+
+    equipo_origen_id:
+        string | null;
+
+    origen_grupo_id:
+        string | null;
+
+    origen_fase_id:
+        string | null;
+
+    origen_posicion:
+        number | null;
+
+    origen_partido_id:
+        string | null;
+
+    equipo_resuelto_id:
+        string | null;
 };
 
-type LadoActa = {
-  lado: LadoPartido;
-  resuelto: boolean;
-  plaza: PlazaPartido | null;
-  equipo: EquipoActa | null;
+type ActaDB = {
+    id: string;
+
+    partido_id:
+        string;
+
+    estado:
+        string;
+
+    nivel_estadisticas:
+        string;
+
+    operador_id:
+        string | null;
+
+    controlador_id:
+        string | null;
+
+    control_token:
+        string | null;
+
+    iniciada_at:
+        string | null;
+
+    bloqueada_por:
+        string | null;
+
+    bloqueada_at:
+        string | null;
+
+    motivo_bloqueo:
+        string | null;
+
+    finalizada_por:
+        string | null;
+
+    finalizada_at:
+        string | null;
+
+    secuencia_eventos:
+        number;
+
+    version:
+        number;
+
+    created_at:
+        string;
+
+    updated_at:
+        string;
 };
 
 // ============================================================
 // SELECTS
-//
-// IMPORTANTE:
-// Supabase necesita que estas cadenas se mantengan como
-// literales para poder inferir correctamente sus tipos.
-//
-// No utilizar:
-//
-// [
-//   "id",
-//   "nombre"
-// ].join(",")
-//
-// porque el parser de tipos de Supabase lo interpreta como
-// string genérico y genera GenericStringError.
 // ============================================================
 
-const SELECT_TORNEO = "id,nombre,deporte,logo";
+const SELECT_TORNEO =
+    "id,nombre,deporte,logo";
 
-const SELECT_EDICION = "id,torneo_id,nombre,estado,sede,fecha_inicio,fecha_fin";
+const SELECT_EDICION =
+    "id,torneo_id,nombre,estado,sede,fecha_inicio,fecha_fin";
 
 const SELECT_PARTIDO =
-  "id,edicion_id,fase_id,fase_tipo,tipo,grupo_id,ronda_id,codigo,nombre,orden,jornada,estado,fecha_hora,pista,duracion_estimada_min,publicado,finalizado_at,created_at,updated_at";
+    "id,edicion_id,fase_id,fase_tipo,tipo,grupo_id,ronda_id,codigo,nombre,orden,jornada,estado,fecha_hora,pista,duracion_estimada_min,publicado,finalizado_at,created_at,updated_at";
 
-const SELECT_FASE = "id,nombre,tipo,orden,estado,publicada";
+const SELECT_FASE =
+    "id,nombre,tipo,orden,estado,publicada";
 
-const SELECT_GRUPO = "id,fase_id,nombre,orden,estado";
+const SELECT_GRUPO =
+    "id,fase_id,nombre,orden,estado";
 
-const SELECT_RONDA = "id,fase_id,tipo,nombre,orden";
+const SELECT_RONDA =
+    "id,fase_id,tipo,nombre,orden";
 
 const SELECT_PARTICIPANTE =
-  "id,equipo_id,nombre,apellido1,apellido2,tipo_participante,validacion_estado,orden,activo";
+    "id,equipo_id,nombre,apellido1,apellido2,tipo_participante,validacion_estado,orden,activo";
 
-const SELECT_EQUIPO = "id,nombre,escudo";
+const SELECT_EQUIPO =
+    "id,nombre,escudo";
 
 const SELECT_PLAZA =
-  "id,lado,origen_tipo,equipo_origen_id,origen_grupo_id,origen_fase_id,origen_posicion,origen_partido_id,equipo_resuelto_id";
+    "id,lado,origen_tipo,equipo_origen_id,origen_grupo_id,origen_fase_id,origen_posicion,origen_partido_id,equipo_resuelto_id";
 
 const SELECT_ACTA =
-  "id,partido_id,estado,nivel_estadisticas,operador_id,controlador_id,iniciada_at,bloqueada_por,bloqueada_at,motivo_bloqueo,finalizada_por,finalizada_at,version,created_at,updated_at";
+    "id,partido_id,estado,nivel_estadisticas,operador_id,controlador_id,control_token,iniciada_at,bloqueada_por,bloqueada_at,motivo_bloqueo,finalizada_por,finalizada_at,secuencia_eventos,version,created_at,updated_at";
 
 // ============================================================
-// RESPUESTAS DE ERROR
+// ERROR
 // ============================================================
 
-function responderError(error: unknown) {
-  if (error instanceof ErrorAPI) {
-    return responder(
-      {
-        success: false,
-        mensaje: error.message,
-      },
-      error.estado,
+function responderError(
+    error:
+        unknown,
+) {
+    if (
+        error instanceof
+        ErrorAPI
+    ) {
+        return responder(
+            {
+                success:
+                    false,
+
+                mensaje:
+                    error.message,
+            },
+            error.estado,
+        );
+    }
+
+    console.error(
+        "Error carregant l'acta digital:",
+        error,
     );
-  }
 
-  console.error("Error carregant l'acta digital:", error);
+    return responder(
+        {
+            success:
+                false,
 
-  return responder(
-    {
-      success: false,
-      mensaje: "No s'ha pogut carregar l'acta digital.",
-    },
-    500,
-  );
+            mensaje:
+                "No s'ha pogut carregar l'acta digital.",
+        },
+        500,
+    );
 }
 
 // ============================================================
-// VALIDACIÓN UUID
+// UUID
 // ============================================================
 
-function identificador(valor: unknown, nombre: string) {
-  if (typeof valor !== "string") {
-    throw new ErrorAPI(400, `L'identificador de ${nombre} no és vàlid.`);
-  }
+function identificador(
+    valor:
+        unknown,
 
-  const limpio = valor.trim().toLowerCase();
+    nombre:
+        string,
+) {
+    if (
+        typeof valor !==
+        "string"
+    ) {
+        throw new ErrorAPI(
+            400,
+            `L'identificador de ${nombre} no és vàlid.`,
+        );
+    }
 
-  if (!UUID.test(limpio)) {
-    throw new ErrorAPI(400, `L'identificador de ${nombre} no és vàlid.`);
-  }
+    const limpio =
+        valor
+            .trim()
+            .toLowerCase();
 
-  return limpio;
+    if (
+        !UUID.test(
+            limpio,
+        )
+    ) {
+        throw new ErrorAPI(
+            400,
+            `L'identificador de ${nombre} no és vàlid.`,
+        );
+    }
+
+    return limpio;
 }
 
 // ============================================================
-// PARÁMETROS URL
+// PARAMETROS
 // ============================================================
 
-function leerParametros(url: URL) {
-  return {
-    torneoID: identificador(url.searchParams.get("torneoID"), "torneig"),
+function leerParametros(
+    url:
+        URL,
+) {
+    return {
+        torneoID:
+            identificador(
+                url.searchParams.get(
+                    "torneoID",
+                ),
+                "torneig",
+            ),
 
-    edicionID: identificador(url.searchParams.get("edicionID"), "edició"),
+        edicionID:
+            identificador(
+                url.searchParams.get(
+                    "edicionID",
+                ),
+                "edició",
+            ),
 
-    partidoID: identificador(url.searchParams.get("partidoID"), "partit"),
-  };
+        partidoID:
+            identificador(
+                url.searchParams.get(
+                    "partidoID",
+                ),
+                "partit",
+            ),
+    };
 }
 
 // ============================================================
@@ -205,84 +407,133 @@ function leerParametros(url: URL) {
 // ============================================================
 
 async function exigirContexto(
-  usuario: Usuario,
-  torneoID: string,
-  edicionID: string,
+    usuario:
+        Usuario,
+
+    torneoID:
+        string,
+
+    edicionID:
+        string,
 ) {
-  // ========================================================
-  // ACCESO AL TORNEO
-  // ========================================================
+    if (
+        !tieneAccesoTorneo(
+            usuario,
+            torneoID,
+        ) ||
+        !tienePermiso(
+            usuario,
+            "panell",
+            "ver",
+            torneoID,
+        )
+    ) {
+        throw new ErrorAPI(
+            403,
+            "No tens accés a aquest torneig.",
+        );
+    }
 
-  if (
-    !tieneAccesoTorneo(usuario, torneoID) ||
-    !tienePermiso(usuario, "panell", "ver", torneoID)
-  ) {
-    throw new ErrorAPI(403, "No tens accés a aquest torneig.");
-  }
+    if (
+        !tienePermiso(
+            usuario,
+            "partits",
+            "ver",
+            torneoID,
+        )
+    ) {
+        throw new ErrorAPI(
+            403,
+            "No tens permís per consultar aquest partit.",
+        );
+    }
 
-  // ========================================================
-  // PERMISO ACTA
-  // ========================================================
+    const [
+        respuestaTorneo,
+        respuestaEdicion,
+    ] =
+        await Promise.all([
+            supabaseAdmin
+                .from(
+                    "torneos",
+                )
+                .select(
+                    SELECT_TORNEO,
+                )
+                .eq(
+                    "id",
+                    torneoID,
+                )
+                .maybeSingle(),
 
-  if (!tienePermiso(usuario, "acta-digital", "ver", torneoID)) {
-    throw new ErrorAPI(403, "No tens permís per consultar l'acta digital.");
-  }
+            supabaseAdmin
+                .from(
+                    "ediciones",
+                )
+                .select(
+                    SELECT_EDICION,
+                )
+                .eq(
+                    "id",
+                    edicionID,
+                )
+                .maybeSingle(),
+        ]);
 
-  // ========================================================
-  // TORNEO + EDICIÓN
-  // ========================================================
+    if (
+        respuestaTorneo.error
+    ) {
+        throw respuestaTorneo.error;
+    }
 
-  const [respuestaTorneo, respuestaEdicion] = await Promise.all([
-    supabaseAdmin
-      .from("torneos")
-      .select(SELECT_TORNEO)
-      .eq("id", torneoID)
-      .maybeSingle(),
+    if (
+        respuestaEdicion.error
+    ) {
+        throw respuestaEdicion.error;
+    }
 
-    supabaseAdmin
-      .from("ediciones")
-      .select(SELECT_EDICION)
-      .eq("id", edicionID)
-      .maybeSingle(),
-  ]);
+    const torneo =
+        respuestaTorneo.data as
+            TorneoDB | null;
 
-  if (respuestaTorneo.error) {
-    throw respuestaTorneo.error;
-  }
+    const edicion =
+        respuestaEdicion.data as
+            EdicionDB | null;
 
-  if (respuestaEdicion.error) {
-    throw respuestaEdicion.error;
-  }
+    if (
+        !torneo
+    ) {
+        throw new ErrorAPI(
+            404,
+            "No s'ha trobat el torneig.",
+        );
+    }
 
-  const torneo = respuestaTorneo.data as TorneoDB | null;
+    if (
+        !edicion
+    ) {
+        throw new ErrorAPI(
+            404,
+            "No s'ha trobat l'edició.",
+        );
+    }
 
-  const edicion = respuestaEdicion.data as EdicionDB | null;
+    if (
+        edicion.torneo_id
+            ?.trim()
+            .toLowerCase() !==
+        torneoID
+    ) {
+        throw new ErrorAPI(
+            404,
+            "L'edició no pertany al torneig seleccionat.",
+        );
+    }
 
-  if (!torneo) {
-    throw new ErrorAPI(404, "No s'ha trobat el torneig.");
-  }
-
-  if (!edicion) {
-    throw new ErrorAPI(404, "No s'ha trobat l'edició.");
-  }
-
-  /*
-   * IMPORTANTE:
-   *
-   * torneos.id = UUID
-   * ediciones.torneo_id = TEXT
-   *
-   * Desde Supabase ambos valores llegan a TypeScript
-   * como string.
-   */
-  if (edicion.torneo_id?.trim().toLowerCase() !== torneoID) {
-    throw new ErrorAPI(404, "L'edició no pertany al torneig seleccionat.");
-  }
-
-  return {
-    torneo,
-    edicion,
-  };
+    return {
+        torneo,
+        edicion,
+    };
 }
 
 // ============================================================
@@ -290,124 +541,220 @@ async function exigirContexto(
 // ============================================================
 
 async function obtenerPartido(
-  partidoID: string,
-  edicionID: string,
-): Promise<PartidoDB> {
-  const { data, error } = await supabaseAdmin
-    .from("competicion_partidos")
-    .select(SELECT_PARTIDO)
-    .eq("id", partidoID)
-    .eq("edicion_id", edicionID)
-    .maybeSingle();
+    partidoID:
+        string,
 
-  if (error) {
-    throw error;
-  }
+    edicionID:
+        string,
+): Promise<
+    PartidoDB
+> {
+    const {
+        data,
+        error,
+    } =
+        await supabaseAdmin
+            .from(
+                "competicion_partidos",
+            )
+            .select(
+                SELECT_PARTIDO,
+            )
+            .eq(
+                "id",
+                partidoID,
+            )
+            .eq(
+                "edicion_id",
+                edicionID,
+            )
+            .maybeSingle();
 
-  if (!data) {
-    throw new ErrorAPI(404, "No s'ha trobat el partit.");
-  }
+    if (
+        error
+    ) {
+        throw error;
+    }
 
-  return data as PartidoDB;
+    if (
+        !data
+    ) {
+        throw new ErrorAPI(
+            404,
+            "No s'ha trobat el partit.",
+        );
+    }
+
+    return data as
+        PartidoDB;
 }
 
 // ============================================================
-// ESTRUCTURA DE COMPETICIÓN
+// ESTRUCTURA
 // ============================================================
 
-async function obtenerEstructura(partido: PartidoDB) {
-  // ========================================================
-  // FASE
-  // ========================================================
+async function obtenerEstructura(
+    partido:
+        PartidoDB,
+) {
+    const fasePromesa =
+        partido.fase_id
+            ? supabaseAdmin
+                  .from(
+                      "competicion_fases",
+                  )
+                  .select(
+                      SELECT_FASE,
+                  )
+                  .eq(
+                      "id",
+                      partido.fase_id,
+                  )
+                  .maybeSingle()
+            : Promise.resolve({
+                  data:
+                      null,
 
-  const fasePromesa = partido.fase_id
-    ? supabaseAdmin
-        .from("competicion_fases")
-        .select(SELECT_FASE)
-        .eq("id", partido.fase_id)
-        .maybeSingle()
-    : Promise.resolve({
-        data: null,
-        error: null,
-      });
+                  error:
+                      null,
+              });
 
-  // ========================================================
-  // GRUPO
-  // ========================================================
+    const grupoPromesa =
+        partido.grupo_id
+            ? supabaseAdmin
+                  .from(
+                      "competicion_grupos",
+                  )
+                  .select(
+                      SELECT_GRUPO,
+                  )
+                  .eq(
+                      "id",
+                      partido.grupo_id,
+                  )
+                  .maybeSingle()
+            : Promise.resolve({
+                  data:
+                      null,
 
-  const grupoPromesa = partido.grupo_id
-    ? supabaseAdmin
-        .from("competicion_grupos")
-        .select(SELECT_GRUPO)
-        .eq("id", partido.grupo_id)
-        .maybeSingle()
-    : Promise.resolve({
-        data: null,
-        error: null,
-      });
+                  error:
+                      null,
+              });
 
-  // ========================================================
-  // RONDA
-  // ========================================================
+    const rondaPromesa =
+        partido.ronda_id
+            ? supabaseAdmin
+                  .from(
+                      "competicion_rondas",
+                  )
+                  .select(
+                      SELECT_RONDA,
+                  )
+                  .eq(
+                      "id",
+                      partido.ronda_id,
+                  )
+                  .maybeSingle()
+            : Promise.resolve({
+                  data:
+                      null,
 
-  const rondaPromesa = partido.ronda_id
-    ? supabaseAdmin
-        .from("competicion_rondas")
-        .select(SELECT_RONDA)
-        .eq("id", partido.ronda_id)
-        .maybeSingle()
-    : Promise.resolve({
-        data: null,
-        error: null,
-      });
+                  error:
+                      null,
+              });
 
-  const [respuestaFase, respuestaGrupo, respuestaRonda] = await Promise.all([
-    fasePromesa,
-    grupoPromesa,
-    rondaPromesa,
-  ]);
+    const [
+        respuestaFase,
+        respuestaGrupo,
+        respuestaRonda,
+    ] =
+        await Promise.all([
+            fasePromesa,
+            grupoPromesa,
+            rondaPromesa,
+        ]);
 
-  if (respuestaFase.error) {
-    throw respuestaFase.error;
-  }
+    if (
+        respuestaFase.error
+    ) {
+        throw respuestaFase.error;
+    }
 
-  if (respuestaGrupo.error) {
-    throw respuestaGrupo.error;
-  }
+    if (
+        respuestaGrupo.error
+    ) {
+        throw respuestaGrupo.error;
+    }
 
-  if (respuestaRonda.error) {
-    throw respuestaRonda.error;
-  }
+    if (
+        respuestaRonda.error
+    ) {
+        throw respuestaRonda.error;
+    }
 
-  return {
-    fase: respuestaFase.data,
+    return {
+        fase:
+            respuestaFase.data,
 
-    grupo: respuestaGrupo.data,
+        grupo:
+            respuestaGrupo.data,
 
-    ronda: respuestaRonda.data,
-  };
+        ronda:
+            respuestaRonda.data,
+    };
 }
 
 // ============================================================
 // JUGADORES
 // ============================================================
 
-async function obtenerJugadores(equipoID: string): Promise<ParticipanteActa[]> {
-  const { data, error } = await supabaseAdmin
-    .from("participantes_equipo")
-    .select(SELECT_PARTICIPANTE)
-    .eq("equipo_id", equipoID)
-    .eq("tipo_participante", "JUGADOR")
-    .eq("activo", true)
-    .order("orden", {
-      ascending: true,
-    });
+async function obtenerJugadores(
+    equipoID:
+        string,
+): Promise<
+    ParticipanteActa[]
+> {
+    const {
+        data,
+        error,
+    } =
+        await supabaseAdmin
+            .from(
+                "participantes_equipo",
+            )
+            .select(
+                SELECT_PARTICIPANTE,
+            )
+            .eq(
+                "equipo_id",
+                equipoID,
+            )
+            .eq(
+                "tipo_participante",
+                "JUGADOR",
+            )
+            .eq(
+                "activo",
+                true,
+            )
+            .order(
+                "orden",
+                {
+                    ascending:
+                        true,
+                },
+            );
 
-  if (error) {
-    throw error;
-  }
+    if (
+        error
+    ) {
+        throw error;
+    }
 
-  return (data ?? []) as ParticipanteActa[];
+    return (
+        data ??
+        []
+    ) as ParticipanteActa[];
 }
 
 // ============================================================
@@ -415,186 +762,400 @@ async function obtenerJugadores(equipoID: string): Promise<ParticipanteActa[]> {
 // ============================================================
 
 async function obtenerEquipo(
-  equipoID: string | null,
-): Promise<EquipoActa | null> {
-  if (!equipoID) {
-    return null;
-  }
+    equipoID:
+        string | null,
+): Promise<
+    EquipoActa | null
+> {
+    if (
+        !equipoID
+    ) {
+        return null;
+    }
 
-  const { data, error } = await supabaseAdmin
-    .from("equipos")
-    .select(SELECT_EQUIPO)
-    .eq("id", equipoID)
-    .maybeSingle();
+    const {
+        data,
+        error,
+    } =
+        await supabaseAdmin
+            .from(
+                "equipos",
+            )
+            .select(
+                SELECT_EQUIPO,
+            )
+            .eq(
+                "id",
+                equipoID,
+            )
+            .maybeSingle();
 
-  if (error) {
-    throw error;
-  }
+    if (
+        error
+    ) {
+        throw error;
+    }
 
-  if (!data) {
-    return null;
-  }
+    if (
+        !data
+    ) {
+        return null;
+    }
 
-  const jugadores = await obtenerJugadores(data.id);
+    return {
+        id:
+            data.id,
 
-  return {
-    id: data.id,
+        nombre:
+            data.nombre ??
+            "Equip sense nom",
 
-    nombre: data.nombre ?? "Equip sense nom",
+        escudo:
+            data.escudo ??
+            null,
 
-    escudo: data.escudo ?? null,
-
-    jugadores,
-  };
+        jugadores:
+            await obtenerJugadores(
+                data.id,
+            ),
+    };
 }
 
 // ============================================================
-// PLAZAS DEL PARTIDO
+// EQUIPOS PARTIDO
 // ============================================================
 
-async function obtenerPlazasPartido(
-  partidoID: string,
-): Promise<PlazaPartido[]> {
-  const { data, error } = await supabaseAdmin
-    .from("competicion_plazas")
-    .select(SELECT_PLAZA)
-    .eq("destino_tipo", "PARTIDO")
-    .eq("partido_id", partidoID)
-    .order("orden", {
-      ascending: true,
-    });
+async function obtenerEquiposPartido(
+    partidoID:
+        string,
+) {
+    const {
+        data,
+        error,
+    } =
+        await supabaseAdmin
+            .from(
+                "competicion_plazas",
+            )
+            .select(
+                SELECT_PLAZA,
+            )
+            .eq(
+                "destino_tipo",
+                "PARTIDO",
+            )
+            .eq(
+                "partido_id",
+                partidoID,
+            )
+            .order(
+                "orden",
+                {
+                    ascending:
+                        true,
+                },
+            );
 
-  if (error) {
-    throw error;
-  }
+    if (
+        error
+    ) {
+        throw error;
+    }
 
-  return (data ?? []) as PlazaPartido[];
+    const plazas =
+        (
+            data ??
+            []
+        ) as PlazaPartido[];
+
+    const plazaLocal =
+        plazas.find(
+            plaza =>
+                plaza.lado ===
+                "LOCAL",
+        ) ??
+        null;
+
+    const plazaVisitante =
+        plazas.find(
+            plaza =>
+                plaza.lado ===
+                "VISITANTE",
+        ) ??
+        null;
+
+    const [
+        equipoLocal,
+        equipoVisitante,
+    ] =
+        await Promise.all([
+            obtenerEquipo(
+                plazaLocal
+                    ?.equipo_resuelto_id ??
+                    null,
+            ),
+
+            obtenerEquipo(
+                plazaVisitante
+                    ?.equipo_resuelto_id ??
+                    null,
+            ),
+        ]);
+
+    return {
+        local: {
+            lado:
+                "LOCAL" as const,
+
+            resuelto:
+                Boolean(
+                    equipoLocal,
+                ),
+
+            plaza:
+                plazaLocal,
+
+            equipo:
+                equipoLocal,
+        },
+
+        visitante: {
+            lado:
+                "VISITANTE" as const,
+
+            resuelto:
+                Boolean(
+                    equipoVisitante,
+                ),
+
+            plaza:
+                plazaVisitante,
+
+            equipo:
+                equipoVisitante,
+        },
+    };
 }
 
 // ============================================================
-// EQUIPOS DEL PARTIDO
+// ACTA
 // ============================================================
 
-async function obtenerEquiposPartido(partidoID: string) {
-  const plazas = await obtenerPlazasPartido(partidoID);
+async function obtenerActa(
+    partidoID:
+        string,
+): Promise<
+    ActaDB | null
+> {
+    const {
+        data,
+        error,
+    } =
+        await supabaseAdmin
+            .from(
+                "acta_partidos",
+            )
+            .select(
+                SELECT_ACTA,
+            )
+            .eq(
+                "partido_id",
+                partidoID,
+            )
+            .maybeSingle();
 
-  const plazaLocal = plazas.find((plaza) => plaza.lado === "LOCAL") ?? null;
+    if (
+        error
+    ) {
+        throw error;
+    }
 
-  const plazaVisitante =
-    plazas.find((plaza) => plaza.lado === "VISITANTE") ?? null;
-
-  const [equipoLocal, equipoVisitante] = await Promise.all([
-    obtenerEquipo(plazaLocal?.equipo_resuelto_id ?? null),
-
-    obtenerEquipo(plazaVisitante?.equipo_resuelto_id ?? null),
-  ]);
-
-  const local: LadoActa = {
-    lado: "LOCAL",
-
-    resuelto: Boolean(equipoLocal),
-
-    plaza: plazaLocal,
-
-    equipo: equipoLocal,
-  };
-
-  const visitante: LadoActa = {
-    lado: "VISITANTE",
-
-    resuelto: Boolean(equipoVisitante),
-
-    plaza: plazaVisitante,
-
-    equipo: equipoVisitante,
-  };
-
-  return {
-    local,
-    visitante,
-  };
-}
-
-// ============================================================
-// ACTA EXISTENTE
-// ============================================================
-
-async function obtenerActa(partidoID: string) {
-  const { data, error } = await supabaseAdmin
-    .from("acta_partidos")
-    .select(SELECT_ACTA)
-    .eq("partido_id", partidoID)
-    .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  return data;
+    return data as
+        | ActaDB
+        | null;
 }
 
 // ============================================================
 // GET
 // ============================================================
 
-export const GET: APIRoute = async ({ cookies, url }) => {
-  try {
-    // =================================================
-    // USUARIO
-    // =================================================
+export const GET: APIRoute =
+    async ({
+        cookies,
+        url,
+    }) => {
+        try {
+            const usuario =
+                await exigirUsuario(
+                    cookies,
+                );
 
-    const usuario = await exigirUsuario(cookies);
+            const {
+                torneoID,
+                edicionID,
+                partidoID,
+            } =
+                leerParametros(
+                    url,
+                );
 
-    // =================================================
-    // IDS
-    // =================================================
+            const contexto =
+                await exigirContexto(
+                    usuario,
+                    torneoID,
+                    edicionID,
+                );
 
-    const { torneoID, edicionID, partidoID } = leerParametros(url);
+            const partido =
+                await obtenerPartido(
+                    partidoID,
+                    edicionID,
+                );
 
-    // =================================================
-    // TORNEO + EDICIÓN + PERMISOS
-    // =================================================
+            const [
+                estructura,
+                equipos,
+                acta,
+            ] =
+                await Promise.all([
+                    obtenerEstructura(
+                        partido,
+                    ),
 
-    const contexto = await exigirContexto(usuario, torneoID, edicionID);
+                    obtenerEquiposPartido(
+                        partidoID,
+                    ),
 
-    // =================================================
-    // PARTIDO
-    // =================================================
+                    obtenerActa(
+                        partidoID,
+                    ),
+                ]);
 
-    const partido = await obtenerPartido(partidoID, edicionID);
+            // =================================================
+            // CONTROL
+            // =================================================
 
-    // =================================================
-    // DATOS PARALELOS
-    // =================================================
+            const puedeEditar =
+                tienePermiso(
+                    usuario,
+                    "partits",
+                    "editar",
+                    torneoID,
+                );
 
-    const [estructura, equipos, acta] = await Promise.all([
-      obtenerEstructura(partido),
+            const esControlador =
+                Boolean(
+                    acta &&
+                        acta.controlador_id ===
+                            usuario.id,
+                );
 
-      obtenerEquiposPartido(partidoID),
+            const puedeEscribir =
+                Boolean(
+                    puedeEditar &&
+                        acta &&
+                        esControlador &&
+                        acta.estado ===
+                            "EN_CURSO",
+                );
 
-      obtenerActa(partidoID),
-    ]);
+            // =================================================
+            // ACTA PUBLICA
+            // =================================================
 
-    // =================================================
-    // RESPUESTA
-    // =================================================
+            const actaPublica =
+                acta
+                    ? {
+                          id:
+                              acta.id,
 
-    return responder({
-      success: true,
+                          partido_id:
+                              acta.partido_id,
 
-      torneo: contexto.torneo,
+                          estado:
+                              acta.estado,
 
-      edicion: contexto.edicion,
+                          nivel_estadisticas:
+                              acta.nivel_estadisticas,
 
-      partido,
+                          operador_id:
+                              acta.operador_id,
 
-      estructura,
+                          controlador_id:
+                              acta.controlador_id,
 
-      equipos,
+                          iniciada_at:
+                              acta.iniciada_at,
 
-      acta,
-    });
-  } catch (error) {
-    return responderError(error);
-  }
-};
+                          bloqueada_por:
+                              acta.bloqueada_por,
+
+                          bloqueada_at:
+                              acta.bloqueada_at,
+
+                          motivo_bloqueo:
+                              acta.motivo_bloqueo,
+
+                          finalizada_por:
+                              acta.finalizada_por,
+
+                          finalizada_at:
+                              acta.finalizada_at,
+
+                          version:
+                              acta.version,
+
+                          created_at:
+                              acta.created_at,
+
+                          updated_at:
+                              acta.updated_at,
+                      }
+                    : null;
+
+            // =================================================
+            // RESPUESTA
+            // =================================================
+
+            return responder({
+                success:
+                    true,
+
+                torneo:
+                    contexto.torneo,
+
+                edicion:
+                    contexto.edicion,
+
+                partido,
+
+                estructura,
+
+                equipos,
+
+                acta:
+                    actaPublica,
+
+                control: {
+                    puedeEditar,
+
+                    esControlador,
+
+                    puedeEscribir,
+
+                    controlToken:
+                        puedeEscribir
+                            ? acta
+                                  ?.control_token ??
+                              null
+                            : null,
+                },
+            });
+        } catch (
+            error
+        ) {
+            return responderError(
+                error,
+            );
+        }
+    };

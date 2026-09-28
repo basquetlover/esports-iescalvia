@@ -1,4 +1,6 @@
-import type { APIRoute } from "astro";
+import type {
+    APIRoute,
+} from "astro";
 
 import {
     randomUUID,
@@ -9,7 +11,9 @@ import {
     tienePermiso,
 } from "@const/Permisos";
 
-import { supabaseAdmin } from "@utils/supabase";
+import {
+    supabaseAdmin,
+} from "@utils/supabase";
 
 import {
     comprobarOrigen,
@@ -19,53 +23,51 @@ import {
     responder,
 } from "@utils/inscripcio/equipBase";
 
-export const prerender = false;
+export const prerender =
+    false;
+
+// ============================================================
+// TIPOS
+// ============================================================
 
 type Usuario =
     Awaited<
-        ReturnType<typeof exigirUsuario>
+        ReturnType<
+            typeof exigirUsuario
+        >
     >;
 
 type TorneoDB = {
     id: string;
-    nombre: string | null;
-    deporte: string | null;
+
+    nombre:
+        string | null;
+
+    deporte:
+        string | null;
 };
 
 type EdicionDB = {
     id: string;
-    torneo_id: string | null;
-    nombre: string | null;
+
+    torneo_id:
+        string | null;
+
+    nombre:
+        string | null;
 };
 
 type PartidoDB = {
     id: string;
-    edicion_id: string;
-    estado: string;
-    finalizado_at: string | null;
-};
 
-type ActaDB = {
-    id: string;
-    partido_id: string;
-    torneo_id: string;
-    edicion_id: string;
-    deporte: string;
-    estado: string;
-    nivel_estadisticas: string;
-    operador_id: string | null;
-    controlador_id: string | null;
-    control_token: string | null;
-    iniciada_at: string | null;
-    bloqueada_por: string | null;
-    bloqueada_at: string | null;
-    motivo_bloqueo: string | null;
-    finalizada_por: string | null;
-    finalizada_at: string | null;
-    secuencia_eventos: number;
-    version: number;
-    created_at: string;
-    updated_at: string;
+    edicion_id:
+        string;
+
+    estado:
+        string;
+
+    finalizado_at:
+        string | null;
 };
 
 type PlazaDB = {
@@ -77,6 +79,71 @@ type PlazaDB = {
     equipo_resuelto_id:
         string | null;
 };
+
+type ActaDB = {
+    id: string;
+
+    partido_id:
+        string;
+
+    torneo_id:
+        string;
+
+    edicion_id:
+        string;
+
+    deporte:
+        string;
+
+    estado:
+        string;
+
+    nivel_estadisticas:
+        string;
+
+    operador_id:
+        string | null;
+
+    controlador_id:
+        string | null;
+
+    control_token:
+        string | null;
+
+    iniciada_at:
+        string | null;
+
+    bloqueada_por:
+        string | null;
+
+    bloqueada_at:
+        string | null;
+
+    motivo_bloqueo:
+        string | null;
+
+    finalizada_por:
+        string | null;
+
+    finalizada_at:
+        string | null;
+
+    secuencia_eventos:
+        number;
+
+    version:
+        number;
+
+    created_at:
+        string;
+
+    updated_at:
+        string;
+};
+
+// ============================================================
+// SELECTS
+// ============================================================
 
 const SELECT_TORNEO =
     "id,nombre,deporte";
@@ -93,8 +160,13 @@ const SELECT_PLAZA =
 const SELECT_ACTA =
     "id,partido_id,torneo_id,edicion_id,deporte,estado,nivel_estadisticas,operador_id,controlador_id,control_token,iniciada_at,bloqueada_por,bloqueada_at,motivo_bloqueo,finalizada_por,finalizada_at,secuencia_eventos,version,created_at,updated_at";
 
+// ============================================================
+// ERROR
+// ============================================================
+
 function responderError(
-    error: unknown,
+    error:
+        unknown,
 ) {
     if (
         error instanceof
@@ -102,7 +174,9 @@ function responderError(
     ) {
         return responder(
             {
-                success: false,
+                success:
+                    false,
+
                 mensaje:
                     error.message,
             },
@@ -117,7 +191,9 @@ function responderError(
 
     return responder(
         {
-            success: false,
+            success:
+                false,
+
             mensaje:
                 "No s'ha pogut iniciar l'acta.",
         },
@@ -125,9 +201,16 @@ function responderError(
     );
 }
 
+// ============================================================
+// UUID
+// ============================================================
+
 function identificador(
-    valor: unknown,
-    nombre: string,
+    valor:
+        unknown,
+
+    nombre:
+        string,
 ) {
     if (
         typeof valor !==
@@ -145,7 +228,9 @@ function identificador(
             .toLowerCase();
 
     if (
-        !UUID.test(limpio)
+        !UUID.test(
+            limpio,
+        )
     ) {
         throw new ErrorAPI(
             400,
@@ -156,13 +241,20 @@ function identificador(
     return limpio;
 }
 
+// ============================================================
+// NORMALIZAR DEPORTE
+// ============================================================
+
 function normalizarDeporte(
-    valor: string | null,
+    valor:
+        string | null,
 ) {
     return (
         valor
             ?.trim()
-            .normalize("NFD")
+            .normalize(
+                "NFD",
+            )
             .replace(
                 /[\u0300-\u036f]/g,
                 "",
@@ -172,31 +264,44 @@ function normalizarDeporte(
     );
 }
 
+// ============================================================
+// NIVEL ESTADISTICAS
+// ============================================================
+
 function nivelEstadisticas(
-    deporte: string,
+    deporte:
+        string,
 ) {
-    if (
-        deporte ===
-        "FUTBOL"
+    switch (
+        deporte
     ) {
-        return "JUGADOR";
-    }
+        case "FUTBOL":
+            return "JUGADOR";
 
-    if (
-        deporte ===
-        "VOLEIBOL"
-    ) {
-        return "EQUIPO";
-    }
+        case "VOLEIBOL":
+            return "EQUIPO";
 
-    return "NINGUNA";
+        default:
+            return "NINGUNA";
+    }
 }
 
+// ============================================================
+// CONTEXTO
+// ============================================================
+
 async function exigirContexto(
-    usuario: Usuario,
-    torneoID: string,
-    edicionID: string,
-    partidoID: string,
+    usuario:
+        Usuario,
+
+    torneoID:
+        string,
+
+    edicionID:
+        string,
+
+    partidoID:
+        string,
 ) {
     if (
         !tieneAccesoTorneo(
@@ -216,12 +321,6 @@ async function exigirContexto(
         );
     }
 
-    /*
-     * Cualquier usuario con permiso de editar partidos
-     * puede iniciar/modificar un acta.
-     *
-     * No necesita estar previamente designado.
-     */
     if (
         !tienePermiso(
             usuario,
@@ -232,18 +331,20 @@ async function exigirContexto(
     ) {
         throw new ErrorAPI(
             403,
-            "No tens permís per modificar aquesta acta.",
+            "No tens permís per iniciar aquesta acta.",
         );
     }
 
     const [
-        torneoRespuesta,
-        edicionRespuesta,
-        partidoRespuesta,
+        respuestaTorneo,
+        respuestaEdicion,
+        respuestaPartido,
     ] =
         await Promise.all([
             supabaseAdmin
-                .from("torneos")
+                .from(
+                    "torneos",
+                )
                 .select(
                     SELECT_TORNEO,
                 )
@@ -254,7 +355,9 @@ async function exigirContexto(
                 .maybeSingle(),
 
             supabaseAdmin
-                .from("ediciones")
+                .from(
+                    "ediciones",
+                )
                 .select(
                     SELECT_EDICION,
                 )
@@ -283,36 +386,38 @@ async function exigirContexto(
         ]);
 
     if (
-        torneoRespuesta.error
+        respuestaTorneo.error
     ) {
-        throw torneoRespuesta.error;
+        throw respuestaTorneo.error;
     }
 
     if (
-        edicionRespuesta.error
+        respuestaEdicion.error
     ) {
-        throw edicionRespuesta.error;
+        throw respuestaEdicion.error;
     }
 
     if (
-        partidoRespuesta.error
+        respuestaPartido.error
     ) {
-        throw partidoRespuesta.error;
+        throw respuestaPartido.error;
     }
 
     const torneo =
-        torneoRespuesta.data as
+        respuestaTorneo.data as
             TorneoDB | null;
 
     const edicion =
-        edicionRespuesta.data as
+        respuestaEdicion.data as
             EdicionDB | null;
 
     const partido =
-        partidoRespuesta.data as
+        respuestaPartido.data as
             PartidoDB | null;
 
-    if (!torneo) {
+    if (
+        !torneo
+    ) {
         throw new ErrorAPI(
             404,
             "No s'ha trobat el torneig.",
@@ -332,7 +437,9 @@ async function exigirContexto(
         );
     }
 
-    if (!partido) {
+    if (
+        !partido
+    ) {
         throw new ErrorAPI(
             404,
             "No s'ha trobat el partit.",
@@ -340,11 +447,15 @@ async function exigirContexto(
     }
 
     if (
-        partido.finalizado_at
+        partido.estado ===
+            "CANCELADO" ||
+        partido.finalizado_at ||
+        partido.estado ===
+            "FINALIZADO"
     ) {
         throw new ErrorAPI(
             409,
-            "El partit ja està finalitzat.",
+            "Aquest partit no pot iniciar una acta.",
         );
     }
 
@@ -355,8 +466,13 @@ async function exigirContexto(
     };
 }
 
+// ============================================================
+// EQUIPOS RESUELTOS
+// ============================================================
+
 async function exigirEquiposResueltos(
-    partidoID: string,
+    partidoID:
+        string,
 ) {
     const {
         data,
@@ -378,13 +494,16 @@ async function exigirEquiposResueltos(
                 partidoID,
             );
 
-    if (error) {
+    if (
+        error
+    ) {
         throw error;
     }
 
     const plazas =
         (
-            data ?? []
+            data ??
+            []
         ) as PlazaDB[];
 
     const local =
@@ -402,8 +521,10 @@ async function exigirEquiposResueltos(
         );
 
     if (
-        !local?.equipo_resuelto_id ||
-        !visitante?.equipo_resuelto_id
+        !local
+            ?.equipo_resuelto_id ||
+        !visitante
+            ?.equipo_resuelto_id
     ) {
         throw new ErrorAPI(
             409,
@@ -412,9 +533,16 @@ async function exigirEquiposResueltos(
     }
 }
 
+// ============================================================
+// ACTA
+// ============================================================
+
 async function obtenerActa(
-    partidoID: string,
-): Promise<ActaDB | null> {
+    partidoID:
+        string,
+): Promise<
+    ActaDB | null
+> {
     const {
         data,
         error,
@@ -432,7 +560,9 @@ async function obtenerActa(
             )
             .maybeSingle();
 
-    if (error) {
+    if (
+        error
+    ) {
         throw error;
     }
 
@@ -441,8 +571,13 @@ async function obtenerActa(
         | null;
 }
 
-function respuestaActa(
-    acta: ActaDB,
+// ============================================================
+// ACTA PUBLICA
+// ============================================================
+
+function actaPublica(
+    acta:
+        ActaDB,
 ) {
     return {
         id:
@@ -491,6 +626,10 @@ function respuestaActa(
             acta.updated_at,
     };
 }
+
+// ============================================================
+// POST
+// ============================================================
 
 export const POST: APIRoute =
     async ({
@@ -550,7 +689,13 @@ export const POST: APIRoute =
                     partidoID,
                 );
 
-            if (acta) {
+            // =================================================
+            // ACTA YA EXISTENTE
+            // =================================================
+
+            if (
+                acta
+            ) {
                 if (
                     acta.estado ===
                     "FINALIZADA"
@@ -562,33 +707,27 @@ export const POST: APIRoute =
                 }
 
                 if (
-                    acta.estado ===
-                        "BLOQUEADA" &&
-                    acta.controlador_id !==
-                        usuario.id
-                ) {
-                    throw new ErrorAPI(
-                        423,
-                        "L'acta està bloquejada per un altre usuari.",
-                    );
-                }
-
-                if (
                     acta.controlador_id &&
                     acta.controlador_id !==
                         usuario.id
                 ) {
                     throw new ErrorAPI(
                         409,
-                        "L'acta ja està sent gestionada per un altre usuari.",
+                        "L'acta està sent controlada per un altre usuari.",
                     );
                 }
 
+                /*
+                 * Si ya somos el controlador y existe token,
+                 * devolvemos la misma sesión.
+                 *
+                 * No rotamos el token innecesariamente.
+                 */
                 if (
-                    acta.estado ===
-                        "EN_CURSO" &&
                     acta.controlador_id ===
                         usuario.id &&
+                    acta.estado ===
+                        "EN_CURSO" &&
                     acta.control_token
                 ) {
                     return responder({
@@ -602,7 +741,7 @@ export const POST: APIRoute =
                             true,
 
                         acta:
-                            respuestaActa(
+                            actaPublica(
                                 acta,
                             ),
 
@@ -627,7 +766,8 @@ export const POST: APIRoute =
                         .toISOString();
 
                 const token =
-                    randomUUID();
+                    randomUUID()
+                        .toLowerCase();
 
                 const {
                     data,
@@ -684,11 +824,15 @@ export const POST: APIRoute =
                         )
                         .maybeSingle();
 
-                if (error) {
+                if (
+                    error
+                ) {
                     throw error;
                 }
 
-                if (!data) {
+                if (
+                    !data
+                ) {
                     throw new ErrorAPI(
                         409,
                         "L'acta ha canviat. Recarrega la pàgina.",
@@ -696,7 +840,8 @@ export const POST: APIRoute =
                 }
 
                 acta =
-                    data as ActaDB;
+                    data as
+                        ActaDB;
 
                 return responder({
                     success:
@@ -709,7 +854,7 @@ export const POST: APIRoute =
                         false,
 
                     acta:
-                        respuestaActa(
+                        actaPublica(
                             acta,
                         ),
 
@@ -729,6 +874,10 @@ export const POST: APIRoute =
                 });
             }
 
+            // =================================================
+            // NUEVA ACTA
+            // =================================================
+
             const deporte =
                 normalizarDeporte(
                     contexto.torneo
@@ -740,7 +889,13 @@ export const POST: APIRoute =
                     .toISOString();
 
             const token =
-                randomUUID();
+                randomUUID()
+                    .toLowerCase();
+
+            const nivel =
+                nivelEstadisticas(
+                    deporte,
+                );
 
             const {
                 data,
@@ -766,18 +921,13 @@ export const POST: APIRoute =
                             "EN_CURSO",
 
                         nivel_estadisticas:
-                            nivelEstadisticas(
-                                deporte,
-                            ),
+                            nivel,
 
                         configuracion_snapshot: {
                             deporte,
 
                             estadisticas: {
-                                nivel:
-                                    nivelEstadisticas(
-                                        deporte,
-                                    ),
+                                nivel,
                             },
                         },
 
@@ -810,12 +960,15 @@ export const POST: APIRoute =
                     )
                     .single();
 
-            if (error) {
+            if (
+                error
+            ) {
                 throw error;
             }
 
             acta =
-                data as ActaDB;
+                data as
+                    ActaDB;
 
             return responder({
                 success:
@@ -828,7 +981,7 @@ export const POST: APIRoute =
                     false,
 
                 acta:
-                    respuestaActa(
+                    actaPublica(
                         acta,
                     ),
 
