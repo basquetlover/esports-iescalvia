@@ -422,10 +422,12 @@ function actividadFormulario(
     enlace = `/inscripcio?edicionID=${encodeURIComponent(edicion.id)}`;
   }
 
-  if (formulario.tipo === "VOLUNTARIO" && torneo) {
+  if (formulario.tipo === "VOLUNTARIO" && torneo && edicion) {
     enlace = `/tornejos/${encodeURIComponent(
       torneo.id,
-    )}?seccio=voluntariat#formulari-voluntariat`;
+    )}?edicionID=${encodeURIComponent(
+      edicion.id,
+    )}&seccio=voluntariat#formulari-voluntariat`;
   }
 
   return {

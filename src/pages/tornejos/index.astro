@@ -38,9 +38,7 @@ type TorneoPublico = {
     estado: string;
     estadoClave: string;
 
-    edicion: EdicionDB | null;
-
-    numeroEdiciones: number;
+    edicion: EdicionDB;
 };
 
 // ============================================================
@@ -124,59 +122,25 @@ function nombreEstado(
     return "Disponible";
 }
 
-function seleccionarEdicion(
-    ediciones: EdicionDB[],
+function tiempoFecha(
+    valor: string | null,
 ) {
-    return (
-        [...ediciones]
-            .sort(
-                (a, b) => {
-                    const prioridadA =
-                        prioridadEstado(
-                            normalizarEstado(
-                                a.estado,
-                            ),
-                        );
+    if (
+        !valor
+    ) {
+        return 0;
+    }
 
-                    const prioridadB =
-                        prioridadEstado(
-                            normalizarEstado(
-                                b.estado,
-                            ),
-                        );
+    const tiempo =
+        new Date(
+            valor,
+        ).getTime();
 
-                    if (
-                        prioridadA !==
-                        prioridadB
-                    ) {
-                        return (
-                            prioridadA -
-                            prioridadB
-                        );
-                    }
-
-                    const fechaA =
-                        a.fecha_inicio
-                            ? new Date(
-                                  a.fecha_inicio,
-                              ).getTime()
-                            : 0;
-
-                    const fechaB =
-                        b.fecha_inicio
-                            ? new Date(
-                                  b.fecha_inicio,
-                              ).getTime()
-                            : 0;
-
-                    return (
-                        fechaB -
-                        fechaA
-                    );
-                },
-            )[0] ??
-        null
-    );
+    return Number.isFinite(
+        tiempo,
+    )
+        ? tiempo
+        : 0;
 }
 
 // ============================================================
@@ -283,59 +247,95 @@ try {
         ) as TorneoDB[]
     ) {
         const edicionesTorneo =
-            edicionesPorTorneo.get(
-                torneo.id,
-            ) ??
-            [];
-
-        const edicion =
-            seleccionarEdicion(
-                edicionesTorneo,
-            );
-
-        const estadoClave =
-            edicion
-                ? normalizarEstado(
-                      edicion.estado,
-                  )
-                : "";
-
-        torneosPublicos.push({
-            id:
-                torneo.id,
-
-            nombre:
-                torneo.nombre ??
-                "Torneig",
-
-            banner:
-                torneo.banner ??
-                "",
-
-            deporte:
-                torneo.deporte ??
-                "",
-
-            descripcion:
-                torneo.descripcion ??
-                "",
-
-            estado:
-                nombreEstado(
-                    estadoClave,
+            [
+                ...(
+                    edicionesPorTorneo.get(
+                        torneo.id,
+                    ) ??
+                    []
                 ),
+            ]
+                .sort(
+                    (
+                        a,
+                        b,
+                    ) => {
+                        const prioridad =
+                            prioridadEstado(
+                                normalizarEstado(
+                                    a.estado,
+                                ),
+                            ) -
+                            prioridadEstado(
+                                normalizarEstado(
+                                    b.estado,
+                                ),
+                            );
 
-            estadoClave,
+                        if (
+                            prioridad !==
+                            0
+                        ) {
+                            return prioridad;
+                        }
 
-            edicion,
+                        return (
+                            tiempoFecha(
+                                b.fecha_inicio,
+                            ) -
+                            tiempoFecha(
+                                a.fecha_inicio,
+                            )
+                        );
+                    },
+                );
 
-            numeroEdiciones:
-                edicionesTorneo.length,
-        });
+        for (
+            const edicion
+            of edicionesTorneo
+        ) {
+            const estadoClave =
+                normalizarEstado(
+                    edicion.estado,
+                );
+
+            torneosPublicos.push({
+                id:
+                    torneo.id,
+
+                nombre:
+                    torneo.nombre ??
+                    "Torneig",
+
+                banner:
+                    torneo.banner ??
+                    "",
+
+                deporte:
+                    torneo.deporte ??
+                    "",
+
+                descripcion:
+                    torneo.descripcion ??
+                    "",
+
+                estado:
+                    nombreEstado(
+                        estadoClave,
+                    ),
+
+                estadoClave,
+
+                edicion,
+            });
+        }
     }
 
     torneosPublicos.sort(
-        (a, b) => {
+        (
+            a,
+            b,
+        ) => {
             const estado =
                 prioridadEstado(
                     a.estadoClave,
@@ -344,8 +344,26 @@ try {
                     b.estadoClave,
                 );
 
-            if (estado !== 0) {
+            if (
+                estado !==
+                0
+            ) {
                 return estado;
+            }
+
+            const fecha =
+                tiempoFecha(
+                    b.edicion.fecha_inicio,
+                ) -
+                tiempoFecha(
+                    a.edicion.fecha_inicio,
+                );
+
+            if (
+                fecha !==
+                0
+            ) {
+                return fecha;
             }
 
             return a.nombre.localeCompare(
@@ -362,6 +380,24 @@ try {
 
     errorCarga = true;
 }
+
+// ============================================================
+// SEPARAR EDICIONES
+// ============================================================
+
+const torneosActuales =
+    torneosPublicos.filter(
+        torneo =>
+            torneo.estadoClave !==
+            "FINALIZADA",
+    );
+
+const torneosFinalizados =
+    torneosPublicos.filter(
+        torneo =>
+            torneo.estadoClave ===
+            "FINALIZADA",
+    );
 
 Astro.response.headers.set(
     "Cache-Control",
@@ -465,167 +501,389 @@ Astro.response.headers.set(
 
                 ) : (
 
-                    <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    <>
+
+                        <!-- ==========================================
+                             ACTIVAS / PREPARACIÓN
+                        =========================================== -->
 
                         {
-                            torneosPublicos.map(
-                                torneo => (
+                            torneosActuales.length > 0 && (
 
-                                    <a
-                                        href={`/tornejos/${torneo.id}`}
-                                        class="group flex min-h-107.5 flex-col overflow-hidden rounded-2xl border border-border bg-card transition hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg"
-                                    >
+                                <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
 
-                                        <!-- BANNER -->
+                                    {
+                                        torneosActuales.map(
+                                            torneo => (
 
-                                        <div class="relative h-52 w-full overflow-hidden bg-muted/20">
+                                                <a
+                                                    href={`/tornejos/${torneo.id}?edicionID=${encodeURIComponent(
+                                                        torneo.edicion.id,
+                                                    )}`}
+                                                    class="group flex min-h-107.5 flex-col overflow-hidden rounded-2xl border border-border bg-card transition hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg"
+                                                >
 
-                                            {
-                                                torneo.banner ? (
+                                                    <!-- BANNER -->
 
-                                                    <img
-                                                        src={torneo.banner}
-                                                        alt={torneo.nombre}
-                                                        class="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                                                    />
+                                                    <div class="relative h-52 w-full overflow-hidden bg-muted/20">
 
-                                                ) : (
+                                                        {
+                                                            torneo.banner ? (
 
-                                                    <div class="flex h-full w-full items-center justify-center bg-primary/5">
+                                                                <img
+                                                                    src={torneo.banner}
+                                                                    alt={torneo.nombre}
+                                                                    class="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                                                                />
 
-                                                        <svg
-                                                            xmlns="http://www.w3.org/2000/svg"
-                                                            viewBox="0 -960 960 960"
-                                                            class="h-14 w-14 fill-primary/40"
-                                                        >
-                                                            <path d="M280-120v-80h160v-124q-49-11-87.5-41.5T296-442q-75-9-125.5-65.5T120-640v-40q0-33 23.5-56.5T200-760h80v-80h400v80h80q33 0 56.5 23.5T840-680v40q0 76-50.5 132.5T664-442q-18 46-56.5 76.5T520-324v124h160v80z" />
-                                                        </svg>
+                                                            ) : (
+
+                                                                <div class="flex h-full w-full items-center justify-center bg-primary/5">
+
+                                                                    <svg
+                                                                        xmlns="http://www.w3.org/2000/svg"
+                                                                        viewBox="0 -960 960 960"
+                                                                        class="h-14 w-14 fill-primary/40"
+                                                                    >
+                                                                        <path d="M280-120v-80h160v-124q-49-11-87.5-41.5T296-442q-75-9-125.5-65.5T120-640v-40q0-33 23.5-56.5T200-760h80v-80h400v80h80q33 0 56.5 23.5T840-680v40q0 76-50.5 132.5T664-442q-18 46-56.5 76.5T520-324v124h160v80z" />
+                                                                    </svg>
+
+                                                                </div>
+
+                                                            )
+                                                        }
+
+                                                        <div class="absolute inset-0 bg-linear-to-t from-black/65 via-black/10 to-transparent">
+                                                        </div>
+
+                                                        <span class="absolute bottom-4 left-4 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-white">
+                                                            {torneo.estado}
+                                                        </span>
 
                                                     </div>
 
-                                                )
-                                            }
+                                                    <!-- INFO -->
 
-                                            <div class="absolute inset-0 bg-linear-to-t from-black/65 via-black/10 to-transparent">
-                                            </div>
-
-                                            <span class="absolute bottom-4 left-4 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-white">
-                                                {torneo.estado}
-                                            </span>
-
-                                        </div>
-
-                                        <!-- INFO -->
-
-                                        <div class="flex flex-1 flex-col p-5">
-
-                                            {
-                                                torneo.deporte && (
-                                                    <p class="text-xs font-semibold uppercase tracking-wider text-primary">
-                                                        {torneo.deporte}
-                                                    </p>
-                                                )
-                                            }
-
-                                            <h2 class="mt-1 text-xl font-semibold text-neutral-titulos">
-                                                {torneo.nombre}
-                                            </h2>
-
-                                            {
-                                                torneo.descripcion && (
-                                                    <p class="mt-3 line-clamp-3 text-sm leading-6 text-neutral">
-                                                        {torneo.descripcion}
-                                                    </p>
-                                                )
-                                            }
-
-                                            {
-                                                torneo.edicion && (
-
-                                                    <div class="mt-5 space-y-2 border-t border-border pt-4 text-sm">
+                                                    <div class="flex flex-1 flex-col p-5">
 
                                                         {
-                                                            torneo.edicion.nombre && (
-                                                                <p class="font-medium text-neutral-titulos">
-                                                                    {torneo.edicion.nombre}
+                                                            torneo.deporte && (
+                                                                <p class="text-xs font-semibold uppercase tracking-wider text-primary">
+                                                                    {torneo.deporte}
                                                                 </p>
                                                             )
                                                         }
 
+                                                        <h2 class="mt-1 text-xl font-semibold text-neutral-titulos">
+                                                            {torneo.nombre}
+                                                        </h2>
+
                                                         {
-                                                            torneo.edicion.fecha_inicio && (
-                                                                <div class="flex items-center gap-2 text-neutral">
-
-                                                                    <svg
-                                                                        xmlns="http://www.w3.org/2000/svg"
-                                                                        viewBox="0 -960 960 960"
-                                                                        class="h-4 w-4 shrink-0 fill-primary"
-                                                                    >
-                                                                        <path d="M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-80h80v80h320v-80h80v80h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80z" />
-                                                                    </svg>
-
-                                                                    <span>
-                                                                        {formatearFechaCatalan(
-                                                                            torneo.edicion.fecha_inicio
-                                                                        )}
-                                                                    </span>
-
-                                                                </div>
+                                                            torneo.descripcion && (
+                                                                <p class="mt-3 line-clamp-3 text-sm leading-6 text-neutral">
+                                                                    {torneo.descripcion}
+                                                                </p>
                                                             )
                                                         }
 
-                                                        {
-                                                            torneo.edicion.sede && (
-                                                                <div class="flex items-center gap-2 text-neutral">
+                                                        <div class="mt-5 space-y-2 border-t border-border pt-4 text-sm">
 
-                                                                    <svg
-                                                                        xmlns="http://www.w3.org/2000/svg"
-                                                                        viewBox="0 -960 960 960"
-                                                                        class="h-4 w-4 shrink-0 fill-primary"
-                                                                    >
-                                                                        <path d="M480-80Q319-217 239.5-334.5T160-552q0-150 96.5-239T480-880t223.5 89T800-552q0 100-79.5 217.5T480-80m0-400q33 0 56.5-23.5T560-560t-23.5-56.5T480-640t-56.5 23.5T400-560t23.5 56.5T480-480" />
-                                                                    </svg>
+                                                            {
+                                                                torneo.edicion.nombre && (
+                                                                    <p class="font-medium text-neutral-titulos">
+                                                                        {torneo.edicion.nombre}
+                                                                    </p>
+                                                                )
+                                                            }
 
-                                                                    <span class="line-clamp-1">
-                                                                        {torneo.edicion.sede}
-                                                                    </span>
+                                                            {
+                                                                torneo.edicion.fecha_inicio && (
+                                                                    <div class="flex items-center gap-2 text-neutral">
 
-                                                                </div>
-                                                            )
-                                                        }
+                                                                        <svg
+                                                                            xmlns="http://www.w3.org/2000/svg"
+                                                                            viewBox="0 -960 960 960"
+                                                                            class="h-4 w-4 shrink-0 fill-primary"
+                                                                        >
+                                                                            <path d="M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-80h80v80h320v-80h80v80h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80z" />
+                                                                        </svg>
+
+                                                                        <span>
+                                                                            {formatearFechaCatalan(
+                                                                                torneo.edicion.fecha_inicio
+                                                                            )}
+                                                                        </span>
+
+                                                                    </div>
+                                                                )
+                                                            }
+
+                                                            {
+                                                                torneo.edicion.sede && (
+                                                                    <div class="flex items-center gap-2 text-neutral">
+
+                                                                        <svg
+                                                                            xmlns="http://www.w3.org/2000/svg"
+                                                                            viewBox="0 -960 960 960"
+                                                                            class="h-4 w-4 shrink-0 fill-primary"
+                                                                        >
+                                                                            <path d="M480-80Q319-217 239.5-334.5T160-552q0-150 96.5-239T480-880t223.5 89T800-552q0 100-79.5 217.5T480-80m0-400q33 0 56.5-23.5T560-560t-23.5-56.5T480-640t-56.5 23.5T400-560t23.5 56.5T480-480" />
+                                                                        </svg>
+
+                                                                        <span class="line-clamp-1">
+                                                                            {torneo.edicion.sede}
+                                                                        </span>
+
+                                                                    </div>
+                                                                )
+                                                            }
+
+                                                        </div>
+
+                                                        <div class="mt-auto pt-5">
+
+                                                            <span class="inline-flex items-center gap-2 font-semibold text-secondary">
+
+                                                                Veure competició
+
+                                                                <svg
+                                                                    xmlns="http://www.w3.org/2000/svg"
+                                                                    viewBox="0 -960 960 960"
+                                                                    class="h-5 w-5 fill-current"
+                                                                >
+                                                                    <path d="m504-480-184-184 56-56 240 240-240 240-56-56z" />
+                                                                </svg>
+
+                                                            </span>
+
+                                                        </div>
 
                                                     </div>
 
-                                                )
-                                            }
+                                                </a>
 
-                                            <div class="mt-auto pt-5">
+                                            )
+                                        )
+                                    }
 
-                                                <span class="inline-flex items-center gap-2 font-semibold text-secondary">
+                                </div>
 
-                                                    Veure competició
-
-                                                    <svg
-                                                        xmlns="http://www.w3.org/2000/svg"
-                                                        viewBox="0 -960 960 960"
-                                                        class="h-5 w-5 fill-current"
-                                                    >
-                                                        <path d="m504-480-184-184 56-56 240 240-240 240-56-56z" />
-                                                    </svg>
-
-                                                </span>
-
-                                            </div>
-
-                                        </div>
-
-                                    </a>
-
-                                )
                             )
                         }
 
-                    </div>
+                        <!-- ==========================================
+                             BOTÓN FINALIZADAS
+                        =========================================== -->
+
+                        {
+                            torneosFinalizados.length > 0 && (
+
+                                <div class="mt-8 flex justify-center">
+
+                                    <button
+                                        type="button"
+                                        id="boton-finalitzades"
+                                        aria-expanded="false"
+                                        aria-controls="tornejos-finalitzats"
+                                        class="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-semibold text-neutral-titulos transition hover:border-primary/40 hover:text-primary"
+                                    >
+                                        <span data-texto-finalitzades>
+                                            Mostrar finalitzades
+                                        </span>
+
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            viewBox="0 -960 960 960"
+                                            class="h-5 w-5 fill-current transition-transform"
+                                            data-icono-finalitzades
+                                            aria-hidden="true"
+                                        >
+                                            <path d="M480-344 240-584l56-56 184 184 184-184 56 56z" />
+                                        </svg>
+
+                                    </button>
+
+                                </div>
+
+                            )
+                        }
+
+                        <!-- ==========================================
+                             FINALIZADAS
+                        =========================================== -->
+
+                        {
+                            torneosFinalizados.length > 0 && (
+
+                                <div
+                                    id="tornejos-finalitzats"
+                                    class="mt-8 hidden"
+                                >
+
+                                    <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+
+                                        {
+                                            torneosFinalizados.map(
+                                                torneo => (
+
+                                                    <a
+                                                        href={`/tornejos/${torneo.id}?edicionID=${encodeURIComponent(
+                                                            torneo.edicion.id,
+                                                        )}`}
+                                                        class="group flex min-h-107.5 flex-col overflow-hidden rounded-2xl border border-border bg-card transition hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg"
+                                                    >
+
+                                                        <!-- BANNER -->
+
+                                                        <div class="relative h-52 w-full overflow-hidden bg-muted/20">
+
+                                                            {
+                                                                torneo.banner ? (
+
+                                                                    <img
+                                                                        src={torneo.banner}
+                                                                        alt={torneo.nombre}
+                                                                        class="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                                                                    />
+
+                                                                ) : (
+
+                                                                    <div class="flex h-full w-full items-center justify-center bg-primary/5">
+
+                                                                        <svg
+                                                                            xmlns="http://www.w3.org/2000/svg"
+                                                                            viewBox="0 -960 960 960"
+                                                                            class="h-14 w-14 fill-primary/40"
+                                                                        >
+                                                                            <path d="M280-120v-80h160v-124q-49-11-87.5-41.5T296-442q-75-9-125.5-65.5T120-640v-40q0-33 23.5-56.5T200-760h80v-80h400v80h80q33 0 56.5 23.5T840-680v40q0 76-50.5 132.5T664-442q-18 46-56.5 76.5T520-324v124h160v80z" />
+                                                                        </svg>
+
+                                                                    </div>
+
+                                                                )
+                                                            }
+
+                                                            <div class="absolute inset-0 bg-linear-to-t from-black/65 via-black/10 to-transparent">
+                                                            </div>
+
+                                                            <span class="absolute bottom-4 left-4 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-white">
+                                                                {torneo.estado}
+                                                            </span>
+
+                                                        </div>
+
+                                                        <!-- INFO -->
+
+                                                        <div class="flex flex-1 flex-col p-5">
+
+                                                            {
+                                                                torneo.deporte && (
+                                                                    <p class="text-xs font-semibold uppercase tracking-wider text-primary">
+                                                                        {torneo.deporte}
+                                                                    </p>
+                                                                )
+                                                            }
+
+                                                            <h2 class="mt-1 text-xl font-semibold text-neutral-titulos">
+                                                                {torneo.nombre}
+                                                            </h2>
+
+                                                            {
+                                                                torneo.descripcion && (
+                                                                    <p class="mt-3 line-clamp-3 text-sm leading-6 text-neutral">
+                                                                        {torneo.descripcion}
+                                                                    </p>
+                                                                )
+                                                            }
+
+                                                            <div class="mt-5 space-y-2 border-t border-border pt-4 text-sm">
+
+                                                                {
+                                                                    torneo.edicion.nombre && (
+                                                                        <p class="font-medium text-neutral-titulos">
+                                                                            {torneo.edicion.nombre}
+                                                                        </p>
+                                                                    )
+                                                                }
+
+                                                                {
+                                                                    torneo.edicion.fecha_inicio && (
+                                                                        <div class="flex items-center gap-2 text-neutral">
+
+                                                                            <svg
+                                                                                xmlns="http://www.w3.org/2000/svg"
+                                                                                viewBox="0 -960 960 960"
+                                                                                class="h-4 w-4 shrink-0 fill-primary"
+                                                                            >
+                                                                                <path d="M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-80h80v80h320v-80h80v80h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80z" />
+                                                                            </svg>
+
+                                                                            <span>
+                                                                                {formatearFechaCatalan(
+                                                                                    torneo.edicion.fecha_inicio
+                                                                                )}
+                                                                            </span>
+
+                                                                        </div>
+                                                                    )
+                                                                }
+
+                                                                {
+                                                                    torneo.edicion.sede && (
+                                                                        <div class="flex items-center gap-2 text-neutral">
+
+                                                                            <svg
+                                                                                xmlns="http://www.w3.org/2000/svg"
+                                                                                viewBox="0 -960 960 960"
+                                                                                class="h-4 w-4 shrink-0 fill-primary"
+                                                                            >
+                                                                                <path d="M480-80Q319-217 239.5-334.5T160-552q0-150 96.5-239T480-880t223.5 89T800-552q0 100-79.5 217.5T480-80m0-400q33 0 56.5-23.5T560-560t-23.5-56.5T480-640t-56.5 23.5T400-560t23.5 56.5T480-480" />
+                                                                            </svg>
+
+                                                                            <span class="line-clamp-1">
+                                                                                {torneo.edicion.sede}
+                                                                            </span>
+
+                                                                        </div>
+                                                                    )
+                                                                }
+
+                                                            </div>
+
+                                                            <div class="mt-auto pt-5">
+
+                                                                <span class="inline-flex items-center gap-2 font-semibold text-secondary">
+
+                                                                    Veure competició
+
+                                                                    <svg
+                                                                        xmlns="http://www.w3.org/2000/svg"
+                                                                        viewBox="0 -960 960 960"
+                                                                        class="h-5 w-5 fill-current"
+                                                                    >
+                                                                        <path d="m504-480-184-184 56-56 240 240-240 240-56-56z" />
+                                                                    </svg>
+
+                                                                </span>
+
+                                                            </div>
+
+                                                        </div>
+
+                                                    </a>
+
+                                                )
+                                            )
+                                        }
+
+                                    </div>
+
+                                </div>
+
+                            )
+                        }
+
+                    </>
 
                 )
             }
@@ -635,3 +893,70 @@ Astro.response.headers.set(
     </main>
 
 </Layout>
+
+<script>
+    const boton =
+        document.getElementById(
+            "boton-finalitzades",
+        );
+
+    const contenedor =
+        document.getElementById(
+            "tornejos-finalitzats",
+        );
+
+    const texto =
+        boton?.querySelector(
+            "[data-texto-finalitzades]",
+        );
+
+    const icono =
+        boton?.querySelector(
+            "[data-icono-finalitzades]",
+        );
+
+    if (
+        boton &&
+        contenedor
+    ) {
+        boton.addEventListener(
+            "click",
+            () => {
+                const oculto =
+                    contenedor.classList.contains(
+                        "hidden",
+                    );
+
+                contenedor.classList.toggle(
+                    "hidden",
+                    !oculto,
+                );
+
+                boton.setAttribute(
+                    "aria-expanded",
+                    String(
+                        oculto,
+                    ),
+                );
+
+                if (
+                    texto
+                ) {
+                    texto.textContent =
+                        oculto
+                            ? "Ocultar finalitzades"
+                            : "Mostrar finalitzades";
+                }
+
+                if (
+                    icono
+                ) {
+                    icono.classList.toggle(
+                        "rotate-180",
+                        oculto,
+                    );
+                }
+            },
+        );
+    }
+</script>

@@ -351,11 +351,42 @@ function estadoPublico(
         valor ===
             "actiu" ||
         valor ===
+            "en_preparacio" ||
+        valor ===
+            "en preparacio" ||
+        valor ===
+            "en preparació" ||
+        valor ===
+            "en_preparación" ||
+        valor ===
+            "en preparación" ||
+        valor ===
             "finalizada" ||
         valor ===
             "finalitzada" ||
         valor ===
             "finalitzat"
+    );
+}
+
+function estadoActivo(
+    estado:
+        string |
+        null,
+) {
+    const valor =
+        estado
+            ?.trim()
+            .toLowerCase() ??
+        "";
+
+    return (
+        valor ===
+            "activa" ||
+        valor ===
+            "activo" ||
+        valor ===
+            "actiu"
     );
 }
 
@@ -383,16 +414,31 @@ function prioridadEstado(
 
     if (
         valor ===
+            "en_preparacio" ||
+        valor ===
+            "en preparacio" ||
+        valor ===
+            "en preparació" ||
+        valor ===
+            "en_preparación" ||
+        valor ===
+            "en preparación"
+    ) {
+        return 1;
+    }
+
+    if (
+        valor ===
             "finalizada" ||
         valor ===
             "finalitzada" ||
         valor ===
             "finalitzat"
     ) {
-        return 1;
+        return 2;
     }
 
-    return 2;
+    return 3;
 }
 
 function tiempoFecha(
@@ -592,11 +638,40 @@ const edicionesPublicas =
             },
         );
 
+// ============================================================
+// EDICIONES ACTIVAS
+// ============================================================
+
+const edicionesActivas =
+    edicionesPublicas.filter(
+        edicion =>
+            estadoActivo(
+                edicion.estado,
+            ),
+    );
+
+// ============================================================
+// EDICIÓN SOLICITADA
+// ============================================================
+
+const parametroEdicion =
+    Astro.url
+        .searchParams
+        .get(
+            "edicionID",
+        );
+
 const edicionData =
-    edicionesPublicas[
-        0
-    ] ??
-    null;
+    parametroEdicion
+        ? (
+            edicionesPublicas.find(
+                edicion =>
+                    edicion.id ===
+                    parametroEdicion,
+            ) ??
+            null
+        )
+        : null;
 
 const edicion:
     Edicion |
@@ -861,6 +936,62 @@ if (
 }
 
 // ============================================================
+// URLS
+// ============================================================
+
+function urlSeccion(
+    seccion:
+        SeccionID,
+) {
+    const parametros =
+        new URLSearchParams();
+
+    if (
+        edicion
+    ) {
+        parametros.set(
+            "edicionID",
+            edicion.id,
+        );
+    }
+
+    if (
+        seccion !==
+        "resum"
+    ) {
+        parametros.set(
+            "seccio",
+            seccion,
+        );
+    }
+
+    const query =
+        parametros.toString();
+
+    return (
+        `/tornejos/${encodeURIComponent(
+            torneo.id,
+        )}` +
+        (
+            query
+                ? `?${query}`
+                : ""
+        )
+    );
+}
+
+function urlEdicion(
+    edicionID:
+        string,
+) {
+    return `/tornejos/${encodeURIComponent(
+        torneo.id,
+    )}?edicionID=${encodeURIComponent(
+        edicionID,
+    )}`;
+}
+
+// ============================================================
 // SEO
 // ============================================================
 
@@ -1091,7 +1222,9 @@ const descripcionPagina =
                             seccionActiva ===
                             "resum" ? (
                                 <a
-                                    href={`/tornejos/${torneo.id}`}
+                                    href={urlSeccion(
+                                        "resum",
+                                    )}
                                     aria-current="page"
                                     class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-semibold text-primary"
                                 >
@@ -1103,7 +1236,9 @@ const descripcionPagina =
                                 </a>
                             ) : (
                                 <a
-                                    href={`/tornejos/${torneo.id}`}
+                                    href={urlSeccion(
+                                        "resum",
+                                    )}
                                     class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-medium text-neutral transition hover:text-neutral-titulos"
                                 >
                                     Resum
@@ -1118,7 +1253,9 @@ const descripcionPagina =
                                 seccionActiva ===
                                 "competicio" ? (
                                     <a
-                                        href={`/tornejos/${torneo.id}?seccio=competicio`}
+                                        href={urlSeccion(
+                                            "competicio",
+                                        )}
                                         aria-current="page"
                                         class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-semibold text-primary"
                                     >
@@ -1130,7 +1267,9 @@ const descripcionPagina =
                                     </a>
                                 ) : (
                                     <a
-                                        href={`/tornejos/${torneo.id}?seccio=competicio`}
+                                        href={urlSeccion(
+                                            "competicio",
+                                        )}
                                         class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-medium text-neutral transition hover:text-neutral-titulos"
                                     >
                                         Competició
@@ -1146,7 +1285,9 @@ const descripcionPagina =
                                 seccionActiva ===
                                 "eliminatoria" ? (
                                     <a
-                                        href={`/tornejos/${torneo.id}?seccio=eliminatoria`}
+                                        href={urlSeccion(
+                                            "eliminatoria",
+                                        )}
                                         aria-current="page"
                                         class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-semibold text-primary"
                                     >
@@ -1158,7 +1299,9 @@ const descripcionPagina =
                                     </a>
                                 ) : (
                                     <a
-                                        href={`/tornejos/${torneo.id}?seccio=eliminatoria`}
+                                        href={urlSeccion(
+                                            "eliminatoria",
+                                        )}
                                         class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-medium text-neutral transition hover:text-neutral-titulos"
                                     >
                                         Eliminatòria
@@ -1174,7 +1317,9 @@ const descripcionPagina =
                                 seccionActiva ===
                                 "informacio" ? (
                                     <a
-                                        href={`/tornejos/${torneo.id}?seccio=informacio`}
+                                        href={urlSeccion(
+                                            "informacio",
+                                        )}
                                         aria-current="page"
                                         class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-semibold text-primary"
                                     >
@@ -1186,7 +1331,9 @@ const descripcionPagina =
                                     </a>
                                 ) : (
                                     <a
-                                        href={`/tornejos/${torneo.id}?seccio=informacio`}
+                                        href={urlSeccion(
+                                            "informacio",
+                                        )}
                                         class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-medium text-neutral transition hover:text-neutral-titulos"
                                     >
                                         Informació
@@ -1202,7 +1349,9 @@ const descripcionPagina =
                                 seccionActiva ===
                                 "inscripcio" ? (
                                     <a
-                                        href={`/tornejos/${torneo.id}?seccio=inscripcio`}
+                                        href={urlSeccion(
+                                            "inscripcio",
+                                        )}
                                         aria-current="page"
                                         class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-semibold text-primary"
                                     >
@@ -1214,7 +1363,9 @@ const descripcionPagina =
                                     </a>
                                 ) : (
                                     <a
-                                        href={`/tornejos/${torneo.id}?seccio=inscripcio`}
+                                        href={urlSeccion(
+                                            "inscripcio",
+                                        )}
                                         class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-medium text-neutral transition hover:text-neutral-titulos"
                                     >
                                         Inscripció
@@ -1230,7 +1381,9 @@ const descripcionPagina =
                                 seccionActiva ===
                                 "voluntariat" ? (
                                     <a
-                                        href={`/tornejos/${torneo.id}?seccio=voluntariat`}
+                                        href={urlSeccion(
+                                            "voluntariat",
+                                        )}
                                         aria-current="page"
                                         class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-semibold text-primary"
                                     >
@@ -1242,7 +1395,9 @@ const descripcionPagina =
                                     </a>
                                 ) : (
                                     <a
-                                        href={`/tornejos/${torneo.id}?seccio=voluntariat`}
+                                        href={urlSeccion(
+                                            "voluntariat",
+                                        )}
                                         class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-medium text-neutral transition hover:text-neutral-titulos"
                                     >
                                         Voluntariat
@@ -1258,7 +1413,9 @@ const descripcionPagina =
                                 seccionActiva ===
                                 "normativa" ? (
                                     <a
-                                        href={`/tornejos/${torneo.id}?seccio=normativa`}
+                                        href={urlSeccion(
+                                            "normativa",
+                                        )}
                                         aria-current="page"
                                         class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-semibold text-primary"
                                     >
@@ -1270,7 +1427,9 @@ const descripcionPagina =
                                     </a>
                                 ) : (
                                     <a
-                                        href={`/tornejos/${torneo.id}?seccio=normativa`}
+                                        href={urlSeccion(
+                                            "normativa",
+                                        )}
                                         class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-medium text-neutral transition hover:text-neutral-titulos"
                                     >
                                         Normativa
@@ -1291,6 +1450,106 @@ const descripcionPagina =
             class="min-h-130 bg-background"
         >
             {
+                !edicion && (
+                    <div
+                        class="mx-auto w-full max-w-6xl px-4 pt-16 sm:px-6 lg:px-8"
+                    >
+                        {
+                            edicionesActivas.length > 0 ? (
+                                <div
+                                    class="rounded-2xl border border-border bg-card/40 px-6 py-12 text-center"
+                                >
+                                    <h2
+                                        class="text-xl font-semibold text-neutral-titulos"
+                                    >
+                                        Selecciona una edició
+                                    </h2>
+
+                                    <p
+                                        class="mx-auto mt-2 max-w-xl text-sm leading-6 text-neutral"
+                                    >
+                                        Selecciona l'edició activa que vols consultar.
+                                    </p>
+
+                                    <div
+                                        class="mt-6 flex flex-wrap justify-center gap-3"
+                                    >
+                                        {
+                                            edicionesActivas.map(
+                                                edicionActiva => (
+                                                    <a
+                                                        href={urlEdicion(
+                                                            edicionActiva.id,
+                                                        )}
+                                                        class="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary/90"
+                                                    >
+                                                        {
+                                                            edicionActiva.nombre ??
+                                                            "Edició"
+                                                        }
+                                                    </a>
+                                                ),
+                                            )
+                                        }
+                                    </div>
+                                </div>
+                            ) : (
+                                <div
+                                    class="rounded-2xl border border-border bg-card/40 px-6 py-12 text-center"
+                                >
+                                    <h2
+                                        class="text-xl font-semibold text-neutral-titulos"
+                                    >
+                                        Encara no hi ha cap edició disponible
+                                    </h2>
+
+                                    <p
+                                        class="mx-auto mt-2 max-w-xl text-sm leading-6 text-neutral"
+                                    >
+                                        Quan hi hagi una edició activa del torneig,
+                                        la seva informació apareixerà aquí.
+                                    </p>
+
+                                    {
+                                        mostrarNormativa && (
+                                            <a
+                                                href={urlSeccion(
+                                                    "normativa",
+                                                )}
+                                                class="mt-6 inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary/90"
+                                            >
+                                                Consultar la normativa
+
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="1.8"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    class="h-4 w-4"
+                                                    aria-hidden="true"
+                                                >
+                                                    <path
+                                                        d="M5 12h14"
+                                                    ></path>
+
+                                                    <path
+                                                        d="m13 6 6 6-6 6"
+                                                    ></path>
+                                                </svg>
+                                            </a>
+                                        )
+                                    }
+                                </div>
+                            )
+                        }
+                    </div>
+                )
+            }
+
+            {
                 seccionActiva ===
                     "normativa" &&
                 mostrarNormativa ? (
@@ -1299,79 +1558,21 @@ const descripcionPagina =
                             torneo.normativa_base
                         }
                     />
-                ) : !edicion ? (
-                    <div
-                        class="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 lg:px-8"
-                    >
-                        <div
-                            class="rounded-2xl border border-border bg-card/40 px-6 py-12 text-center"
-                        >
-                            <h2
-                                class="text-xl font-semibold text-neutral-titulos"
-                            >
-                                Encara no hi ha cap edició disponible
-                            </h2>
-
-                            <p
-                                class="mx-auto mt-2 max-w-xl text-sm leading-6 text-neutral"
-                            >
-                                Quan hi hagi una edició activa del torneig,
-                                la seva informació apareixerà aquí.
-                            </p>
-
-                            {
-                                mostrarNormativa && (
-                                    <a
-                                        href={`/tornejos/${torneo.id}?seccio=normativa`}
-                                        class="mt-6 inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary/90"
-                                    >
-                                        Consultar la normativa
-
-                                        <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="1.8"
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            class="h-4 w-4"
-                                            aria-hidden="true"
-                                        >
-                                            <path
-                                                d="M5 12h14"
-                                            ></path>
-
-                                            <path
-                                                d="m13 6 6 6-6 6"
-                                            ></path>
-                                        </svg>
-                                    </a>
-                                )
-                            }
-                        </div>
-                    </div>
-                ) : (
-                    <>
-                        <!-- RESUM -->
-
-                        {
-                            seccionActiva ===
-                                "resum" && (
-                                <Resum
-                                    torneo={
-                                        torneo
-                                    }
-                                    edicion={
-                                        edicion
-                                    }
-                                    configuracion={
-                                        configuracion
-                                    }
-                                />
-                            )
+                ) : seccionActiva ===
+                    "resum" ? (
+                    <Resum
+                        torneo={
+                            torneo
                         }
-
+                        edicion={
+                            edicion
+                        }
+                        configuracion={
+                            configuracion
+                        }
+                    />
+                ) : edicion ? (
+                    <>
                         <!-- COMPETICIÓ -->
 
                         {
@@ -1467,7 +1668,7 @@ const descripcionPagina =
                             )
                         }
                     </>
-                )
+                ) : null
             }
         </section>
     </main>
