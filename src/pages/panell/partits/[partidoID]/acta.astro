@@ -4,34 +4,49 @@ import LayoutPanel from "@layouts/LayoutPanel.astro";
 
 export const prerender = false;
 
-Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set(
+    "Cache-Control",
+    "private, no-store",
+);
 
-const partidoID = Astro.params.partidoID?.trim() ?? "";
+const partidoID =
+    Astro.params.partidoID
+        ?.trim()
+        .toLowerCase() ?? "";
 
-const torneoID = Astro.url.searchParams.get("torneoID")?.trim() ?? "";
+const torneoID =
+    Astro.url.searchParams
+        .get("torneoID")
+        ?.trim()
+        .toLowerCase() ?? "";
 
-const edicionID = Astro.url.searchParams.get("edicionID")?.trim() ?? "";
+const edicionID =
+    Astro.url.searchParams
+        .get("edicionID")
+        ?.trim()
+        .toLowerCase() ?? "";
 
-/*
- * Para entrar en una acta necesitamos conocer:
- *
- * - partido
- * - torneo
- * - edición
- *
- * De momento no validamos aquí las UUID.
- * Esa validación se hará posteriormente en la API.
- */
-if (!partidoID || !torneoID || !edicionID) {
-  return Astro.redirect("/panell/partits", 303);
+if (
+    !partidoID ||
+    !torneoID ||
+    !edicionID
+) {
+    return Astro.redirect(
+        "/panell/partits",
+        303,
+    );
 }
 ---
 
-<LayoutPanel title="Acta digital" seccion="acta-digital" accion="ver">
-  <Gestor
-    partidoID={partidoID}
-    torneoID={torneoID}
-    edicionID={edicionID}
-    client:load
-  />
+<LayoutPanel
+    title="Acta digital"
+    seccion="partits"
+    accion="ver"
+>
+    <Gestor
+        partidoID={partidoID}
+        torneoID={torneoID}
+        edicionID={edicionID}
+        client:load
+    />
 </LayoutPanel>
