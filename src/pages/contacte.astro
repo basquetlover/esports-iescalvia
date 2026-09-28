@@ -9,12 +9,12 @@ export const prerender = false;
 // ============================================================
 
 type ContactoDB = {
-    id: string;
-    nombre: string | null;
-    cargo: string | null;
-    email: string | null;
-    descripcion: string | null;
-    orden: number | null;
+  id: string;
+  nombre: string | null;
+  cargo: string | null;
+  email: string | null;
+  descripcion: string | null;
+  orden: number | null;
 };
 
 // ============================================================
@@ -26,47 +26,28 @@ const contactos: ContactoDB[] = [];
 let errorCarga = false;
 
 try {
-    const {
-        data,
-        error,
-    } = await supabaseAdmin
-        .from("contactos_soporte")
-        .select(
-            "id,nombre,cargo,email,descripcion,orden"
-        )
-        .eq(
-            "activo",
-            true
-        )
-        .order(
-            "orden",
-            {
-                ascending: true,
-                nullsFirst: false,
-            }
-        )
-        .order(
-            "created_at",
-            {
-                ascending: true,
-                nullsFirst: false,
-            }
-        );
+  const { data, error } = await supabaseAdmin
+    .from("contactos_soporte")
+    .select("id,nombre,cargo,email,descripcion,orden")
+    .eq("activo", true)
+    .order("orden", {
+      ascending: true,
+      nullsFirst: false,
+    })
+    .order("created_at", {
+      ascending: true,
+      nullsFirst: false,
+    });
 
-    if (error) {
-        throw error;
-    }
+  if (error) {
+    throw error;
+  }
 
-    contactos.push(
-        ...(data ?? [])
-    );
+  contactos.push(...(data ?? []));
 } catch (error) {
-    console.error(
-        "Error carregant els contactes de suport:",
-        error
-    );
+  console.error("Error carregant els contactes de suport:", error);
 
-    errorCarga = true;
+  errorCarga = true;
 }
 
 // ============================================================
@@ -74,34 +55,30 @@ try {
 // ============================================================
 
 if (errorCarga) {
-    Astro.response.status = 500;
+  Astro.response.status = 500;
 }
 
 Astro.response.headers.set(
-    "Cache-Control",
-    "public, max-age=0, s-maxage=60, stale-while-revalidate=300"
+  "Cache-Control",
+  "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
 );
 ---
 
 <Layout title="Contacte">
-    <main class="w-full">
-
-        <!-- ====================================================
+  <main class="w-full">
+    <!-- ====================================================
              CABECERA
         ===================================================== -->
 
-        <section
-            class="
-                relative
+    <section
+      class="relative
                 overflow-hidden
                 border-b
                 border-border
-                bg-card
-            "
-        >
-            <div
-                class="
-                    pointer-events-none
+                bg-card"
+    >
+      <div
+        class="pointer-events-none
                     absolute
                     -right-24
                     -top-24
@@ -109,14 +86,12 @@ Astro.response.headers.set(
                     w-80
                     rounded-full
                     bg-primary/10
-                    blur-3xl
-                "
-            >
-            </div>
+                    blur-3xl"
+      >
+      </div>
 
-            <div
-                class="
-                    pointer-events-none
+      <div
+        class="pointer-events-none
                     absolute
                     -bottom-32
                     left-1/4
@@ -124,14 +99,12 @@ Astro.response.headers.set(
                     w-72
                     rounded-full
                     bg-secondary/10
-                    blur-3xl
-                "
-            >
-            </div>
+                    blur-3xl"
+      >
+      </div>
 
-            <div
-                class="
-                    relative
+      <div
+        class="relative
                     mx-auto
                     w-full
                     max-w-6xl
@@ -139,14 +112,11 @@ Astro.response.headers.set(
                     py-14
                     sm:px-6
                     sm:py-18
-                    lg:px-8
-                "
-            >
-                <div class="max-w-3xl">
-
-                    <div
-                        class="
-                            mb-5
+                    lg:px-8"
+      >
+        <div class="max-w-3xl">
+          <div
+            class="mb-5
                             flex
                             h-12
                             w-12
@@ -154,87 +124,74 @@ Astro.response.headers.set(
                             justify-center
                             rounded-xl
                             bg-primary/10
-                            text-primary
-                        "
-                    >
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 -960 960 960"
-                            class="h-7 w-7 fill-current"
-                            aria-hidden="true"
-                        >
-                            <path
-                                d="M160-120v-80h80v-640q0-33 23.5-56.5T320-920h320q33 0 56.5 23.5T720-840v640h80v80zm160-80h320v-640H320zm80-80h160v-80H400zm0-160h160v-80H400zm0-160h160v-80H400zm-80 400v-640 640Z"
-                            />
-                        </svg>
-                    </div>
+                            text-primary"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 -960 960 960"
+              class="h-7 w-7 fill-current"
+              aria-hidden="true"
+            >
+              <path
+                d="M160-120v-80h80v-640q0-33 23.5-56.5T320-920h320q33 0 56.5 23.5T720-840v640h80v80zm160-80h320v-640H320zm80-80h160v-80H400zm0-160h160v-80H400zm0-160h160v-80H400zm-80 400v-640 640Z"
+              ></path>
+            </svg>
+          </div>
 
-                    <p
-                        class="
-                            text-sm
+          <p
+            class="text-sm
                             font-semibold
                             uppercase
                             tracking-[0.18em]
-                            text-primary
-                        "
-                    >
-                        Ajuda i suport
-                    </p>
+                            text-primary"
+          >
+            Ajuda i suport
+          </p>
 
-                    <h1
-                        class="
-                            mt-3
+          <h1
+            class="mt-3
                             text-3xl
                             font-bold
                             tracking-tight
                             text-neutral-titulos
-                            sm:text-4xl
-                        "
-                    >
-                        Contactes de suport
-                    </h1>
+                            sm:text-4xl"
+          >
+            Contactes de suport
+          </h1>
 
-                    <p
-                        class="
-                            mt-4
+          <p
+            class="mt-4
                             max-w-2xl
                             text-base
                             leading-7
-                            text-neutral
-                        "
-                    >
-                        Si tens algun problema amb la plataforma o necessites
-                        ajuda, pots contactar amb una de les persones
-                        responsables que trobaràs a continuació.
-                    </p>
+                            text-neutral"
+          >
+            Si tens algun problema amb la plataforma o necessites ajuda, pots
+            contactar amb una de les persones responsables que trobaràs a
+            continuació.
+          </p>
+        </div>
+      </div>
+    </section>
 
-                </div>
-            </div>
-        </section>
-
-        <!-- ====================================================
+    <!-- ====================================================
              CONTENIDO
         ===================================================== -->
 
-        <section
-            class="
-                mx-auto
+    <section
+      class="mx-auto
                 w-full
                 max-w-6xl
                 px-4
                 py-10
                 sm:px-6
                 sm:py-14
-                lg:px-8
-            "
-        >
-            {
-                errorCarga ? (
-
-                    // <!-- ERROR -->
-
-                    <div
-                        class="
+                lg:px-8"
+    >
+      {
+        errorCarga ? (
+          <div
+            class="
                             mx-auto
                             w-full
                             max-w-lg
@@ -245,9 +202,9 @@ Astro.response.headers.set(
                             p-8
                             text-center
                         "
-                    >
-                        <div
-                            class="
+          >
+            <div
+              class="
                                 mx-auto
                                 flex
                                 h-14
@@ -257,50 +214,47 @@ Astro.response.headers.set(
                                 rounded-full
                                 bg-error-container
                             "
-                        >
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                class="
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="
                                     h-7
                                     w-7
                                     fill-error-foreground
                                 "
-                                viewBox="0 -960 960 960"
-                                aria-hidden="true"
-                            >
-                                <path
-                                    d="M480-280q17 0 28.5-11.5T520-320t-11.5-28.5T480-360t-28.5 11.5T440-320t11.5 28.5T480-280m-40-160h80v-240h-80zm40 360q-83 0-156-31.5T197-197t-85.5-127T80-480t31.5-156T197-763t127-85.5T480-880t156 31.5T763-763t85.5 127T880-480t-31.5 156T763-197t-127 85.5T480-80m0-80q134 0 227-93t93-227-93-227-227-93-227 93-93 227 93 227 227 93"
-                                />
-                            </svg>
-                        </div>
+                viewBox="0 -960 960 960"
+                aria-hidden="true"
+              >
+                <path d="M480-280q17 0 28.5-11.5T520-320t-11.5-28.5T480-360t-28.5 11.5T440-320t11.5 28.5T480-280m-40-160h80v-240h-80zm40 360q-83 0-156-31.5T197-197t-85.5-127T80-480t31.5-156T197-763t127-85.5T480-880t156 31.5T763-763t85.5 127T880-480t-31.5 156T763-197t-127 85.5T480-80m0-80q134 0 227-93t93-227-93-227-227-93-227 93-93 227 93 227 227 93" />
+              </svg>
+            </div>
 
-                        <h2
-                            class="
+            <h2
+              class="
                                 mt-5
                                 text-xl
                                 font-semibold
                                 text-neutral-titulos
                             "
-                        >
-                            No s'han pogut carregar els contactes
-                        </h2>
+            >
+              No s'han pogut carregar els contactes
+            </h2>
 
-                        <p
-                            class="
+            <p
+              class="
                                 mt-3
                                 text-sm
                                 leading-6
                                 text-neutral
                             "
-                        >
-                            S'ha produït un error mentre es carregava
-                            la informació de contacte. Torna-ho a provar
-                            més tard.
-                        </p>
+            >
+              S'ha produït un error mentre es carregava la informació de
+              contacte. Torna-ho a provar més tard.
+            </p>
 
-                        <a
-                            href="/"
-                            class="
+            <a
+              href="/"
+              class="
                                 mt-6
                                 inline-flex
                                 items-center
@@ -315,17 +269,13 @@ Astro.response.headers.set(
                                 transition
                                 hover:opacity-90
                             "
-                        >
-                            Tornar a l'inici
-                        </a>
-                    </div>
-
-                ) : contactos.length === 0 ? (
-
-                    <!-- SIN CONTACTOS -->
-
-                    <div
-                        class="
+            >
+              Tornar a l'inici
+            </a>
+          </div>
+        ) : contactos.length === 0 ? (
+          <div
+            class="
                             mx-auto
                             max-w-xl
                             rounded-2xl
@@ -336,9 +286,9 @@ Astro.response.headers.set(
                             p-8
                             text-center
                         "
-                    >
-                        <div
-                            class="
+          >
+            <div
+              class="
                                 mx-auto
                                 flex
                                 h-14
@@ -349,92 +299,83 @@ Astro.response.headers.set(
                                 bg-primary/10
                                 text-primary
                             "
-                        >
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                viewBox="0 -960 960 960"
-                                class="h-7 w-7 fill-current"
-                                aria-hidden="true"
-                            >
-                                <path
-                                    d="M480-480q66 0 113-47t47-113-47-113-113-47-113 47-47 113 47 113 113 47ZM160-160v-112q0-34 17.5-62.5T224-376q62-31 126-47.5T480-440q66 0 130 16.5T736-376q29 14 46.5 42.5T800-272v112z"
-                                />
-                            </svg>
-                        </div>
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 -960 960 960"
+                class="h-7 w-7 fill-current"
+                aria-hidden="true"
+              >
+                <path d="M480-480q66 0 113-47t47-113-47-113-113-47-113 47-47 113 47 113 113 47ZM160-160v-112q0-34 17.5-62.5T224-376q62-31 126-47.5T480-440q66 0 130 16.5T736-376q29 14 46.5 42.5T800-272v112z" />
+              </svg>
+            </div>
 
-                        <h2
-                            class="
+            <h2
+              class="
                                 mt-5
                                 text-xl
                                 font-semibold
                                 text-neutral-titulos
                             "
-                        >
-                            No hi ha contactes disponibles
-                        </h2>
+            >
+              No hi ha contactes disponibles
+            </h2>
 
-                        <p
-                            class="
+            <p
+              class="
                                 mt-2
                                 text-sm
                                 leading-6
                                 text-neutral
                             "
-                        >
-                            En aquests moments no hi ha cap contacte
-                            de suport disponible.
-                        </p>
-                    </div>
-
-                ) : (
-
-                    <!-- CONTACTOS -->
-
-                    <div>
-                        <div
-                            class="
+            >
+              En aquests moments no hi ha cap contacte de suport disponible.
+            </p>
+          </div>
+        ) : (
+          <div>
+            <div
+              class="
                                 mb-7
                                 flex
                                 flex-col
                                 gap-2
                             "
-                        >
-                            <h2
-                                class="
+            >
+              <h2
+                class="
                                     text-2xl
                                     font-semibold
                                     text-neutral-titulos
                                 "
-                            >
-                                Amb qui necessites parlar?
-                            </h2>
+              >
+                Amb qui necessites parlar?
+              </h2>
 
-                            <p
-                                class="
+              <p
+                class="
                                     max-w-2xl
                                     text-sm
                                     leading-6
                                     text-neutral
                                 "
-                            >
-                                Tria el contacte que millor s'ajusti
-                                al tipus d'ajuda que necessites.
-                            </p>
-                        </div>
+              >
+                Tria el contacte que millor s'ajusti al tipus d'ajuda que
+                necessites.
+              </p>
+            </div>
 
-                        <div
-                            class="
+            <div
+              class="
                                 grid
                                 gap-5
                                 md:grid-cols-2
                                 lg:grid-cols-3
                             "
-                        >
-                            {
-                                contactos.map((contacto) => (
-
-                                    <article
-                                        class="
+            >
+              {contactos.map((contacto) => (
+                <article
+                  class="
                                             group
                                             flex
                                             min-h-72
@@ -450,16 +391,16 @@ Astro.response.headers.set(
                                             hover:border-primary/40
                                             hover:shadow-lg
                                         "
-                                    >
-                                        <div
-                                            class="
+                >
+                  <div
+                    class="
                                                 flex
                                                 items-start
                                                 gap-4
                                             "
-                                        >
-                                            <div
-                                                class="
+                  >
+                    <div
+                      class="
                                                     flex
                                                     h-12
                                                     w-12
@@ -473,76 +414,69 @@ Astro.response.headers.set(
                                                     group-hover:bg-primary
                                                     group-hover:text-white
                                                 "
-                                            >
-                                                <svg
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    viewBox="0 -960 960 960"
-                                                    class="h-6 w-6 fill-current"
-                                                    aria-hidden="true"
-                                                >
-                                                    <path
-                                                        d="M480-480q66 0 113-47t47-113-47-113-113-47-113 47-47 113 47 113 113 47ZM160-160v-112q0-34 17.5-62.5T224-376q62-31 126-47.5T480-440q66 0 130 16.5T736-376q29 14 46.5 42.5T800-272v112z"
-                                                    />
-                                                </svg>
-                                            </div>
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 -960 960 960"
+                        class="h-6 w-6 fill-current"
+                        aria-hidden="true"
+                      >
+                        <path d="M480-480q66 0 113-47t47-113-47-113-113-47-113 47-47 113 47 113 113 47ZM160-160v-112q0-34 17.5-62.5T224-376q62-31 126-47.5T480-440q66 0 130 16.5T736-376q29 14 46.5 42.5T800-272v112z" />
+                      </svg>
+                    </div>
 
-                                            <div class="min-w-0">
-                                                <h3
-                                                    class="
+                    <div class="min-w-0">
+                      <h3
+                        class="
                                                         text-lg
                                                         font-semibold
                                                         text-neutral-titulos
                                                     "
-                                                >
-                                                    {contacto.nombre}
-                                                </h3>
+                      >
+                        {contacto.nombre}
+                      </h3>
 
-                                                {
-                                                    contacto.cargo && (
-                                                        <p
-                                                            class="
+                      {contacto.cargo && (
+                        <p
+                          class="
                                                                 mt-1
                                                                 text-sm
                                                                 font-medium
                                                                 text-primary
                                                             "
-                                                        >
-                                                            {contacto.cargo}
-                                                        </p>
-                                                    )
-                                                }
-                                            </div>
-                                        </div>
+                        >
+                          {contacto.cargo}
+                        </p>
+                      )}
+                    </div>
+                  </div>
 
-                                        {
-                                            contacto.descripcion && (
-                                                <p
-                                                    class="
+                  {contacto.descripcion && (
+                    <p
+                      class="
                                                         mt-5
                                                         flex-1
                                                         text-sm
                                                         leading-6
                                                         text-neutral
                                                     "
-                                                >
-                                                    {contacto.descripcion}
-                                                </p>
-                                            )
-                                        }
+                    >
+                      {contacto.descripcion}
+                    </p>
+                  )}
 
-                                        {
-                                            contacto.email && (
-                                                <div
-                                                    class="
+                  {contacto.email && (
+                    <div
+                      class="
                                                         mt-6
                                                         border-t
                                                         border-border
                                                         pt-4
                                                     "
-                                                >
-                                                    <a
-                                                        href={`mailto:${contacto.email}`}
-                                                        class="
+                    >
+                      <a
+                        href={`mailto:${contacto.email}`}
+                        class="
                                                             inline-flex
                                                             w-full
                                                             items-center
@@ -559,81 +493,71 @@ Astro.response.headers.set(
                                                             hover:bg-primary/10
                                                             hover:text-primary
                                                         "
-                                                    >
-                                                        <span
-                                                            class="
+                      >
+                        <span
+                          class="
                                                                 flex
                                                                 min-w-0
                                                                 items-center
                                                                 gap-2
                                                             "
-                                                        >
-                                                            <svg
-                                                                xmlns="http://www.w3.org/2000/svg"
-                                                                viewBox="0 -960 960 960"
-                                                                class="
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 -960 960 960"
+                            class="
                                                                     h-5
                                                                     w-5
                                                                     shrink-0
                                                                     fill-current
                                                                 "
-                                                                aria-hidden="true"
-                                                            >
-                                                                <path
-                                                                    d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v480q0 33-23.5 56.5T800-160zm320-280L160-640v400h640v-400zm0-80 320-200H160z"
-                                                                />
-                                                            </svg>
+                            aria-hidden="true"
+                          >
+                            <path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v480q0 33-23.5 56.5T800-160zm320-280L160-640v400h640v-400zm0-80 320-200H160z" />
+                          </svg>
 
-                                                            <span class="truncate">
-                                                                {contacto.email}
-                                                            </span>
-                                                        </span>
+                          <span class="truncate">{contacto.email}</span>
+                        </span>
 
-                                                        <svg
-                                                            xmlns="http://www.w3.org/2000/svg"
-                                                            viewBox="0 -960 960 960"
-                                                            class="
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 -960 960 960"
+                          class="
                                                                 h-5
                                                                 w-5
                                                                 shrink-0
                                                                 fill-current
                                                             "
-                                                            aria-hidden="true"
-                                                        >
-                                                            <path
-                                                                d="m504-480-184-184 56-56 240 240-240 240-56-56z"
-                                                            />
-                                                        </svg>
-                                                    </a>
-                                                </div>
-                                            )
-                                        }
-                                    </article>
-
-                                ))
-                            }
-                        </div>
+                          aria-hidden="true"
+                        >
+                          <path d="m504-480-184-184 56-56 240 240-240 240-56-56z" />
+                        </svg>
+                      </a>
                     </div>
+                  )}
+                </article>
+              ))}
+            </div>
+          </div>
+        )
+      }
+    </section>
 
-                )
-            }
-        </section>
-
-        <!-- ====================================================
+    <!-- ====================================================
              AYUDA GENERAL
         ===================================================== -->
 
-        {
-            !errorCarga && contactos.length > 0 && (
-                <section
-                    class="
+    {
+      !errorCarga && contactos.length > 0 && (
+        <section
+          class="
                         border-t
                         border-border
                         bg-card
                     "
-                >
-                    <div
-                        class="
+        >
+          <div
+            class="
                             mx-auto
                             flex
                             w-full
@@ -648,36 +572,35 @@ Astro.response.headers.set(
                             md:justify-between
                             lg:px-8
                         "
-                    >
-                        <div>
-                            <h2
-                                class="
+          >
+            <div>
+              <h2
+                class="
                                     text-xl
                                     font-semibold
                                     text-neutral-titulos
                                 "
-                            >
-                                No saps amb qui contactar?
-                            </h2>
+              >
+                No saps amb qui contactar?
+              </h2>
 
-                            <p
-                                class="
+              <p
+                class="
                                     mt-2
                                     max-w-xl
                                     text-sm
                                     leading-6
                                     text-neutral
                                 "
-                            >
-                                Revisa la descripció de cada contacte i
-                                escriu a la persona que millor pugui
-                                ajudar-te amb la teva consulta.
-                            </p>
-                        </div>
+              >
+                Revisa la descripció de cada contacte i escriu a la persona que
+                millor pugui ajudar-te amb la teva consulta.
+              </p>
+            </div>
 
-                        <a
-                            href="/"
-                            class="
+            <a
+              href="/"
+              class="
                                 inline-flex
                                 shrink-0
                                 items-center
@@ -696,24 +619,20 @@ Astro.response.headers.set(
                                 hover:border-primary/40
                                 hover:text-primary
                             "
-                        >
-                            Tornar a l'inici
-
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                viewBox="0 -960 960 960"
-                                class="h-4 w-4 fill-current"
-                                aria-hidden="true"
-                            >
-                                <path
-                                    d="m504-480-184-184 56-56 240 240-240 240-56-56z"
-                                />
-                            </svg>
-                        </a>
-                    </div>
-                </section>
-            )
-        }
-
-    </main>
+            >
+              Tornar a l'inici
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 -960 960 960"
+                class="h-4 w-4 fill-current"
+                aria-hidden="true"
+              >
+                <path d="m504-480-184-184 56-56 240 240-240 240-56-56z" />
+              </svg>
+            </a>
+          </div>
+        </section>
+      )
+    }
+  </main>
 </Layout>
