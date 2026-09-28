@@ -62,9 +62,9 @@ type Props = {
 };
 
 const {
-    inscripciones,
+    inscripciones = [],
 } =
-    Astro.props as Props;
+    Astro.props as Partial<Props>;
 
 // ============================================================
 // FECHAS
@@ -480,7 +480,9 @@ function urlFormulario(
     ) {
         return `/tornejos/${encodeURIComponent(
             inscripcion.torneo.id,
-        )}?seccio=voluntariat#formulari-voluntariat`;
+        )}?edicionID=${encodeURIComponent(
+            inscripcion.edicion.id,
+        )}&seccio=voluntariat#formulari-voluntariat`;
     }
 
     return `/inscripcio?edicionID=${encodeURIComponent(

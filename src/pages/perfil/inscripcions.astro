@@ -1916,25 +1916,36 @@ function enlaceFiltros(
 
                                 const enlaceVoluntariado =
                                     esVoluntario &&
-                                    inscripcion.torneo
+                                    inscripcion.torneo &&
+                                    inscripcion.edicion
                                         ? `/tornejos/${encodeURIComponent(
                                               inscripcion
                                                   .torneo
                                                   .id,
-                                          )}?seccio=voluntariat#formulari-voluntariat`
+                                          )}?edicionID=${encodeURIComponent(
+                                              inscripcion
+                                                  .edicion
+                                                  .id,
+                                          )}&seccio=voluntariat#formulari-voluntariat`
                                         : null;
 
                                 const enlaceTorneo =
-                                    inscripcion.torneo
+                                    inscripcion.torneo &&
+                                    inscripcion.edicion
                                         ? `/tornejos/${encodeURIComponent(
                                               inscripcion
                                                   .torneo
+                                                  .id,
+                                          )}?edicionID=${encodeURIComponent(
+                                              inscripcion
+                                                  .edicion
                                                   .id,
                                           )}`
                                         : null;
 
                                 return (
                                     <article class="overflow-hidden rounded-2xl border border-border bg-card">
+
                                         <!-- =================================================
                                             BANNER
                                         ================================================== -->

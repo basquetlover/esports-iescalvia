@@ -108,23 +108,14 @@ const MESES = [
 
 const DIAS_SEMANA = ["Dl", "Dt", "Dc", "Dj", "Dv", "Ds", "Dg"];
 
-const COLORES_EVENTO = [
-  "#0f766e",
-  "#2563eb",
-  "#7c3aed",
-
-  "#c2410c",
-  "#be185d",
-  "#047857",
-
-  "#0369a1",
-  "#4f46e5",
-  "#a21caf",
-
-  "#b45309",
-  "#15803d",
-  "#be123c",
-];
+/*
+ * Solo tres colores.
+ *
+ * 0 = equipos
+ * 1 = voluntariado
+ * 2 = jornada
+ */
+const COLORES_EVENTO = ["#2563eb", "#b7791f", "#0f766e"];
 
 // ============================================================
 // TIPO ACTIVIDAD
@@ -136,10 +127,23 @@ function nombreTipoActividad(tipo: TipoEventoCalendario): string {
       return "Inscripció d'equips";
 
     case "inscripcion_voluntarios":
-      return "Inscripció de voluntariat";
+      return "Voluntariat";
 
     case "jornada":
       return "Jornada de joc";
+  }
+}
+
+function nombreTipoCompacto(tipo: TipoEventoCalendario): string {
+  switch (tipo) {
+    case "inscripcion_equipos":
+      return "Equips";
+
+    case "inscripcion_voluntarios":
+      return "Voluntariat";
+
+    case "jornada":
+      return "Jornada";
   }
 }
 
@@ -151,6 +155,10 @@ function obtenerColor(indice: number): string {
   const indiceSeguro = Math.abs(indice) % COLORES_EVENTO.length;
 
   return COLORES_EVENTO[indiceSeguro];
+}
+
+function colorConAlpha(color: string, alpha: string): string {
+  return `${color}${alpha}`;
 }
 
 // ============================================================
@@ -228,6 +236,34 @@ function textoFecha(fecha: string): string {
   }).format(date);
 
   return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
+function textoFechaCorta(fecha: string): string {
+  return new Intl.DateTimeFormat("ca-ES", {
+    day: "numeric",
+
+    month: "short",
+
+    timeZone: "UTC",
+  }).format(crearFechaUTC(fecha));
+}
+
+function textoRangoEvento(evento: EventoCalendario): string {
+  if (evento.fechaInicio === evento.fechaFin) {
+    return textoFechaCorta(evento.fechaInicio);
+  }
+
+  return `${textoFechaCorta(evento.fechaInicio)} – ${textoFechaCorta(
+    evento.fechaFin,
+  )}`;
+}
+
+// ============================================================
+// TEXTO EVENTO
+// ============================================================
+
+function tituloCompactoEvento(evento: EventoCalendario): string {
+  return `${nombreTipoCompacto(evento.tipo)} · ${evento.torneo}`;
 }
 
 // ============================================================
@@ -505,35 +541,34 @@ export default function Calendari({
   return (
     <main className="min-h-screen bg-background">
       {/* ==================================================
-                CABECERA
-            ================================================== */}
+          CABECERA
+      ================================================== */}
 
       <section className="border-b border-border bg-card/40">
-        <div className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
+        <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-secondary">
             Agenda esportiva
           </p>
 
-          <h1 className="mt-2 text-4xl font-bold tracking-tight text-neutral-titulos sm:text-5xl">
+          <h1 className="mt-2 text-3xl font-bold tracking-tight text-neutral-titulos sm:text-4xl">
             Calendari
           </h1>
 
-          <p className="mt-4 max-w-3xl text-base leading-7 text-neutral sm:text-lg">
+          <p className="mt-3 max-w-3xl text-base leading-7 text-neutral">
             Consulta les dates de les competicions, inscripcions i activitats
-            d'Esports IES Calvià. Navega pels mesos i filtra el calendari per
-            competició.
+            d'Esports IES Calvià.
           </p>
         </div>
       </section>
 
       {/* ==================================================
-                CONTENIDO
-            ================================================== */}
+          CONTENIDO
+      ================================================== */}
 
       <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         {/* ==============================================
-                    FILTROS
-                ============================================== */}
+            FILTROS
+        ============================================== */}
 
         <div className="mb-5 flex flex-col gap-4 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="w-full sm:max-w-sm">
@@ -563,7 +598,7 @@ export default function Calendari({
           <button
             type="button"
             onClick={irHoy}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-secondary px-4 text-sm font-semibold text-secondary hover:bg-secondary hover:text-white"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-secondary px-4 text-sm font-semibold text-secondary transition hover:bg-secondary hover:text-white"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -578,19 +613,55 @@ export default function Calendari({
         </div>
 
         {/* ==============================================
-                    CALENDARIO
-                ============================================== */}
+            LEYENDA
+        ============================================== */}
+
+        <div className="mb-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-neutral">
+          <span className="inline-flex items-center gap-2">
+            <span
+              className="h-2.5 w-2.5 rounded-full"
+              style={{
+                backgroundColor: COLORES_EVENTO[0],
+              }}
+            />
+            Inscripció d'equips
+          </span>
+
+          <span className="inline-flex items-center gap-2">
+            <span
+              className="h-2.5 w-2.5 rounded-full"
+              style={{
+                backgroundColor: COLORES_EVENTO[1],
+              }}
+            />
+            Voluntariat
+          </span>
+
+          <span className="inline-flex items-center gap-2">
+            <span
+              className="h-2.5 w-2.5 rounded-full"
+              style={{
+                backgroundColor: COLORES_EVENTO[2],
+              }}
+            />
+            Jornada
+          </span>
+        </div>
+
+        {/* ==============================================
+            CALENDARIO
+        ============================================== */}
 
         <div className="overflow-hidden rounded-xl border border-border bg-background">
           {/* ==========================================
-                        NAVEGACIÓN MES
-                    ========================================== */}
+              NAVEGACIÓN MES
+          ========================================== */}
 
           <div className="flex items-center justify-between border-b border-border bg-card px-3 py-3 sm:px-5">
             <button
               type="button"
               onClick={irMesAnterior}
-              className="flex h-10 w-10 items-center justify-center rounded-lg text-neutral-titulos hover:bg-background"
+              className="flex h-10 w-10 items-center justify-center rounded-lg text-neutral-titulos transition hover:bg-background"
               aria-label="Mes anterior"
             >
               <svg
@@ -616,7 +687,7 @@ export default function Calendari({
             <button
               type="button"
               onClick={irMesSiguiente}
-              className="flex h-10 w-10 items-center justify-center rounded-lg text-neutral-titulos hover:bg-background"
+              className="flex h-10 w-10 items-center justify-center rounded-lg text-neutral-titulos transition hover:bg-background"
               aria-label="Mes següent"
             >
               <svg
@@ -631,16 +702,16 @@ export default function Calendari({
           </div>
 
           {/* ==========================================
-                        SCROLL HORIZONTAL MÓVIL
-                    ========================================== */}
+              SCROLL HORIZONTAL MÓVIL
+          ========================================== */}
 
           <div className="scroll-personalizada overflow-x-auto">
             <div className="min-w-[760px]">
               {/* ==================================
-                                CABECERA DÍAS
-                            ================================== */}
+                  CABECERA DÍAS
+              ================================== */}
 
-              <div className="grid grid-cols-7 border-b border-border bg-card/60">
+              <div className="grid grid-cols-7 border-b border-border bg-card/50">
                 {DIAS_SEMANA.map((dia) => (
                   <div
                     key={dia}
@@ -652,12 +723,12 @@ export default function Calendari({
               </div>
 
               {/* ==================================
-                                SEMANAS
-                            ================================== */}
+                  SEMANAS
+              ================================== */}
 
               <div>
                 {semanas.map((semana) => {
-                  const altura = Math.max(118, 60 + semana.carriles * 29);
+                  const altura = Math.max(104, 50 + semana.carriles * 26);
 
                   return (
                     <div
@@ -668,8 +739,8 @@ export default function Calendari({
                       }}
                     >
                       {/* ==================
-                                                        DÍAS
-                                                    ================== */}
+                              DÍAS
+                          ================== */}
 
                       <div className="absolute inset-0 grid grid-cols-7">
                         {semana.dias.map((dia) => {
@@ -681,13 +752,11 @@ export default function Calendari({
                               type="button"
                               onClick={() => setFechaSeleccionada(dia.fecha)}
                               className={[
-                                "relative border-r border-border text-left last:border-r-0 hover:bg-card/60",
+                                "relative border-r border-border text-left transition last:border-r-0 hover:bg-card/50",
 
-                                !dia.perteneceMes ? "bg-card/25" : "",
+                                !dia.perteneceMes ? "bg-card/20" : "",
 
-                                seleccionado
-                                  ? "ring-2 ring-inset ring-secondary"
-                                  : "",
+                                seleccionado ? "bg-secondary/5" : "",
                               ]
                                 .filter(Boolean)
                                 .join(" ")}
@@ -711,8 +780,8 @@ export default function Calendari({
                       </div>
 
                       {/* ==================
-                                                        EVENTOS
-                                                    ================== */}
+                              EVENTOS
+                          ================== */}
 
                       <div className="pointer-events-none absolute inset-0">
                         {semana.segmentos.map((segmento) => {
@@ -721,12 +790,7 @@ export default function Calendari({
 
                           const ancho = (segmento.columnas / 7) * 100;
 
-                          /*
-                           * Los primeros 46px
-                           * quedan reservados
-                           * para el número del día.
-                           */
-                          const arriba = 46 + segmento.carril * 29;
+                          const arriba = 42 + segmento.carril * 26;
 
                           const color = obtenerColor(segmento.evento.color);
 
@@ -736,7 +800,7 @@ export default function Calendari({
                               href={segmento.evento.enlace}
                               title={segmento.evento.titulo}
                               className={[
-                                "pointer-events-auto absolute z-10 flex h-6 items-center gap-1.5 overflow-hidden px-2 text-[11px] font-semibold leading-none text-white shadow-sm hover:z-20 hover:brightness-110",
+                                "pointer-events-auto absolute z-10 flex h-5 items-center overflow-hidden border-y px-2 text-[10px] font-semibold leading-none transition hover:z-20 hover:brightness-95",
 
                                 segmento.empiezaAqui
                                   ? "rounded-l-md"
@@ -753,16 +817,19 @@ export default function Calendari({
 
                                 top: arriba,
 
-                                backgroundColor: color,
+                                color,
+
+                                backgroundColor: colorConAlpha(color, "14"),
+
+                                borderColor: colorConAlpha(color, "35"),
+
+                                borderLeft: segmento.empiezaAqui
+                                  ? `3px solid ${color}`
+                                  : undefined,
                               }}
                             >
-                              {obtenerIconoDeporte(
-                                segmento.evento.deporte,
-                                "h-3.5 w-3.5 shrink-0 fill-white",
-                              )}
-
                               <span className="truncate">
-                                {segmento.evento.titulo}
+                                {tituloCompactoEvento(segmento.evento)}
                               </span>
                             </a>
                           );
@@ -777,32 +844,32 @@ export default function Calendari({
         </div>
 
         {/* ==============================================
-                    DETALLE DEL DÍA
-                ============================================== */}
+            DETALLE DEL DÍA
+        ============================================== */}
 
-        <section className="mt-6 rounded-xl border border-border bg-card p-5 sm:p-6">
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <section className="mt-6 rounded-xl border border-border bg-card">
+          <div className="flex flex-col gap-1 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-secondary">
                 Activitat del dia
               </p>
 
-              <h2 className="mt-1 text-2xl font-bold text-neutral-titulos">
+              <h2 className="mt-1 text-xl font-bold text-neutral-titulos sm:text-2xl">
                 {fechaSeleccionada === hoy
                   ? "Avui"
                   : textoFecha(fechaSeleccionada)}
               </h2>
             </div>
 
-            <span className="mt-2 w-max rounded-full bg-background px-3 py-1 text-xs font-medium text-neutral sm:mt-0">
+            <span className="mt-2 w-max text-xs font-medium text-neutral sm:mt-0">
               {eventosDia.length}{" "}
               {eventosDia.length === 1 ? "activitat" : "activitats"}
             </span>
           </div>
 
-          <div className="mt-5 grid gap-3">
+          <div className="p-4 sm:p-5">
             {eventosDia.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-border bg-background p-6 text-center">
+              <div className="rounded-lg border border-dashed border-border px-5 py-8 text-center">
                 <p className="font-semibold text-neutral-titulos">
                   No hi ha activitats programades
                 </p>
@@ -812,144 +879,80 @@ export default function Calendari({
                 </p>
               </div>
             ) : (
-              eventosDia.map((evento) => {
-                const color = obtenerColor(evento.color);
+              <div className="divide-y divide-border">
+                {eventosDia.map((evento) => {
+                  const color = obtenerColor(evento.color);
 
-                return (
-                  <a
-                    key={evento.id}
-                    href={evento.enlace}
-                    className="flex flex-col gap-3 rounded-lg border border-border bg-background p-4 hover:border-secondary sm:flex-row sm:items-center"
-                  >
-                    <span
-                      className="h-12 w-1 shrink-0 rounded-full"
-                      style={{
-                        backgroundColor: color,
-                      }}
-                    />
-
-                    <div
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white"
-                      style={{
-                        backgroundColor: color,
-                      }}
+                  return (
+                    <a
+                      key={evento.id}
+                      href={evento.enlace}
+                      className="group flex items-start gap-3 py-4 first:pt-0 last:pb-0"
                     >
-                      {obtenerIconoDeporte(
-                        evento.deporte,
-                        "h-5 w-5 fill-white",
-                      )}
-                    </div>
+                      <span
+                        className="mt-1 h-9 w-1 shrink-0 rounded-full"
+                        style={{
+                          backgroundColor: color,
+                        }}
+                      />
 
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        {obtenerIconoDeporte(
-                          evento.deporte,
-                          "h-4 w-4 shrink-0 fill-neutral-titulos",
-                        )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                          <p className="font-semibold text-neutral-titulos transition group-hover:text-secondary">
+                            {nombreTipoActividad(evento.tipo)}
+                          </p>
 
-                        <p className="font-semibold text-neutral-titulos">
-                          {evento.titulo}
+                          <span
+                            className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                            style={{
+                              color,
+
+                              backgroundColor: colorConAlpha(color, "14"),
+                            }}
+                          >
+                            {evento.estado}
+                          </span>
+                        </div>
+
+                        <p className="mt-1 text-sm font-medium text-neutral-titulos">
+                          {evento.torneo}
+
+                          {evento.edicion && ` · ${evento.edicion}`}
                         </p>
+
+                        <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral">
+                          <span>{textoRangoEvento(evento)}</span>
+
+                          {evento.sede && <span>{evento.sede}</span>}
+
+                          {evento.deporte && (
+                            <span className="inline-flex items-center gap-1.5">
+                              {obtenerIconoDeporte(
+                                evento.deporte,
+                                "h-3.5 w-3.5 fill-current",
+                              )}
+
+                              {evento.deporte}
+                            </span>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-neutral">
-                        <span>{nombreTipoActividad(evento.tipo)}</span>
-
-                        {evento.sede && <span>{evento.sede}</span>}
-
-                        {evento.deporte && <span>{evento.deporte}</span>}
-
-                        <span>{evento.estado}</span>
-                      </div>
-                    </div>
-
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 -960 960 960"
-                      className="h-5 w-5 shrink-0 fill-neutral"
-                      aria-hidden="true"
-                    >
-                      <path d="m504-480-184-184 56-56 240 240-240 240-56-56z" />
-                    </svg>
-                  </a>
-                );
-              })
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 -960 960 960"
+                        className="mt-2 h-5 w-5 shrink-0 fill-neutral/50 transition group-hover:translate-x-0.5 group-hover:fill-secondary"
+                        aria-hidden="true"
+                      >
+                        <path d="m504-480-184-184 56-56 240 240-240 240-56-56z" />
+                      </svg>
+                    </a>
+                  );
+                })}
+              </div>
             )}
           </div>
         </section>
-
-        {/* ==============================================
-                    FILTRO RÁPIDO DE COMPETICIONES
-                ============================================== */}
-
-        {torneos.length > 0 && (
-          <section className="mt-8">
-            <h2 className="text-lg font-bold text-neutral-titulos">
-              Competicions
-            </h2>
-
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => seleccionarTorneo("")}
-                className={[
-                  "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm",
-
-                  !torneoActual
-                    ? "border-secondary bg-secondary text-white"
-                    : "border-border bg-card text-neutral hover:border-secondary",
-                ].join(" ")}
-              >
-                Totes
-              </button>
-
-              {torneos.map((torneo) => {
-                const colores = [
-                  ...new Set(
-                    eventos
-                      .filter((evento) => evento.torneoId === torneo.id)
-                      .map((evento) => evento.color),
-                  ),
-                ].slice(0, 3);
-
-                const activo = torneoActual === torneo.id;
-
-                return (
-                  <button
-                    key={torneo.id}
-                    type="button"
-                    onClick={() => seleccionarTorneo(torneo.id)}
-                    className={[
-                      "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm",
-
-                      activo
-                        ? "border-secondary bg-secondary text-white"
-                        : "border-border bg-card text-neutral hover:border-secondary",
-                    ].join(" ")}
-                  >
-                    <span className="flex items-center">
-                      {colores.map((color, indice) => (
-                        <span
-                          key={color}
-                          className={[
-                            "h-2.5 w-2.5 rounded-full border border-white/50",
-
-                            indice > 0 ? "-ml-1" : "",
-                          ].join(" ")}
-                          style={{
-                            backgroundColor: obtenerColor(color),
-                          }}
-                        />
-                      ))}
-                    </span>
-
-                    {torneo.nombre}
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-        )}
       </section>
     </main>
   );

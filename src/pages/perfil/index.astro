@@ -1183,7 +1183,7 @@ const totalAprobadas = formularios.filter(
           aprobadas={totalAprobadas}
         />
 
-        <InscripcionsObertes inscripciones={inscripcionesAbiertas} />
+        <InscripcionsObertes inscripciones={inscripcionesAbiertas ?? []} />
 
         <ActivitatRecent actividades={actividades} maximo={5} />
       </div>

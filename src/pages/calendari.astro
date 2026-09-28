@@ -172,9 +172,7 @@ function obtenerInscripcion(configuracion: unknown): PeriodoInscripcion | null {
 
 function estadoInscripcion(
   apertura: string,
-
   cierre: string,
-
   hoy: string,
 ): string {
   if (hoy < apertura) {
@@ -202,7 +200,9 @@ function nombreEstado(estado: string | null): string {
   if (
     valor === "en_preparacio" ||
     valor === "en preparacio" ||
-    valor === "en preparació"
+    valor === "en preparació" ||
+    valor === "en_preparacion" ||
+    valor === "en preparación"
   ) {
     return "Pròximament";
   }
@@ -220,63 +220,29 @@ function nombreEstado(estado: string | null): string {
 }
 
 // ============================================================
-// HASH
-// ============================================================
-
-function hashTexto(valor: string): number {
-  let hash = 0;
-
-  for (let i = 0; i < valor.length; i++) {
-    hash = (hash << 5) - hash + valor.charCodeAt(i);
-
-    hash |= 0;
-  }
-
-  return Math.abs(hash);
-}
-
-// ============================================================
 // COLOR ACTIVIDAD
 // ============================================================
 
 /*
- * Calendari.tsx tiene 12 colores.
+ * Únicamente usamos tres colores.
  *
- * Se organizan en 4 grupos:
+ * 0 = inscripción de equipos
+ * 1 = voluntariado
+ * 2 = jornada
  *
- * torneo A -> 0, 1, 2
- * torneo B -> 3, 4, 5
- * torneo C -> 6, 7, 8
- * torneo D -> 9, 10, 11
- *
- * Dentro de cada grupo:
- *
- * +0 = inscripción equipos
- * +1 = inscripción voluntariado
- * +2 = jornada
- *
- * Aunque dos torneos puedan compartir grupo,
- * dentro de un mismo torneo las tres actividades
- * siempre tendrán colores diferentes.
+ * El torneo se identifica mediante el texto,
+ * no mediante un color diferente.
  */
-function colorActividad(
-  torneoID: string,
-
-  tipo: TipoEventoCalendario,
-): number {
-  const grupo = hashTexto(torneoID) % 4;
-
-  const base = grupo * 3;
-
+function colorActividad(tipo: TipoEventoCalendario): number {
   switch (tipo) {
     case "inscripcion_equipos":
-      return base + 0;
+      return 0;
 
     case "inscripcion_voluntarios":
-      return base + 1;
+      return 1;
 
     case "jornada":
-      return base + 2;
+      return 2;
   }
 }
 
@@ -331,11 +297,11 @@ try {
     .from("torneos")
     .select(
       `
-                id,
-                nombre,
-                deporte,
-                activo
-            `,
+          id,
+          nombre,
+          deporte,
+          activo
+        `,
     )
     .eq("activo", true)
     .order("nombre", {
@@ -365,14 +331,14 @@ try {
       .from("ediciones")
       .select(
         `
-                    id,
-                    torneo_id,
-                    nombre,
-                    fecha_inicio,
-                    fecha_fin,
-                    estado,
-                    sede
-                `,
+            id,
+            torneo_id,
+            nombre,
+            fecha_inicio,
+            fecha_fin,
+            estado,
+            sede
+          `,
       )
       .in("torneo_id", idsTorneos);
 
@@ -398,10 +364,10 @@ try {
       .from("configuracion_ediciones")
       .select(
         `
-                    edicion_id,
-                    equipos,
-                    voluntarios
-                `,
+            edicion_id,
+            equipos,
+            voluntarios
+          `,
       )
       .in("edicion_id", idsEdiciones);
 
@@ -471,6 +437,10 @@ for (const edicion of edicionesDB) {
 
   const sede = edicion.sede?.trim() || "";
 
+  const enlaceBase = `/tornejos/${encodeURIComponent(
+    torneo.id,
+  )}?edicionID=${encodeURIComponent(edicion.id)}`;
+
   // ========================================================
   // JORNADAS DE JUEGO
   // ========================================================
@@ -510,9 +480,9 @@ for (const edicion of edicionesDB) {
 
       sede,
 
-      enlace: `/tornejos/${encodeURIComponent(torneo.id)}`,
+      enlace: enlaceBase,
 
-      color: colorActividad(torneo.id, tipo),
+      color: colorActividad(tipo),
     });
   }
 
@@ -562,9 +532,9 @@ for (const edicion of edicionesDB) {
 
       sede,
 
-      enlace: `/tornejos/${encodeURIComponent(torneo.id)}?seccio=inscripcio`,
+      enlace: `${enlaceBase}&seccio=inscripcio`,
 
-      color: colorActividad(torneo.id, tipo),
+      color: colorActividad(tipo),
     });
   }
 
@@ -604,9 +574,9 @@ for (const edicion of edicionesDB) {
 
       sede,
 
-      enlace: `/tornejos/${encodeURIComponent(torneo.id)}?seccio=voluntariat`,
+      enlace: `${enlaceBase}&seccio=voluntariat`,
 
-      color: colorActividad(torneo.id, tipo),
+      color: colorActividad(tipo),
     });
   }
 }
