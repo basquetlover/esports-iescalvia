@@ -146,7 +146,7 @@ export const MENU_PANEL_TORNEO: GrupoMenuPanel[] = [
 
         seccion: "partits",
 
-        estado: "Pròximament",
+        estado: "Activa",
 
         contexto: "edicion",
       },

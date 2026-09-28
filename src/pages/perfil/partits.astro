@@ -1,0 +1,2066 @@
+---
+import LayoutPerfil from "@layouts/LayoutPerfil.astro";
+
+import { obtenerUsuarioPorToken } from "@pages/api/sesiones/sesiones";
+import { supabaseAdmin } from "@utils/supabase";
+
+export const prerender = false;
+
+// ============================================================
+// TIPOS
+// ============================================================
+
+type EquipoPerfil = {
+    id: string;
+    formulario_id: string | null;
+    nombre: string | null;
+    escudo: string | null;
+};
+
+type PlazaPartidoDB = {
+    id: string;
+    edicion_id: string;
+    partido_id: string | null;
+
+    lado:
+        | "LOCAL"
+        | "VISITANTE"
+        | null;
+
+    origen_tipo: string | null;
+
+    equipo_origen_id: string | null;
+    origen_grupo_id: string | null;
+    origen_fase_id: string | null;
+    origen_posicion: number | null;
+    origen_partido_id: string | null;
+
+    equipo_resuelto_id: string | null;
+};
+
+type PartidoDB = {
+    id: string;
+    edicion_id: string;
+
+    fase_id: string;
+
+    fase_tipo: string | null;
+    tipo: string | null;
+
+    grupo_id: string | null;
+    ronda_id: string | null;
+
+    codigo: string | null;
+    nombre: string | null;
+
+    orden: number | null;
+    jornada: number | null;
+
+    estado: string | null;
+
+    fecha_hora: string | null;
+    pista: string | null;
+
+    duracion_estimada_min:
+        number | null;
+
+    publicado: boolean | null;
+
+    finalizado_at:
+        string | null;
+};
+
+type EdicionDB = {
+    id: string;
+    torneo_id: string;
+
+    nombre: string | null;
+    sede: string | null;
+
+    fecha_inicio: string | null;
+    fecha_fin: string | null;
+};
+
+type TorneoDB = {
+    id: string;
+
+    nombre: string | null;
+    deporte: string | null;
+
+    logo: string | null;
+    banner: string | null;
+};
+
+type FaseDB = {
+    id: string;
+    nombre: string | null;
+    tipo: string | null;
+};
+
+type GrupoDB = {
+    id: string;
+    nombre: string | null;
+};
+
+type RondaDB = {
+    id: string;
+    nombre: string | null;
+    tipo: string | null;
+};
+
+type EquipoPartido = {
+    id: string | null;
+    nombre: string;
+    escudo: string | null;
+    esUsuario: boolean;
+};
+
+type PartidoPerfil = {
+    id: string;
+
+    codigo: string | null;
+    nombre: string;
+
+    estado: string | null;
+
+    fecha_hora: string;
+
+    pista: string | null;
+
+    duracion:
+        number | null;
+
+    jornada:
+        number | null;
+
+    fase:
+        string | null;
+
+    grupo:
+        string | null;
+
+    ronda:
+        string | null;
+
+    local:
+        EquipoPartido;
+
+    visitante:
+        EquipoPartido;
+
+    torneo: {
+        id: string;
+        nombre: string;
+        deporte: string | null;
+        logo: string | null;
+        banner: string | null;
+    };
+
+    edicion: {
+        id: string;
+        nombre: string;
+        sede: string | null;
+    };
+};
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function fechaValida(
+    valor:
+        string | null,
+) {
+    if (
+        !valor
+    ) {
+        return null;
+    }
+
+    const fecha =
+        new Date(
+            valor,
+        );
+
+    if (
+        Number.isNaN(
+            fecha.getTime(),
+        )
+    ) {
+        return null;
+    }
+
+    return fecha;
+}
+
+function formatearDia(
+    valor:
+        string,
+) {
+    const fecha =
+        fechaValida(
+            valor,
+        );
+
+    if (
+        !fecha
+    ) {
+        return "";
+    }
+
+    return new Intl.DateTimeFormat(
+        "ca-ES",
+        {
+            weekday:
+                "long",
+
+            day:
+                "numeric",
+
+            month:
+                "long",
+
+            year:
+                "numeric",
+
+            timeZone:
+                "Europe/Madrid",
+        },
+    ).format(
+        fecha,
+    );
+}
+
+function formatearHora(
+    valor:
+        string,
+) {
+    const fecha =
+        fechaValida(
+            valor,
+        );
+
+    if (
+        !fecha
+    ) {
+        return "";
+    }
+
+    return new Intl.DateTimeFormat(
+        "ca-ES",
+        {
+            hour:
+                "2-digit",
+
+            minute:
+                "2-digit",
+
+            hour12:
+                false,
+
+            timeZone:
+                "Europe/Madrid",
+        },
+    ).format(
+        fecha,
+    );
+}
+
+function fechaCorta(
+    valor:
+        string,
+) {
+    const fecha =
+        fechaValida(
+            valor,
+        );
+
+    if (
+        !fecha
+    ) {
+        return {
+            dia:
+                "--",
+
+            mes:
+                "---",
+        };
+    }
+
+    return {
+        dia:
+            new Intl.DateTimeFormat(
+                "ca-ES",
+                {
+                    day:
+                        "2-digit",
+
+                    timeZone:
+                        "Europe/Madrid",
+                },
+            ).format(
+                fecha,
+            ),
+
+        mes:
+            new Intl.DateTimeFormat(
+                "ca-ES",
+                {
+                    month:
+                        "short",
+
+                    timeZone:
+                        "Europe/Madrid",
+                },
+            )
+                .format(
+                    fecha,
+                )
+                .replace(
+                    ".",
+                    "",
+                )
+                .toUpperCase(),
+    };
+}
+
+function estadoPartido(
+    valor:
+        string | null,
+) {
+    const estado =
+        valor
+            ?.trim()
+            .toUpperCase() ??
+        "";
+
+    if (
+        estado ===
+            "PROGRAMADO" ||
+        estado ===
+            "PROGRAMAT"
+    ) {
+        return {
+            texto:
+                "Programat",
+
+            clases:
+                "border-primary/20 bg-primary/10 text-primary",
+        };
+    }
+
+    if (
+        estado ===
+            "PREPARADO" ||
+        estado ===
+            "PREPARAT"
+    ) {
+        return {
+            texto:
+                "Preparat",
+
+            clases:
+                "border-primary/20 bg-primary/10 text-primary",
+        };
+    }
+
+    if (
+        estado ===
+            "EN_CURSO" ||
+        estado ===
+            "EN_CURS"
+    ) {
+        return {
+            texto:
+                "En curs",
+
+            clases:
+                "border-secondary/20 bg-secondary/10 text-secondary",
+        };
+    }
+
+    if (
+        estado ===
+            "APLAZADO" ||
+        estado ===
+            "AJORNAT"
+    ) {
+        return {
+            texto:
+                "Ajornat",
+
+            clases:
+                "border-secondary/20 bg-secondary/10 text-secondary",
+        };
+    }
+
+    if (
+        estado ===
+            "CANCELADO" ||
+        estado ===
+            "CANCEL·LAT"
+    ) {
+        return {
+            texto:
+                "Cancel·lat",
+
+            clases:
+                "border-error/20 bg-error/10 text-error",
+        };
+    }
+
+    return {
+        texto:
+            "Pròxim partit",
+
+        clases:
+            "border-border bg-background text-neutral",
+    };
+}
+
+function inicialEquipo(
+    nombre:
+        string,
+) {
+    return (
+        nombre
+            .trim()
+            .charAt(
+                0,
+            )
+            .toUpperCase() ||
+        "?"
+    );
+}
+
+function etiquetaPlaza(
+    plaza:
+        PlazaPartidoDB | null,
+) {
+    if (
+        !plaza
+    ) {
+        return "Per determinar";
+    }
+
+    const origen =
+        plaza.origen_tipo
+            ?.trim()
+            .toUpperCase() ??
+        "";
+
+    if (
+        origen ===
+        "GANADOR_PARTIDO"
+    ) {
+        return "Guanyador d'un partit";
+    }
+
+    if (
+        origen ===
+        "PERDEDOR_PARTIDO"
+    ) {
+        return "Perdedor d'un partit";
+    }
+
+    if (
+        origen ===
+        "POSICION_GRUPO"
+    ) {
+        return plaza.origen_posicion
+            ? `${plaza.origen_posicion}a posició de grup`
+            : "Posició de grup";
+    }
+
+    if (
+        origen ===
+        "POSICION_FASE"
+    ) {
+        return plaza.origen_posicion
+            ? `${plaza.origen_posicion}a posició de fase`
+            : "Posició de fase";
+    }
+
+    return "Per determinar";
+}
+
+function crearEquipoPartido(
+    plaza:
+        PlazaPartidoDB | null,
+
+    equiposPorID:
+        Map<
+            string,
+            EquipoPerfil
+        >,
+
+    idsEquiposUsuario:
+        Set<string>,
+): EquipoPartido {
+    const equipoID =
+        plaza
+            ?.equipo_resuelto_id ??
+        null;
+
+    if (
+        !equipoID
+    ) {
+        return {
+            id:
+                null,
+
+            nombre:
+                etiquetaPlaza(
+                    plaza,
+                ),
+
+            escudo:
+                null,
+
+            esUsuario:
+                false,
+        };
+    }
+
+    const equipo =
+        equiposPorID.get(
+            equipoID,
+        );
+
+    return {
+        id:
+            equipoID,
+
+        nombre:
+            equipo
+                ?.nombre
+                ?.trim() ||
+            "Equip",
+
+        escudo:
+            equipo
+                ?.escudo ??
+            null,
+
+        esUsuario:
+            idsEquiposUsuario.has(
+                equipoID,
+            ),
+    };
+}
+
+// ============================================================
+// SESIÓN
+// ============================================================
+
+const token =
+    Astro.cookies.get(
+        "token_sesion",
+    )?.value;
+
+const usuario =
+    token
+        ? await obtenerUsuarioPorToken(
+              token,
+          )
+        : null;
+
+// ============================================================
+// DATOS
+// ============================================================
+
+let partidos:
+    PartidoPerfil[] =
+    [];
+
+let errorCarga =
+    false;
+
+// ============================================================
+// CARGAR EQUIPOS DEL USUARIO
+// ============================================================
+
+if (
+    usuario
+) {
+    try {
+        const equiposUsuario =
+            new Map<
+                string,
+                EquipoPerfil
+            >();
+
+        // ====================================================
+        // EQUIPOS PROPIOS
+        // ====================================================
+
+        const {
+            data:
+                formulariosPropios,
+
+            error:
+                errorFormularios,
+        } =
+            await supabaseAdmin
+                .from(
+                    "formularios",
+                )
+                .select(
+                    "id",
+                )
+                .eq(
+                    "usuario_id",
+                    usuario.id,
+                )
+                .eq(
+                    "tipo",
+                    "EQUIPO",
+                );
+
+        if (
+            errorFormularios
+        ) {
+            throw errorFormularios;
+        }
+
+        const idsFormulariosPropios =
+            (
+                formulariosPropios ??
+                []
+            ).map(
+                formulario =>
+                    formulario.id,
+            );
+
+        if (
+            idsFormulariosPropios.length >
+            0
+        ) {
+            const {
+                data:
+                    equiposPropios,
+
+                error:
+                    errorEquiposPropios,
+            } =
+                await supabaseAdmin
+                    .from(
+                        "equipos",
+                    )
+                    .select(
+                        "id,formulario_id,nombre,escudo",
+                    )
+                    .in(
+                        "formulario_id",
+                        idsFormulariosPropios,
+                    );
+
+            if (
+                errorEquiposPropios
+            ) {
+                throw errorEquiposPropios;
+            }
+
+            for (
+                const equipo
+                of equiposPropios ??
+                    []
+            ) {
+                equiposUsuario.set(
+                    equipo.id,
+                    {
+                        id:
+                            equipo.id,
+
+                        formulario_id:
+                            equipo.formulario_id ??
+                            null,
+
+                        nombre:
+                            equipo.nombre ??
+                            null,
+
+                        escudo:
+                            equipo.escudo ??
+                            null,
+                    },
+                );
+            }
+        }
+
+        // ====================================================
+        // EQUIPOS COMO CAPITÁN
+        // ====================================================
+
+        const email =
+            usuario.email
+                ?.trim()
+                .toLowerCase() ??
+            "";
+
+        if (
+            email
+        ) {
+            const {
+                data:
+                    participantes,
+
+                error:
+                    errorParticipantes,
+            } =
+                await supabaseAdmin
+                    .from(
+                        "participantes_equipo",
+                    )
+                    .select(
+                        "id",
+                    )
+                    .eq(
+                        "email",
+                        email,
+                    )
+                    .eq(
+                        "activo",
+                        true,
+                    );
+
+            if (
+                errorParticipantes
+            ) {
+                throw errorParticipantes;
+            }
+
+            const idsParticipantes =
+                (
+                    participantes ??
+                    []
+                ).map(
+                    participante =>
+                        participante.id,
+                );
+
+            if (
+                idsParticipantes.length >
+                0
+            ) {
+                const {
+                    data:
+                        equiposCapitan,
+
+                    error:
+                        errorEquiposCapitan,
+                } =
+                    await supabaseAdmin
+                        .from(
+                            "equipos",
+                        )
+                        .select(
+                            "id,formulario_id,nombre,escudo,capitan_id",
+                        )
+                        .in(
+                            "capitan_id",
+                            idsParticipantes,
+                        );
+
+                if (
+                    errorEquiposCapitan
+                ) {
+                    throw errorEquiposCapitan;
+                }
+
+                for (
+                    const equipo
+                    of equiposCapitan ??
+                        []
+                ) {
+                    equiposUsuario.set(
+                        equipo.id,
+                        {
+                            id:
+                                equipo.id,
+
+                            formulario_id:
+                                equipo.formulario_id ??
+                                null,
+
+                            nombre:
+                                equipo.nombre ??
+                                null,
+
+                            escudo:
+                                equipo.escudo ??
+                                null,
+                        },
+                    );
+                }
+            }
+        }
+
+        // ====================================================
+        // PARTIDOS DONDE PARTICIPA ALGUNO DE SUS EQUIPOS
+        // ====================================================
+
+        const idsEquiposUsuarioArray = [
+            ...equiposUsuario.keys(),
+        ];
+
+        const idsEquiposUsuario =
+            new Set(
+                idsEquiposUsuarioArray,
+            );
+
+        if (
+            idsEquiposUsuarioArray.length >
+            0
+        ) {
+            const {
+                data:
+                    plazasUsuarioData,
+
+                error:
+                    errorPlazasUsuario,
+            } =
+                await supabaseAdmin
+                    .from(
+                        "competicion_plazas",
+                    )
+                    .select(
+                        "id,edicion_id,partido_id,lado,origen_tipo,equipo_origen_id,origen_grupo_id,origen_fase_id,origen_posicion,origen_partido_id,equipo_resuelto_id",
+                    )
+                    .eq(
+                        "destino_tipo",
+                        "PARTIDO",
+                    )
+                    .in(
+                        "equipo_resuelto_id",
+                        idsEquiposUsuarioArray,
+                    );
+
+            if (
+                errorPlazasUsuario
+            ) {
+                throw errorPlazasUsuario;
+            }
+
+            const plazasUsuario =
+                (
+                    plazasUsuarioData ??
+                    []
+                ) as PlazaPartidoDB[];
+
+            const idsPartidos = [
+                ...new Set(
+                    plazasUsuario
+                        .map(
+                            plaza =>
+                                plaza.partido_id,
+                        )
+                        .filter(
+                            (
+                                id,
+                            ): id is string =>
+                                typeof id ===
+                                    "string" &&
+                                Boolean(
+                                    id,
+                                ),
+                        ),
+                ),
+            ];
+
+            if (
+                idsPartidos.length >
+                0
+            ) {
+                // ==============================================
+                // PARTIDOS
+                // ==============================================
+
+                const {
+                    data:
+                        partidosData,
+
+                    error:
+                        errorPartidos,
+                } =
+                    await supabaseAdmin
+                        .from(
+                            "competicion_partidos",
+                        )
+                        .select(
+                            "id,edicion_id,fase_id,fase_tipo,tipo,grupo_id,ronda_id,codigo,nombre,orden,jornada,estado,fecha_hora,pista,duracion_estimada_min,publicado,finalizado_at",
+                        )
+                        .in(
+                            "id",
+                            idsPartidos,
+                        )
+                        .eq(
+                            "publicado",
+                            true,
+                        )
+                        .not(
+                            "fecha_hora",
+                            "is",
+                            null,
+                        );
+
+                if (
+                    errorPartidos
+                ) {
+                    throw errorPartidos;
+                }
+
+                const ahora =
+                    Date.now();
+
+                const partidosDB =
+                    (
+                        partidosData ??
+                        []
+                    )
+                        .filter(
+                            partido => {
+                                if (
+                                    !partido.fecha_hora
+                                ) {
+                                    return false;
+                                }
+
+                                const fecha =
+                                    fechaValida(
+                                        partido.fecha_hora,
+                                    );
+
+                                if (
+                                    !fecha
+                                ) {
+                                    return false;
+                                }
+
+                                const estado =
+                                    partido.estado
+                                        ?.trim()
+                                        .toUpperCase() ??
+                                    "";
+
+                                if (
+                                    estado ===
+                                        "FINALIZADO" ||
+                                    estado ===
+                                        "FINALITZAT" ||
+                                    estado ===
+                                        "FINALIZADA"
+                                ) {
+                                    return false;
+                                }
+
+                                return (
+                                    fecha.getTime() >=
+                                    ahora
+                                );
+                            },
+                        )
+                        .sort(
+                            (
+                                a,
+                                b,
+                            ) =>
+                                (
+                                    fechaValida(
+                                        a.fecha_hora,
+                                    )?.getTime() ??
+                                    0
+                                ) -
+                                (
+                                    fechaValida(
+                                        b.fecha_hora,
+                                    )?.getTime() ??
+                                    0
+                                ),
+                        ) as PartidoDB[];
+
+                const idsPartidosVisibles =
+                    partidosDB.map(
+                        partido =>
+                            partido.id,
+                    );
+
+                if (
+                    idsPartidosVisibles.length >
+                    0
+                ) {
+                    // ==========================================
+                    // TODAS LAS PLAZAS DE ESTOS PARTIDOS
+                    // ==========================================
+
+                    const {
+                        data:
+                            plazasPartidosData,
+
+                        error:
+                            errorPlazasPartidos,
+                    } =
+                        await supabaseAdmin
+                            .from(
+                                "competicion_plazas",
+                            )
+                            .select(
+                                "id,edicion_id,partido_id,lado,origen_tipo,equipo_origen_id,origen_grupo_id,origen_fase_id,origen_posicion,origen_partido_id,equipo_resuelto_id",
+                            )
+                            .eq(
+                                "destino_tipo",
+                                "PARTIDO",
+                            )
+                            .in(
+                                "partido_id",
+                                idsPartidosVisibles,
+                            );
+
+                    if (
+                        errorPlazasPartidos
+                    ) {
+                        throw errorPlazasPartidos;
+                    }
+
+                    const plazasPartidos =
+                        (
+                            plazasPartidosData ??
+                            []
+                        ) as PlazaPartidoDB[];
+
+                    // ==========================================
+                    // EQUIPOS RIVALES
+                    // ==========================================
+
+                    const idsTodosEquipos = [
+                        ...new Set(
+                            plazasPartidos
+                                .map(
+                                    plaza =>
+                                        plaza.equipo_resuelto_id,
+                                )
+                                .filter(
+                                    (
+                                        id,
+                                    ): id is string =>
+                                        typeof id ===
+                                            "string" &&
+                                        Boolean(
+                                            id,
+                                        ),
+                                ),
+                        ),
+                    ];
+
+                    const equiposPorID =
+                        new Map<
+                            string,
+                            EquipoPerfil
+                        >(
+                            equiposUsuario,
+                        );
+
+                    const idsEquiposFaltantes =
+                        idsTodosEquipos.filter(
+                            id =>
+                                !equiposPorID.has(
+                                    id,
+                                ),
+                        );
+
+                    if (
+                        idsEquiposFaltantes.length >
+                        0
+                    ) {
+                        const {
+                            data:
+                                rivalesData,
+
+                            error:
+                                errorRivales,
+                        } =
+                            await supabaseAdmin
+                                .from(
+                                    "equipos",
+                                )
+                                .select(
+                                    "id,formulario_id,nombre,escudo",
+                                )
+                                .in(
+                                    "id",
+                                    idsEquiposFaltantes,
+                                );
+
+                        if (
+                            errorRivales
+                        ) {
+                            throw errorRivales;
+                        }
+
+                        for (
+                            const equipo
+                            of rivalesData ??
+                                []
+                        ) {
+                            equiposPorID.set(
+                                equipo.id,
+                                {
+                                    id:
+                                        equipo.id,
+
+                                    formulario_id:
+                                        equipo.formulario_id ??
+                                        null,
+
+                                    nombre:
+                                        equipo.nombre ??
+                                        null,
+
+                                    escudo:
+                                        equipo.escudo ??
+                                        null,
+                                },
+                            );
+                        }
+                    }
+
+                    // ==========================================
+                    // EDICIONES
+                    // ==========================================
+
+                    const idsEdiciones = [
+                        ...new Set(
+                            partidosDB.map(
+                                partido =>
+                                    partido.edicion_id,
+                            ),
+                        ),
+                    ];
+
+                    const {
+                        data:
+                            edicionesData,
+
+                        error:
+                            errorEdiciones,
+                    } =
+                        await supabaseAdmin
+                            .from(
+                                "ediciones",
+                            )
+                            .select(
+                                "id,torneo_id,nombre,sede,fecha_inicio,fecha_fin",
+                            )
+                            .in(
+                                "id",
+                                idsEdiciones,
+                            );
+
+                    if (
+                        errorEdiciones
+                    ) {
+                        throw errorEdiciones;
+                    }
+
+                    const ediciones =
+                        (
+                            edicionesData ??
+                            []
+                        ) as EdicionDB[];
+
+                    const edicionPorID =
+                        new Map(
+                            ediciones.map(
+                                edicion => [
+                                    edicion.id,
+                                    edicion,
+                                ],
+                            ),
+                        );
+
+                    // ==========================================
+                    // TORNEOS
+                    // ==========================================
+
+                    const idsTorneos = [
+                        ...new Set(
+                            ediciones.map(
+                                edicion =>
+                                    edicion.torneo_id,
+                            ),
+                        ),
+                    ];
+
+                    let torneos:
+                        TorneoDB[] =
+                        [];
+
+                    if (
+                        idsTorneos.length >
+                        0
+                    ) {
+                        const {
+                            data:
+                                torneosData,
+
+                            error:
+                                errorTorneos,
+                        } =
+                            await supabaseAdmin
+                                .from(
+                                    "torneos",
+                                )
+                                .select(
+                                    "id,nombre,deporte,logo,banner",
+                                )
+                                .in(
+                                    "id",
+                                    idsTorneos,
+                                );
+
+                        if (
+                            errorTorneos
+                        ) {
+                            throw errorTorneos;
+                        }
+
+                        torneos =
+                            (
+                                torneosData ??
+                                []
+                            ) as TorneoDB[];
+                    }
+
+                    const torneoPorID =
+                        new Map(
+                            torneos.map(
+                                torneo => [
+                                    torneo.id,
+                                    torneo,
+                                ],
+                            ),
+                        );
+
+                    // ==========================================
+                    // FASES
+                    // ==========================================
+
+                    const idsFases = [
+                        ...new Set(
+                            partidosDB.map(
+                                partido =>
+                                    partido.fase_id,
+                            ),
+                        ),
+                    ];
+
+                    let fases:
+                        FaseDB[] =
+                        [];
+
+                    if (
+                        idsFases.length >
+                        0
+                    ) {
+                        const {
+                            data:
+                                fasesData,
+
+                            error:
+                                errorFases,
+                        } =
+                            await supabaseAdmin
+                                .from(
+                                    "competicion_fases",
+                                )
+                                .select(
+                                    "id,nombre,tipo",
+                                )
+                                .in(
+                                    "id",
+                                    idsFases,
+                                );
+
+                        if (
+                            errorFases
+                        ) {
+                            throw errorFases;
+                        }
+
+                        fases =
+                            (
+                                fasesData ??
+                                []
+                            ) as FaseDB[];
+                    }
+
+                    const fasePorID =
+                        new Map(
+                            fases.map(
+                                fase => [
+                                    fase.id,
+                                    fase,
+                                ],
+                            ),
+                        );
+
+                    // ==========================================
+                    // GRUPOS
+                    // ==========================================
+
+                    const idsGrupos = [
+                        ...new Set(
+                            partidosDB
+                                .map(
+                                    partido =>
+                                        partido.grupo_id,
+                                )
+                                .filter(
+                                    (
+                                        id,
+                                    ): id is string =>
+                                        typeof id ===
+                                            "string" &&
+                                        Boolean(
+                                            id,
+                                        ),
+                                ),
+                        ),
+                    ];
+
+                    let grupos:
+                        GrupoDB[] =
+                        [];
+
+                    if (
+                        idsGrupos.length >
+                        0
+                    ) {
+                        const {
+                            data:
+                                gruposData,
+
+                            error:
+                                errorGrupos,
+                        } =
+                            await supabaseAdmin
+                                .from(
+                                    "competicion_grupos",
+                                )
+                                .select(
+                                    "id,nombre",
+                                )
+                                .in(
+                                    "id",
+                                    idsGrupos,
+                                );
+
+                        if (
+                            errorGrupos
+                        ) {
+                            throw errorGrupos;
+                        }
+
+                        grupos =
+                            (
+                                gruposData ??
+                                []
+                            ) as GrupoDB[];
+                    }
+
+                    const grupoPorID =
+                        new Map(
+                            grupos.map(
+                                grupo => [
+                                    grupo.id,
+                                    grupo,
+                                ],
+                            ),
+                        );
+
+                    // ==========================================
+                    // RONDAS
+                    // ==========================================
+
+                    const idsRondas = [
+                        ...new Set(
+                            partidosDB
+                                .map(
+                                    partido =>
+                                        partido.ronda_id,
+                                )
+                                .filter(
+                                    (
+                                        id,
+                                    ): id is string =>
+                                        typeof id ===
+                                            "string" &&
+                                        Boolean(
+                                            id,
+                                        ),
+                                ),
+                        ),
+                    ];
+
+                    let rondas:
+                        RondaDB[] =
+                        [];
+
+                    if (
+                        idsRondas.length >
+                        0
+                    ) {
+                        const {
+                            data:
+                                rondasData,
+
+                            error:
+                                errorRondas,
+                        } =
+                            await supabaseAdmin
+                                .from(
+                                    "competicion_rondas",
+                                )
+                                .select(
+                                    "id,nombre,tipo",
+                                )
+                                .in(
+                                    "id",
+                                    idsRondas,
+                                );
+
+                        if (
+                            errorRondas
+                        ) {
+                            throw errorRondas;
+                        }
+
+                        rondas =
+                            (
+                                rondasData ??
+                                []
+                            ) as RondaDB[];
+                    }
+
+                    const rondaPorID =
+                        new Map(
+                            rondas.map(
+                                ronda => [
+                                    ronda.id,
+                                    ronda,
+                                ],
+                            ),
+                        );
+
+                    // ==========================================
+                    // CONSTRUIR PARTIDOS
+                    // ==========================================
+
+                    partidos =
+                        partidosDB.flatMap(
+                            partido => {
+                                if (
+                                    !partido.fecha_hora
+                                ) {
+                                    return [];
+                                }
+
+                                const edicion =
+                                    edicionPorID.get(
+                                        partido.edicion_id,
+                                    );
+
+                                if (
+                                    !edicion
+                                ) {
+                                    return [];
+                                }
+
+                                const torneo =
+                                    torneoPorID.get(
+                                        edicion.torneo_id,
+                                    );
+
+                                if (
+                                    !torneo
+                                ) {
+                                    return [];
+                                }
+
+                                const plazas =
+                                    plazasPartidos.filter(
+                                        plaza =>
+                                            plaza.partido_id ===
+                                            partido.id,
+                                    );
+
+                                const plazaLocal =
+                                    plazas.find(
+                                        plaza =>
+                                            plaza.lado ===
+                                            "LOCAL",
+                                    ) ??
+                                    null;
+
+                                const plazaVisitante =
+                                    plazas.find(
+                                        plaza =>
+                                            plaza.lado ===
+                                            "VISITANTE",
+                                    ) ??
+                                    null;
+
+                                const local =
+                                    crearEquipoPartido(
+                                        plazaLocal,
+                                        equiposPorID,
+                                        idsEquiposUsuario,
+                                    );
+
+                                const visitante =
+                                    crearEquipoPartido(
+                                        plazaVisitante,
+                                        equiposPorID,
+                                        idsEquiposUsuario,
+                                    );
+
+                                if (
+                                    !local.esUsuario &&
+                                    !visitante.esUsuario
+                                ) {
+                                    return [];
+                                }
+
+                                const fase =
+                                    fasePorID.get(
+                                        partido.fase_id,
+                                    );
+
+                                const grupo =
+                                    partido.grupo_id
+                                        ? grupoPorID.get(
+                                              partido.grupo_id,
+                                          )
+                                        : null;
+
+                                const ronda =
+                                    partido.ronda_id
+                                        ? rondaPorID.get(
+                                              partido.ronda_id,
+                                          )
+                                        : null;
+
+                                return [
+                                    {
+                                        id:
+                                            partido.id,
+
+                                        codigo:
+                                            partido.codigo,
+
+                                        nombre:
+                                            partido.nombre?.trim() ||
+                                            "Partit",
+
+                                        estado:
+                                            partido.estado,
+
+                                        fecha_hora:
+                                            partido.fecha_hora,
+
+                                        pista:
+                                            partido.pista?.trim() ||
+                                            null,
+
+                                        duracion:
+                                            partido.duracion_estimada_min,
+
+                                        jornada:
+                                            partido.jornada,
+
+                                        fase:
+                                            fase
+                                                ?.nombre
+                                                ?.trim() ||
+                                            null,
+
+                                        grupo:
+                                            grupo
+                                                ?.nombre
+                                                ?.trim() ||
+                                            null,
+
+                                        ronda:
+                                            ronda
+                                                ?.nombre
+                                                ?.trim() ||
+                                            null,
+
+                                        local,
+
+                                        visitante,
+
+                                        torneo: {
+                                            id:
+                                                torneo.id,
+
+                                            nombre:
+                                                torneo.nombre?.trim() ||
+                                                "Torneig",
+
+                                            deporte:
+                                                torneo.deporte?.trim() ||
+                                                null,
+
+                                            logo:
+                                                torneo.logo ??
+                                                null,
+
+                                            banner:
+                                                torneo.banner ??
+                                                null,
+                                        },
+
+                                        edicion: {
+                                            id:
+                                                edicion.id,
+
+                                            nombre:
+                                                edicion.nombre?.trim() ||
+                                                "Edició",
+
+                                            sede:
+                                                edicion.sede?.trim() ||
+                                                null,
+                                        },
+                                    } satisfies PartidoPerfil,
+                                ];
+                            },
+                        );
+                }
+            }
+        }
+    } catch (
+        error
+    ) {
+        console.error(
+            "Error carregant els pròxims partits del perfil:",
+            error,
+        );
+
+        errorCarga =
+            true;
+    }
+}
+---
+
+<LayoutPerfil title="Pròxims partits">
+    {
+        usuario && (
+            <div class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
+
+                <!-- =================================================
+                    CABECERA
+                ================================================== -->
+
+                <header class="mb-8 flex flex-wrap items-end justify-between gap-4">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+                            Competició
+                        </p>
+
+                        <h1 class="mt-1 text-2xl font-bold tracking-tight text-neutral-titulos sm:text-3xl">
+                            Pròxims partits
+                        </h1>
+
+                        <p class="mt-2 max-w-2xl text-sm leading-6 text-neutral">
+                            Consulta els pròxims partits publicats dels equips
+                            en què participes com a responsable o capità.
+                        </p>
+                    </div>
+
+                    <a
+                        href="/perfil/inscripcions?tipus=equips"
+                        class="inline-flex min-h-10 items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-semibold text-neutral-titulos transition hover:border-primary/30 hover:text-primary"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 -960 960 960"
+                            class="h-4 w-4 fill-current"
+                            aria-hidden="true"
+                        >
+                            <path d="M40-160v-112q0-34 17.5-62.5T104-378q62-31 126-46.5T360-440t130 15.5T616-378q29 15 46.5 43.5T680-272v112H40ZM360-480q-66 0-113-47t-47-113 47-113 113-47 113 47 47 113-47 113-113 47Z"></path>
+                        </svg>
+
+                        Els meus equips
+                    </a>
+                </header>
+
+                <!-- =================================================
+                    ERROR
+                ================================================== -->
+
+                {
+                    errorCarga && (
+                        <div class="rounded-2xl border border-error/20 bg-error/5 p-5">
+                            <div class="flex items-start gap-3">
+                                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-error/10 text-error">
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        viewBox="0 -960 960 960"
+                                        class="h-5 w-5 fill-current"
+                                        aria-hidden="true"
+                                    >
+                                        <path d="M480-280q17 0 28.5-11.5T520-320q0-17-11.5-28.5T480-360q-17 0-28.5 11.5T440-320q0 17 11.5 28.5T480-280Zm-40-160h80v-240h-80v240Z"></path>
+                                    </svg>
+                                </span>
+
+                                <div>
+                                    <h2 class="font-semibold text-neutral-titulos">
+                                        No s'han pogut carregar els partits
+                                    </h2>
+
+                                    <p class="mt-1 text-sm leading-6 text-neutral">
+                                        Torna-ho a provar més tard.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )
+                }
+
+                <!-- =================================================
+                    PARTIDOS
+                ================================================== -->
+
+                {
+                    !errorCarga &&
+                    partidos.length > 0 && (
+                        <div class="grid gap-5 lg:grid-cols-2">
+                            {
+                                partidos.map(
+                                    partido => {
+                                        const fecha =
+                                            fechaCorta(
+                                                partido.fecha_hora,
+                                            );
+
+                                        const estado =
+                                            estadoPartido(
+                                                partido.estado,
+                                            );
+
+                                        return (
+                                            <article class="overflow-hidden rounded-2xl border border-border bg-card transition hover:border-primary/25 hover:shadow-md">
+
+                                                <!-- =============================
+                                                    CABECERA PARTIDO
+                                                ============================== -->
+
+                                                <div class="border-b border-border bg-background/50 px-4 py-3 sm:px-5">
+                                                    <div class="flex flex-wrap items-center justify-between gap-3">
+
+                                                        <div class="flex min-w-0 items-center gap-3">
+                                                            {
+                                                                partido.torneo.logo ? (
+                                                                    <div class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-card p-1">
+                                                                        <img
+                                                                            src={partido.torneo.logo}
+                                                                            alt=""
+                                                                            class="h-full w-full object-contain"
+                                                                        />
+                                                                    </div>
+                                                                ) : (
+                                                                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                                                        <svg
+                                                                            xmlns="http://www.w3.org/2000/svg"
+                                                                            viewBox="0 -960 960 960"
+                                                                            class="h-5 w-5 fill-current"
+                                                                            aria-hidden="true"
+                                                                        >
+                                                                            <path d="M280-120v-80h160v-124q-49-11-87.5-41.5T296-442q-75-9-125.5-65.5T120-640v-40q0-33 23.5-56.5T200-760h80v-80h400v80h80q33 0 56.5 23.5T840-680v40q0 76-50.5 132.5T664-442q-18 46-56.5 76.5T520-324v124h160v80H280Z"></path>
+                                                                        </svg>
+                                                                    </span>
+                                                                )
+                                                            }
+
+                                                            <div class="min-w-0">
+                                                                <p class="truncate text-sm font-bold text-neutral-titulos">
+                                                                    {partido.torneo.nombre}
+                                                                </p>
+
+                                                                <p class="truncate text-xs text-neutral">
+                                                                    {partido.edicion.nombre}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+
+                                                        <span
+                                                            class={`rounded-lg border px-2.5 py-1 text-[11px] font-bold ${estado.clases}`}
+                                                        >
+                                                            {estado.texto}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                <!-- =============================
+                                                    CONTENIDO
+                                                ============================== -->
+
+                                                <div class="p-4 sm:p-5">
+
+                                                    <!-- FECHA -->
+
+                                                    <div class="mb-5 flex items-center gap-4">
+                                                        <div class="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-xl bg-primary text-white">
+                                                            <span class="text-2xl font-bold leading-none">
+                                                                {fecha.dia}
+                                                            </span>
+
+                                                            <span class="mt-1 text-[10px] font-bold tracking-[0.12em]">
+                                                                {fecha.mes}
+                                                            </span>
+                                                        </div>
+
+                                                        <div class="min-w-0">
+                                                            <p class="capitalize text-sm font-semibold text-neutral-titulos">
+                                                                {formatearDia(partido.fecha_hora)}
+                                                            </p>
+
+                                                            <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral">
+                                                                <span class="flex items-center gap-1.5">
+                                                                    <svg
+                                                                        xmlns="http://www.w3.org/2000/svg"
+                                                                        viewBox="0 -960 960 960"
+                                                                        class="h-4 w-4 fill-primary"
+                                                                        aria-hidden="true"
+                                                                    >
+                                                                        <path d="M480-120q-150 0-255-105T120-480q0-150 105-255t255-105q150 0 255 105t105 255q0 150-105 255T480-120Zm112-184 56-56-128-128v-192h-80v224l152 152Z"></path>
+                                                                    </svg>
+
+                                                                    <strong class="font-semibold text-neutral-titulos">
+                                                                        {formatearHora(partido.fecha_hora)}
+                                                                    </strong>
+                                                                </span>
+
+                                                                {
+                                                                    partido.pista && (
+                                                                        <span class="flex items-center gap-1.5">
+                                                                            <svg
+                                                                                xmlns="http://www.w3.org/2000/svg"
+                                                                                viewBox="0 -960 960 960"
+                                                                                class="h-4 w-4 fill-primary"
+                                                                                aria-hidden="true"
+                                                                            >
+                                                                                <path d="M480-80q-15 0-30-5t-26-15Q274-231 197-343.5T120-560q0-150 105-255t255-105q150 0 255 105t105 255q0 104-77 216.5T536-100q-11 10-26 15t-30 5Zm0-400q33 0 56.5-23.5T560-560q0-33-23.5-56.5T480-640q-33 0-56.5 23.5T400-560q0 33 23.5 56.5T480-480Z"></path>
+                                                                            </svg>
+
+                                                                            {partido.pista}
+                                                                        </span>
+                                                                    )
+                                                                }
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- EQUIPOS -->
+
+                                                    <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-2xl border border-border bg-background p-4">
+
+                                                        <!-- LOCAL -->
+
+                                                        <div class="min-w-0 text-center">
+                                                            <div class="mx-auto flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl border border-border bg-card">
+                                                                {
+                                                                    partido.local.escudo ? (
+                                                                        <img
+                                                                            src={partido.local.escudo}
+                                                                            alt=""
+                                                                            class="h-full w-full object-contain p-1.5"
+                                                                        />
+                                                                    ) : (
+                                                                        <span class="text-xl font-bold text-primary">
+                                                                            {inicialEquipo(partido.local.nombre)}
+                                                                        </span>
+                                                                    )
+                                                                }
+                                                            </div>
+
+                                                            <p class="mt-2 line-clamp-2 text-sm font-bold text-neutral-titulos">
+                                                                {partido.local.nombre}
+                                                            </p>
+
+                                                            {
+                                                                partido.local.esUsuario && (
+                                                                    <span class="mt-1 inline-flex rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+                                                                        El teu equip
+                                                                    </span>
+                                                                )
+                                                            }
+                                                        </div>
+
+                                                        <!-- VS -->
+
+                                                        <div class="text-center">
+                                                            <span class="text-xs font-bold uppercase tracking-[0.16em] text-neutral/45">
+                                                                VS
+                                                            </span>
+
+                                                            <p class="mt-1 text-lg font-bold text-neutral-titulos">
+                                                                {formatearHora(partido.fecha_hora)}
+                                                            </p>
+                                                        </div>
+
+                                                        <!-- VISITANTE -->
+
+                                                        <div class="min-w-0 text-center">
+                                                            <div class="mx-auto flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl border border-border bg-card">
+                                                                {
+                                                                    partido.visitante.escudo ? (
+                                                                        <img
+                                                                            src={partido.visitante.escudo}
+                                                                            alt=""
+                                                                            class="h-full w-full object-contain p-1.5"
+                                                                        />
+                                                                    ) : (
+                                                                        <span class="text-xl font-bold text-primary">
+                                                                            {inicialEquipo(partido.visitante.nombre)}
+                                                                        </span>
+                                                                    )
+                                                                }
+                                                            </div>
+
+                                                            <p class="mt-2 line-clamp-2 text-sm font-bold text-neutral-titulos">
+                                                                {partido.visitante.nombre}
+                                                            </p>
+
+                                                            {
+                                                                partido.visitante.esUsuario && (
+                                                                    <span class="mt-1 inline-flex rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+                                                                        El teu equip
+                                                                    </span>
+                                                                )
+                                                            }
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- COMPETICIÓN -->
+
+                                                    <div class="mt-4 flex flex-wrap gap-2">
+                                                        {
+                                                            partido.fase && (
+                                                                <span class="rounded-lg bg-background px-2.5 py-1 text-[11px] font-semibold text-neutral">
+                                                                    {partido.fase}
+                                                                </span>
+                                                            )
+                                                        }
+
+                                                        {
+                                                            partido.grupo && (
+                                                                <span class="rounded-lg bg-background px-2.5 py-1 text-[11px] font-semibold text-neutral">
+                                                                    {partido.grupo}
+                                                                </span>
+                                                            )
+                                                        }
+
+                                                        {
+                                                            partido.ronda && (
+                                                                <span class="rounded-lg bg-background px-2.5 py-1 text-[11px] font-semibold text-neutral">
+                                                                    {partido.ronda}
+                                                                </span>
+                                                            )
+                                                        }
+
+                                                        {
+                                                            partido.jornada !== null && (
+                                                                <span class="rounded-lg bg-background px-2.5 py-1 text-[11px] font-semibold text-neutral">
+                                                                    Jornada {partido.jornada}
+                                                                </span>
+                                                            )
+                                                        }
+                                                    </div>
+
+                                                    <!-- PIE -->
+
+                                                    <div class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+                                                        <div class="min-w-0">
+                                                            <p class="text-xs font-semibold text-neutral-titulos">
+                                                                {partido.nombre}
+                                                            </p>
+
+                                                            {
+                                                                partido.codigo && (
+                                                                    <p class="mt-0.5 text-[10px] text-neutral/60">
+                                                                        {partido.codigo}
+                                                                    </p>
+                                                                )
+                                                            }
+                                                        </div>
+
+                                                        <a
+                                                            href={`/tornejos/${encodeURIComponent(partido.torneo.id)}`}
+                                                            class="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-primary px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/10"
+                                                        >
+                                                            Veure torneig
+
+                                                            <svg
+                                                                xmlns="http://www.w3.org/2000/svg"
+                                                                viewBox="0 -960 960 960"
+                                                                class="h-3.5 w-3.5 fill-current"
+                                                                aria-hidden="true"
+                                                            >
+                                                                <path d="m647-440-224 224 57 56 320-320-320-320-57 56 224 224H160v80h487Z"></path>
+                                                            </svg>
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            </article>
+                                        );
+                                    },
+                                )
+                            }
+                        </div>
+                    )
+                }
+
+                <!-- =================================================
+                    VACÍO
+                ================================================== -->
+
+                {
+                    !errorCarga &&
+                    partidos.length === 0 && (
+                        <div class="rounded-2xl border border-border bg-card px-6 py-14 text-center">
+                            <span class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 -960 960 960"
+                                    class="h-7 w-7 fill-current"
+                                    aria-hidden="true"
+                                >
+                                    <path d="M200-80q-33 0-56.5-23.5T120-160v-560q0-33 23.5-56.5T200-800h40v-80h80v80h320v-80h80v80h40q33 0 56.5 23.5T840-720v560q0 33-23.5 56.5T760-80H200Zm0-80h560v-400H200v400Zm280-80q-50 0-85-35t-35-85q0-50 35-85t85-35q50 0 85 35t35 85q0 50-35 85t-85 35Z"></path>
+                                </svg>
+                            </span>
+
+                            <h2 class="mt-4 text-lg font-bold text-neutral-titulos">
+                                No tens cap partit pròxim
+                            </h2>
+
+                            <p class="mx-auto mt-2 max-w-lg text-sm leading-6 text-neutral">
+                                Quan l'organització publiqui el calendari d'un
+                                dels teus equips, els pròxims partits apareixeran aquí.
+                            </p>
+
+                            <a
+                                href="/perfil/inscripcions?tipus=equips"
+                                class="mt-5 inline-flex min-h-10 items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary/90"
+                            >
+                                Veure els meus equips
+                            </a>
+                        </div>
+                    )
+                }
+            </div>
+        )
+    }
+</LayoutPerfil>

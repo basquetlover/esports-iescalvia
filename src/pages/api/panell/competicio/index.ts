@@ -542,6 +542,23 @@ async function siguienteOrdenPartido(rondaID: string) {
   return (data?.[0]?.orden ?? -1) + 1;
 }
 
+async function siguienteOrdenPartidoGrupo(grupoID: string) {
+  const { data, error } = await supabaseAdmin
+    .from("competicion_partidos")
+    .select("orden")
+    .eq("grupo_id", grupoID)
+    .order("orden", {
+      ascending: false,
+    })
+    .limit(1);
+
+  if (error) {
+    throw error;
+  }
+
+  return (data?.[0]?.orden ?? -1) + 1;
+}
+
 // ============================================================
 // EQUIPOS
 // ============================================================
@@ -1349,9 +1366,102 @@ export const POST: APIRoute = async ({ cookies, request, url }) => {
     // =================================================
 
     if (accion === "crear_partido") {
-      const rondaID = identificador(entrada.rondaID, "ronda");
+      const rondaEntrada =
+        typeof entrada.rondaID === "string" && entrada.rondaID.trim()
+          ? entrada.rondaID
+          : null;
 
-      const { ronda, fase } = await exigirRonda(rondaID, edicionID);
+      const grupoEntrada =
+        typeof entrada.grupoID === "string" && entrada.grupoID.trim()
+          ? entrada.grupoID
+          : null;
+
+      if ((!rondaEntrada && !grupoEntrada) || (rondaEntrada && grupoEntrada)) {
+        throw new ErrorAPI(
+          400,
+          "Indica una ronda eliminatòria o un grup per crear el partit.",
+        );
+      }
+
+      // ===============================================
+      // PARTIDO ELIMINATORIO
+      // ===============================================
+
+      if (rondaEntrada) {
+        const rondaID = identificador(rondaEntrada, "ronda");
+
+        const { ronda, fase } = await exigirRonda(rondaID, edicionID);
+
+        if (fase.estado !== "BORRADOR") {
+          throw new ErrorAPI(
+            409,
+            "Només es poden crear partits mentre la fase està en esborrany.",
+          );
+        }
+
+        const orden = await siguienteOrdenPartido(ronda.id);
+
+        const nombreEntrada = texto(entrada.nombre, "nom", 120);
+
+        const nombre = nombreEntrada || `${ronda.nombre} ${orden + 1}`;
+
+        const codigo = `E${fase.orden + 1}-R${ronda.orden + 1}-P${orden + 1}-${ronda.id
+          .slice(0, 4)
+          .toUpperCase()}`;
+
+        const { data, error } = await supabaseAdmin
+          .from("competicion_partidos")
+          .insert({
+            edicion_id: edicionID,
+
+            fase_id: fase.id,
+
+            fase_tipo: "ELIMINATORIA",
+
+            tipo: "ELIMINATORIA",
+
+            grupo_id: null,
+
+            ronda_id: ronda.id,
+
+            codigo,
+
+            nombre,
+
+            orden,
+
+            jornada: null,
+
+            estado: "BORRADOR",
+
+            publicado: false,
+          })
+          .select(
+            "id,edicion_id,fase_id,fase_tipo,tipo,grupo_id,ronda_id,codigo,nombre,orden,jornada,estado,fecha_hora,pista,duracion_estimada_min,publicado,finalizado_at,created_at,updated_at",
+          )
+          .single();
+
+        if (error) {
+          throw error;
+        }
+
+        return responder(
+          {
+            success: true,
+
+            partido: data,
+          },
+          201,
+        );
+      }
+
+      // ===============================================
+      // PARTIDO DE GRUPO
+      // ===============================================
+
+      const grupoID = identificador(grupoEntrada, "grup");
+
+      const { grupo, fase } = await exigirGrupo(grupoID, edicionID);
 
       if (fase.estado !== "BORRADOR") {
         throw new ErrorAPI(
@@ -1360,30 +1470,85 @@ export const POST: APIRoute = async ({ cookies, request, url }) => {
         );
       }
 
-      const orden = await siguienteOrdenPartido(ronda.id);
+      if (grupo.estado !== "PREPARADO") {
+        throw new ErrorAPI(
+          409,
+          "Només es poden crear partits mentre el grup està en preparació.",
+        );
+      }
+
+      const localID = identificador(entrada.localID, "equip local");
+
+      const visitanteID = identificador(entrada.visitanteID, "equip visitant");
+
+      if (localID === visitanteID) {
+        throw new ErrorAPI(409, "Un equip no pot jugar contra si mateix.");
+      }
+
+      await Promise.all([
+        exigirEquipoActivoCompeticion(edicionID, localID),
+        exigirEquipoActivoCompeticion(edicionID, visitanteID),
+      ]);
+
+      const { data: plazasEquiposGrupo, error: errorEquiposGrupo } =
+        await supabaseAdmin
+          .from("competicion_plazas")
+          .select("equipo_resuelto_id")
+          .eq("edicion_id", edicionID)
+          .eq("destino_fase_id", fase.id)
+          .eq("destino_tipo", "GRUPO")
+          .eq("grupo_id", grupo.id)
+          .in("equipo_resuelto_id", [localID, visitanteID]);
+
+      if (errorEquiposGrupo) {
+        throw errorEquiposGrupo;
+      }
+
+      const equiposPresentes = new Set(
+        (plazasEquiposGrupo ?? [])
+          .map((plaza) => plaza.equipo_resuelto_id)
+          .filter((id): id is string => typeof id === "string" && Boolean(id)),
+      );
+
+      if (!equiposPresentes.has(localID)) {
+        throw new ErrorAPI(409, "L'equip local no forma part d'aquest grup.");
+      }
+
+      if (!equiposPresentes.has(visitanteID)) {
+        throw new ErrorAPI(
+          409,
+          "L'equip visitant no forma part d'aquest grup.",
+        );
+      }
+
+      const jornada = enteroPositivo(entrada.jornada ?? 1, "jornada");
+
+      const orden = await siguienteOrdenPartidoGrupo(grupo.id);
 
       const nombreEntrada = texto(entrada.nombre, "nom", 120);
 
-      const nombre = nombreEntrada || `${ronda.nombre} ${orden + 1}`;
+      const nombre =
+        nombreEntrada ||
+        `${grupo.nombre} · Jornada ${jornada} · Partit ${orden + 1}`;
 
-      const codigo = `E${fase.orden + 1}-R${ronda.orden + 1}-P${orden + 1}-${ronda.id
+      const codigo = `F${fase.orden + 1}-G${grupo.orden + 1}-P${orden + 1}-${grupo.id
         .slice(0, 4)
         .toUpperCase()}`;
 
-      const { data, error } = await supabaseAdmin
+      const { data: partido, error: errorPartido } = await supabaseAdmin
         .from("competicion_partidos")
         .insert({
           edicion_id: edicionID,
 
           fase_id: fase.id,
 
-          fase_tipo: "ELIMINATORIA",
+          fase_tipo: "GRUPOS",
 
-          tipo: "ELIMINATORIA",
+          tipo: "GRUPOS",
 
-          grupo_id: null,
+          grupo_id: grupo.id,
 
-          ronda_id: ronda.id,
+          ronda_id: null,
 
           codigo,
 
@@ -1391,7 +1556,7 @@ export const POST: APIRoute = async ({ cookies, request, url }) => {
 
           orden,
 
-          jornada: null,
+          jornada,
 
           estado: "BORRADOR",
 
@@ -1402,15 +1567,100 @@ export const POST: APIRoute = async ({ cookies, request, url }) => {
         )
         .single();
 
-      if (error) {
-        throw error;
+      if (errorPartido) {
+        throw errorPartido;
+      }
+
+      const ahora = new Date().toISOString();
+
+      const { data: plazasPartido, error: errorPlazasPartido } =
+        await supabaseAdmin
+          .from("competicion_plazas")
+          .insert([
+            {
+              edicion_id: edicionID,
+
+              destino_fase_id: fase.id,
+
+              destino_tipo: "PARTIDO",
+
+              grupo_id: null,
+
+              partido_id: partido.id,
+
+              lado: "LOCAL",
+
+              orden: 1,
+
+              origen_tipo: "EQUIPO",
+
+              equipo_origen_id: localID,
+
+              origen_grupo_id: null,
+
+              origen_fase_id: null,
+
+              origen_posicion: null,
+
+              origen_partido_id: null,
+
+              equipo_resuelto_id: localID,
+
+              resuelta_at: ahora,
+            },
+            {
+              edicion_id: edicionID,
+
+              destino_fase_id: fase.id,
+
+              destino_tipo: "PARTIDO",
+
+              grupo_id: null,
+
+              partido_id: partido.id,
+
+              lado: "VISITANTE",
+
+              orden: 2,
+
+              origen_tipo: "EQUIPO",
+
+              equipo_origen_id: visitanteID,
+
+              origen_grupo_id: null,
+
+              origen_fase_id: null,
+
+              origen_posicion: null,
+
+              origen_partido_id: null,
+
+              equipo_resuelto_id: visitanteID,
+
+              resuelta_at: ahora,
+            },
+          ])
+          .select(
+            "id,edicion_id,destino_fase_id,destino_tipo,grupo_id,partido_id,lado,orden,origen_tipo,equipo_origen_id,origen_grupo_id,origen_fase_id,origen_posicion,origen_partido_id,equipo_resuelto_id,resuelta_at",
+          );
+
+      if (errorPlazasPartido) {
+        await supabaseAdmin
+          .from("competicion_partidos")
+          .delete()
+          .eq("id", partido.id)
+          .eq("edicion_id", edicionID);
+
+        throw errorPlazasPartido;
       }
 
       return responder(
         {
           success: true,
 
-          partido: data,
+          partido,
+
+          plazas: plazasPartido ?? [],
         },
         201,
       );
@@ -1518,6 +1768,19 @@ export const POST: APIRoute = async ({ cookies, request, url }) => {
         throw new ErrorAPI(
           409,
           "Només es pot modificar un grup en preparació.",
+        );
+      }
+
+      const partidosGrupo = await contar(
+        "competicion_partidos",
+        "grupo_id",
+        grupo.id,
+      );
+
+      if (partidosGrupo > 0) {
+        throw new ErrorAPI(
+          409,
+          "No es pot modificar la composició del grup perquè ja té partits creats.",
         );
       }
 
@@ -1844,15 +2107,6 @@ export const DELETE: APIRoute = async ({ cookies, request, url }) => {
         );
       }
 
-      /*
-       * Antes de eliminar el partido debemos
-       * comprobar si otro cruce depende de él.
-       *
-       * Ejemplo:
-       *
-       * QF1 -> ganador -> SF1
-       */
-
       const { count: usosComoOrigen, error: errorUsos } = await supabaseAdmin
         .from("competicion_plazas")
         .select("id", {
@@ -1874,13 +2128,6 @@ export const DELETE: APIRoute = async ({ cookies, request, url }) => {
         );
       }
 
-      /*
-       * El partido está en BORRADOR.
-       *
-       * Eliminamos primero sus dos posibles plazas:
-       * LOCAL y VISITANTE.
-       */
-
       const { error: errorPlazas } = await supabaseAdmin
         .from("competicion_plazas")
         .delete()
@@ -1891,14 +2138,6 @@ export const DELETE: APIRoute = async ({ cookies, request, url }) => {
       if (errorPlazas) {
         throw errorPlazas;
       }
-
-      /*
-       * Finalmente eliminamos el partido.
-       *
-       * .select().maybeSingle() sirve también
-       * para comprobar que Supabase realmente
-       * ha eliminado la fila.
-       */
 
       const { data: eliminado, error: errorEliminar } = await supabaseAdmin
         .from("competicion_partidos")
@@ -2125,7 +2364,7 @@ export const DELETE: APIRoute = async ({ cookies, request, url }) => {
 
       const { data: plaza, error: errorPlaza } = await supabaseAdmin
         .from("competicion_plazas")
-        .select("id,grupo_id")
+        .select("id,grupo_id,equipo_resuelto_id")
         .eq("id", plazaID)
         .eq("edicion_id", edicionID)
         .eq("destino_tipo", "GRUPO")
@@ -2145,6 +2384,19 @@ export const DELETE: APIRoute = async ({ cookies, request, url }) => {
         throw new ErrorAPI(
           409,
           "No es pot modificar la composició d'un grup que ja ha començat.",
+        );
+      }
+
+      const partidosGrupo = await contar(
+        "competicion_partidos",
+        "grupo_id",
+        grupo.id,
+      );
+
+      if (partidosGrupo > 0) {
+        throw new ErrorAPI(
+          409,
+          "No es pot modificar la composició del grup perquè ja té partits creats.",
         );
       }
 
