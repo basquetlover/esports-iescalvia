@@ -17,1398 +17,1174 @@ export const prerender = false;
 
 type Registro = Record<string, unknown>;
 
-type EstadoFormulario =
-    | "BORRADOR"
-    | "EN_REVISION"
-    | "APROBADO"
-    | "DENEGADO";
+type EstadoFormulario = "BORRADOR" | "EN_REVISION" | "APROBADO" | "DENEGADO";
 
-type TipoAcceso =
-    | "propietario"
-    | "capitan";
+type TipoFormulario = "EQUIPO" | "VOLUNTARIO";
+
+type TipoAcceso = "propietario" | "capitan";
 
 type TipoActividad =
-    | "CREADA"
-    | "MODIFICADA"
-    | "ENVIADA"
-    | "APROBADA"
-    | "DENEGADA";
+  "CREADA" | "MODIFICADA" | "ENVIADA" | "APROBADA" | "DENEGADA";
 
 type FormularioPerfil = {
-    id: string;
-    edicion_id: string;
-    estado: EstadoFormulario;
-    usuario_id: string | null;
-    acceso_capitan: boolean;
-    iniciado_at: string | null;
-    enviado_at: string | null;
-    completado_at: string | null;
-    created_at: string | null;
-    updated_at: string | null;
-    tipoAcceso: TipoAcceso;
+  id: string;
+  edicion_id: string;
+  tipo: TipoFormulario;
+  estado: EstadoFormulario;
+  usuario_id: string | null;
+  acceso_capitan: boolean;
+  iniciado_at: string | null;
+  enviado_at: string | null;
+  completado_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  tipoAcceso: TipoAcceso;
 };
 
 type EquipoPerfil = {
-    id: string;
-    formulario_id: string;
-    nombre: string | null;
-    escudo: string | null;
-    capitan_id: string | null;
+  id: string;
+  formulario_id: string;
+  nombre: string | null;
+  escudo: string | null;
+  capitan_id: string | null;
+};
+
+type VoluntarioPerfil = {
+  id: string;
+  formulario_id: string;
+
+  nombre: string | null;
+  apellido1: string | null;
+  apellido2: string | null;
+  email: string | null;
+
+  curso: string | null;
+  grupo: string | null;
+
+  tipo_voluntariado_id: string | null;
+  tipo_voluntariado: string | null;
+
+  descripcion: string | null;
+
+  validacion_estado: string | null;
+
+  plaza_estado: string | null;
+  posicion_lista_espera: number | null;
+
+  created_at: string | null;
+  updated_at: string | null;
 };
 
 type EdicionPerfil = {
-    id: string;
-    torneo_id: string;
-    nombre: string;
-    estado: string;
-    sede: string | null;
-    fecha_inicio: string | null;
-    fecha_fin: string | null;
+  id: string;
+  torneo_id: string;
+  nombre: string;
+  estado: string;
+  sede: string | null;
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
 };
 
 type TorneoPerfil = {
+  id: string;
+  nombre: string;
+  deporte: string | null;
+  logo: string | null;
+  banner: string | null;
+  activo: boolean;
+};
+
+type ConfiguracionInscripcion = {
+  apertura: string;
+  cierre: string;
+};
+
+type InscripcionAbiertaPerfil = {
+  tipo: TipoFormulario;
+
+  edicion: {
+    id: string;
+    nombre: string;
+    sede: string | null;
+    fecha_inicio: string | null;
+    fecha_fin: string | null;
+  };
+
+  torneo: {
     id: string;
     nombre: string;
     deporte: string | null;
     logo: string | null;
     banner: string | null;
-    activo: boolean;
-};
+  };
 
-type ConfiguracionInscripcion = {
+  inscripcion: {
     apertura: string;
     cierre: string;
-};
+  };
 
-type InscripcionAbiertaPerfil = {
-    edicion: {
-        id: string;
-        nombre: string;
-        sede: string | null;
-        fecha_inicio: string | null;
-        fecha_fin: string | null;
-    };
+  formulario: {
+    id: string;
+    estado: EstadoFormulario;
+    tipoAcceso: TipoAcceso;
+  } | null;
 
-    torneo: {
-        id: string;
-        nombre: string;
-        deporte: string | null;
-        logo: string | null;
-        banner: string | null;
-    };
+  equipo: {
+    id: string;
+    nombre: string | null;
+    escudo: string | null;
+  } | null;
 
-    inscripcion: {
-        apertura: string;
-        cierre: string;
-    };
-
-    formulario: {
-        id: string;
-        estado: EstadoFormulario;
-        tipoAcceso: TipoAcceso;
-    } | null;
-
-    equipo: {
-        id: string;
-        nombre: string | null;
-        escudo: string | null;
-    } | null;
+  voluntario: {
+    id: string;
+    nombre: string | null;
+    tipo_voluntariado: string | null;
+    plaza_estado: string | null;
+  } | null;
 };
 
 type ActividadPerfil = {
-    id: string;
-    tipo: TipoActividad;
-    titulo: string;
-    descripcion: string | null;
-    fecha: string | null;
-    enlace: string | null;
-    torneo: string | null;
-    edicion: string | null;
+  id: string;
+  tipo: TipoActividad;
+  titulo: string;
+  descripcion: string | null;
+  fecha: string | null;
+  enlace: string | null;
+  torneo: string | null;
+  edicion: string | null;
 };
 
 // ============================================================
 // HELPERS
 // ============================================================
 
-function esRegistro(
-    valor: unknown,
-): valor is Registro {
-    return (
-        valor !== null &&
-        typeof valor === "object" &&
-        !Array.isArray(valor)
-    );
+function esRegistro(valor: unknown): valor is Registro {
+  return valor !== null && typeof valor === "object" && !Array.isArray(valor);
 }
 
-function normalizarEstadoFormulario(
-    valor: unknown,
+function normalizarTipoFormulario(valor: unknown): TipoFormulario | null {
+  if (typeof valor !== "string") {
+    return null;
+  }
+
+  const tipo = valor.trim().toUpperCase();
+
+  if (tipo === "EQUIPO" || tipo === "VOLUNTARIO") {
+    return tipo;
+  }
+
+  return null;
+}
+
+function normalizarEstadoFormulario(valor: unknown): EstadoFormulario {
+  const estado = typeof valor === "string" ? valor.trim().toUpperCase() : "";
+
+  if (estado === "APROBADO" || estado === "ACEPTADO") {
+    return "APROBADO";
+  }
+
+  if (estado === "DENEGADO") {
+    return "DENEGADO";
+  }
+
+  if (estado === "EN_REVISION" || estado === "PENDIENTE") {
+    return "EN_REVISION";
+  }
+
+  return "BORRADOR";
+}
+
+function estadoEfectivo(
+  formulario: FormularioPerfil,
+  voluntario: VoluntarioPerfil | null,
 ): EstadoFormulario {
-    const estado =
-        typeof valor === "string"
-            ? valor
-                  .trim()
-                  .toUpperCase()
-            : "";
+  if (formulario.tipo !== "VOLUNTARIO" || !voluntario) {
+    return formulario.estado;
+  }
 
-    if (
-        estado === "EN_REVISION" ||
-        estado === "APROBADO" ||
-        estado === "DENEGADO"
-    ) {
-        return estado;
-    }
+  const validacion = voluntario.validacion_estado?.trim().toUpperCase() ?? "";
 
-    return "BORRADOR";
+  if (validacion === "APROBADO" || validacion === "ACEPTADO") {
+    return "APROBADO";
+  }
+
+  if (validacion === "DENEGADO") {
+    return "DENEGADO";
+  }
+
+  if (validacion === "PENDIENTE" || validacion === "EN_REVISION") {
+    return "EN_REVISION";
+  }
+
+  return formulario.estado;
 }
 
-function edicionActiva(
-    estado: unknown,
-) {
-    if (
-        typeof estado !==
-        "string"
-    ) {
-        return false;
-    }
+function edicionActiva(estado: unknown) {
+  if (typeof estado !== "string") {
+    return false;
+  }
 
-    const valor =
-        estado
-            .trim()
-            .toUpperCase();
+  const valor = estado.trim().toUpperCase();
 
-    return (
-        valor === "ACTIVA" ||
-        valor === "ACTIVO" ||
-        valor === "ACTIU"
-    );
+  return valor === "ACTIVA" || valor === "ACTIVO" || valor === "ACTIU";
 }
 
-function fechaValida(
-    valor: unknown,
-) {
-    if (
-        typeof valor !==
-            "string" ||
-        !valor
-    ) {
-        return null;
-    }
+function fechaValida(valor: unknown) {
+  if (typeof valor !== "string" || !valor) {
+    return null;
+  }
 
-    const resultado =
-        new Date(valor);
+  const resultado = new Date(valor);
 
-    return Number.isNaN(
-        resultado.getTime(),
-    )
-        ? null
-        : resultado;
+  return Number.isNaN(resultado.getTime()) ? null : resultado;
 }
 
 function obtenerConfiguracionInscripcion(
-    valor: unknown,
+  valor: unknown,
 ): ConfiguracionInscripcion | null {
-    if (
-        !esRegistro(valor)
-    ) {
-        return null;
-    }
+  if (!esRegistro(valor)) {
+    return null;
+  }
 
-    const inscripcion =
-        esRegistro(
-            valor.inscripcion,
-        )
-            ? valor.inscripcion
-            : null;
+  const inscripcion = esRegistro(valor.inscripcion) ? valor.inscripcion : null;
 
-    if (
-        !inscripcion
-    ) {
-        return null;
-    }
+  if (!inscripcion) {
+    return null;
+  }
 
-    const apertura =
-        typeof inscripcion.apertura ===
-        "string"
-            ? inscripcion.apertura
-            : null;
+  const apertura =
+    typeof inscripcion.apertura === "string" ? inscripcion.apertura : null;
 
-    const cierre =
-        typeof inscripcion.cierre ===
-        "string"
-            ? inscripcion.cierre
-            : null;
+  const cierre =
+    typeof inscripcion.cierre === "string" ? inscripcion.cierre : null;
 
-    if (
-        !apertura ||
-        !cierre
-    ) {
-        return null;
-    }
+  if (!apertura || !cierre) {
+    return null;
+  }
 
-    if (
-        !fechaValida(apertura) ||
-        !fechaValida(cierre)
-    ) {
-        return null;
-    }
+  if (!fechaValida(apertura) || !fechaValida(cierre)) {
+    return null;
+  }
 
-    return {
-        apertura,
-        cierre,
-    };
+  return {
+    apertura,
+    cierre,
+  };
 }
 
-function periodoAbierto(
-    configuracion: ConfiguracionInscripcion,
-) {
-    const apertura =
-        fechaValida(
-            configuracion.apertura,
-        );
+function periodoAbierto(configuracion: ConfiguracionInscripcion) {
+  const apertura = fechaValida(configuracion.apertura);
 
-    const cierre =
-        fechaValida(
-            configuracion.cierre,
-        );
+  const cierre = fechaValida(configuracion.cierre);
 
-    if (
-        !apertura ||
-        !cierre
-    ) {
-        return false;
-    }
+  if (!apertura || !cierre) {
+    return false;
+  }
 
-    const ahora =
-        Date.now();
+  const ahora = Date.now();
 
-    return (
-        ahora >=
-            apertura.getTime() &&
-        ahora <=
-            cierre.getTime()
-    );
+  return ahora >= apertura.getTime() && ahora <= cierre.getTime();
 }
 
-function tiempo(
-    valor: string | null,
-) {
-    if (
-        !valor
-    ) {
-        return 0;
-    }
+function tiempo(valor: string | null) {
+  if (!valor) {
+    return 0;
+  }
 
-    const fecha =
-        new Date(valor);
+  const fecha = new Date(valor);
 
-    return Number.isNaN(
-        fecha.getTime(),
-    )
-        ? 0
-        : fecha.getTime();
+  return Number.isNaN(fecha.getTime()) ? 0 : fecha.getTime();
 }
+
+function nombreVoluntario(voluntario: VoluntarioPerfil | null) {
+  if (!voluntario) {
+    return null;
+  }
+
+  const nombre = [voluntario.nombre, voluntario.apellido1, voluntario.apellido2]
+    .map((valor) => valor?.trim() ?? "")
+    .filter(Boolean)
+    .join(" ");
+
+  return nombre || null;
+}
+
+// ============================================================
+// ACTIVIDAD
+// ============================================================
 
 function actividadFormulario(
-    formulario: FormularioPerfil,
-    equipo: EquipoPerfil | null,
-    edicion: EdicionPerfil | null,
-    torneo: TorneoPerfil | null,
+  formulario: FormularioPerfil,
+  equipo: EquipoPerfil | null,
+  voluntario: VoluntarioPerfil | null,
+  edicion: EdicionPerfil | null,
+  torneo: TorneoPerfil | null,
 ): ActividadPerfil {
-    let tipo: TipoActividad =
-        "CREADA";
+  const estado = estadoEfectivo(formulario, voluntario);
 
-    let titulo =
-        "Inscripció creada";
+  let tipo: TipoActividad = "CREADA";
 
-    let fecha =
-        formulario.iniciado_at ??
-        formulario.created_at ??
-        formulario.updated_at;
+  let titulo =
+    formulario.tipo === "VOLUNTARIO"
+      ? "Sol·licitud de voluntariat creada"
+      : "Inscripció creada";
 
-    if (
-        formulario.estado ===
-        "EN_REVISION"
-    ) {
-        tipo =
-            "ENVIADA";
+  let fecha =
+    formulario.iniciado_at ?? formulario.created_at ?? formulario.updated_at;
 
-        titulo =
-            "Inscripció enviada a revisió";
+  if (estado === "EN_REVISION") {
+    tipo = "ENVIADA";
 
-        fecha =
-            formulario.enviado_at ??
-            formulario.updated_at ??
-            formulario.iniciado_at;
-    } else if (
-        formulario.estado ===
-        "APROBADO"
-    ) {
-        tipo =
-            "APROBADA";
+    titulo =
+      formulario.tipo === "VOLUNTARIO"
+        ? "Sol·licitud de voluntariat enviada"
+        : "Inscripció enviada a revisió";
 
-        titulo =
-            "Inscripció aprovada";
+    fecha =
+      formulario.enviado_at ??
+      voluntario?.updated_at ??
+      formulario.updated_at ??
+      formulario.iniciado_at;
+  } else if (estado === "APROBADO") {
+    tipo = "APROBADA";
 
-        fecha =
-            formulario.completado_at ??
-            formulario.updated_at ??
-            formulario.enviado_at;
-    } else if (
-        formulario.estado ===
-        "DENEGADO"
-    ) {
-        tipo =
-            "DENEGADA";
+    titulo =
+      formulario.tipo === "VOLUNTARIO"
+        ? "Voluntariat acceptat"
+        : "Inscripció aprovada";
 
-        titulo =
-            "La inscripció requereix canvis";
+    fecha =
+      voluntario?.updated_at ??
+      formulario.completado_at ??
+      formulario.updated_at ??
+      formulario.enviado_at;
+  } else if (estado === "DENEGADO") {
+    tipo = "DENEGADA";
 
-        fecha =
-            formulario.completado_at ??
-            formulario.updated_at ??
-            formulario.enviado_at;
-    } else {
-        const inicio =
-            tiempo(
-                formulario.iniciado_at ??
-                formulario.created_at,
-            );
+    titulo =
+      formulario.tipo === "VOLUNTARIO"
+        ? "Sol·licitud de voluntariat no acceptada"
+        : "La inscripció requereix canvis";
 
-        const actualizacion =
-            tiempo(
-                formulario.updated_at,
-            );
+    fecha =
+      voluntario?.updated_at ??
+      formulario.completado_at ??
+      formulario.updated_at ??
+      formulario.enviado_at;
+  } else {
+    const inicio = tiempo(formulario.iniciado_at ?? formulario.created_at);
 
-        if (
-            inicio > 0 &&
-            actualizacion >
-                inicio +
-                    5000
-        ) {
-            tipo =
-                "MODIFICADA";
+    const actualizacion = tiempo(formulario.updated_at);
 
-            titulo =
-                "Inscripció actualitzada";
+    if (inicio > 0 && actualizacion > inicio + 5000) {
+      tipo = "MODIFICADA";
 
-            fecha =
-                formulario.updated_at;
-        }
+      titulo =
+        formulario.tipo === "VOLUNTARIO"
+          ? "Sol·licitud de voluntariat actualitzada"
+          : "Inscripció actualitzada";
+
+      fecha = formulario.updated_at;
     }
+  }
 
-    const nombreEquipo =
-        equipo
-            ?.nombre
-            ?.trim();
+  let descripcion: string | null = null;
 
-    let descripcion:
-        string | null =
-        null;
+  if (formulario.tipo === "VOLUNTARIO") {
+    const rol = voluntario?.tipo_voluntariado?.trim();
 
-    if (
-        nombreEquipo
-    ) {
-        if (
-            formulario.tipoAcceso ===
-            "capitan"
-        ) {
-            descripcion =
-                `${nombreEquipo} · Accés com a capità`;
-        } else {
-            descripcion =
-                nombreEquipo;
-        }
-    } else if (
-        formulario.tipoAcceso ===
-        "capitan"
-    ) {
-        descripcion =
-            "Accés com a capità";
+    const nombre = nombreVoluntario(voluntario);
+
+    if (rol && nombre) {
+      descripcion = `${rol} · ${nombre}`;
+    } else if (rol) {
+      descripcion = rol;
+    } else if (nombre) {
+      descripcion = nombre;
     }
+  } else {
+    const nombreEquipo = equipo?.nombre?.trim();
 
-    return {
-        id:
-            formulario.id,
+    if (nombreEquipo) {
+      if (formulario.tipoAcceso === "capitan") {
+        descripcion = `${nombreEquipo} · Accés com a capità`;
+      } else {
+        descripcion = nombreEquipo;
+      }
+    } else if (formulario.tipoAcceso === "capitan") {
+      descripcion = "Accés com a capità";
+    }
+  }
 
-        tipo,
+  let enlace: string | null = null;
 
-        titulo,
+  if (edicion && formulario.tipo === "EQUIPO") {
+    enlace = `/inscripcio?edicionID=${encodeURIComponent(edicion.id)}`;
+  }
 
-        descripcion,
+  if (formulario.tipo === "VOLUNTARIO" && torneo) {
+    enlace = `/tornejos/${encodeURIComponent(
+      torneo.id,
+    )}?seccio=voluntariat#formulari-voluntariat`;
+  }
 
-        fecha,
+  return {
+    id: formulario.id,
 
-        enlace:
-            edicion
-                ? `/inscripcio?edicionID=${encodeURIComponent(edicion.id)}`
-                : null,
+    tipo,
 
-        torneo:
-            torneo?.nombre ??
-            null,
+    titulo,
 
-        edicion:
-            edicion?.nombre ??
-            null,
-    };
+    descripcion,
+
+    fecha,
+
+    enlace,
+
+    torneo: torneo?.nombre ?? null,
+
+    edicion: edicion?.nombre ?? null,
+  };
 }
 
 // ============================================================
 // SESIÓN
 // ============================================================
 
-const token =
-    Astro.cookies.get(
-        "token_sesion",
-    )?.value;
+const token = Astro.cookies.get("token_sesion")?.value;
 
-const usuario =
-    token
-        ? await obtenerUsuarioPorToken(
-              token,
+const usuario = token ? await obtenerUsuarioPorToken(token) : null;
+
+// ============================================================
+// DATOS
+// ============================================================
+
+let formularios: FormularioPerfil[] = [];
+
+let equipos: EquipoPerfil[] = [];
+
+let voluntarios: VoluntarioPerfil[] = [];
+
+let ediciones: EdicionPerfil[] = [];
+
+let torneos: TorneoPerfil[] = [];
+
+let inscripcionesAbiertas: InscripcionAbiertaPerfil[] = [];
+
+let actividades: ActividadPerfil[] = [];
+
+// ============================================================
+// CARGAR DATOS
+// ============================================================
+
+if (usuario) {
+  // ========================================================
+  // FORMULARIOS PROPIOS
+  // ========================================================
+
+  const {
+    data: formulariosPropiosData,
+
+    error: errorFormulariosPropios,
+  } = await supabaseAdmin
+    .from("formularios")
+    .select(
+      "id,edicion_id,tipo,estado,usuario_id,acceso_capitan,iniciado_at,enviado_at,completado_at,created_at,updated_at",
+    )
+    .eq("usuario_id", usuario.id)
+    .in("tipo", ["EQUIPO", "VOLUNTARIO"]);
+
+  if (errorFormulariosPropios) {
+    console.error(
+      "Error carregant les inscripcions pròpies:",
+      errorFormulariosPropios,
+    );
+  }
+
+  formularios = (formulariosPropiosData ?? []).flatMap((formulario) => {
+    const tipo = normalizarTipoFormulario(formulario.tipo);
+
+    if (!tipo) {
+      return [];
+    }
+
+    return [
+      {
+        id: formulario.id,
+
+        edicion_id: formulario.edicion_id,
+
+        tipo,
+
+        estado: normalizarEstadoFormulario(formulario.estado),
+
+        usuario_id: formulario.usuario_id ?? null,
+
+        acceso_capitan: formulario.acceso_capitan === true,
+
+        iniciado_at: formulario.iniciado_at ?? null,
+
+        enviado_at: formulario.enviado_at ?? null,
+
+        completado_at: formulario.completado_at ?? null,
+
+        created_at: formulario.created_at ?? null,
+
+        updated_at: formulario.updated_at ?? null,
+
+        tipoAcceso: "propietario" as const,
+      },
+    ];
+  });
+
+  // ========================================================
+  // FORMULARIOS COMO CAPITÁN
+  // ========================================================
+
+  const emailUsuario = usuario.email?.trim().toLowerCase() ?? "";
+
+  if (emailUsuario) {
+    const {
+      data: participantesCapitanData,
+
+      error: errorParticipantesCapitan,
+    } = await supabaseAdmin
+      .from("participantes_equipo")
+      .select("id,equipo_id,email,activo")
+      .eq("email", emailUsuario)
+      .eq("activo", true);
+
+    if (errorParticipantesCapitan) {
+      console.error(
+        "Error carregant les vinculacions com a capità:",
+        errorParticipantesCapitan,
+      );
+    }
+
+    const idsParticipantesCapitan = (participantesCapitanData ?? []).map(
+      (participante) => participante.id,
+    );
+
+    if (idsParticipantesCapitan.length > 0) {
+      const {
+        data: equiposCapitanData,
+
+        error: errorEquiposCapitan,
+      } = await supabaseAdmin
+        .from("equipos")
+        .select("id,formulario_id,capitan_id")
+        .in("capitan_id", idsParticipantesCapitan);
+
+      if (errorEquiposCapitan) {
+        console.error(
+          "Error carregant els equips on l'usuari és capità:",
+          errorEquiposCapitan,
+        );
+      }
+
+      const idsFormulariosCapitan = [
+        ...new Set(
+          (equiposCapitanData ?? [])
+            .map((equipo) => equipo.formulario_id)
+            .filter(
+              (id): id is string => typeof id === "string" && Boolean(id),
+            ),
+        ),
+      ];
+
+      if (idsFormulariosCapitan.length > 0) {
+        const {
+          data: formulariosCapitanData,
+
+          error: errorFormulariosCapitan,
+        } = await supabaseAdmin
+          .from("formularios")
+          .select(
+            "id,edicion_id,estado,usuario_id,acceso_capitan,iniciado_at,enviado_at,completado_at,created_at,updated_at",
           )
+          .in("id", idsFormulariosCapitan)
+          .eq("tipo", "EQUIPO")
+          .eq("acceso_capitan", true);
+
+        if (errorFormulariosCapitan) {
+          console.error(
+            "Error carregant els formularis amb accés de capità:",
+            errorFormulariosCapitan,
+          );
+        }
+
+        const idsExistentes = new Set(
+          formularios.map((formulario) => formulario.id),
+        );
+
+        for (const formulario of formulariosCapitanData ?? []) {
+          if (idsExistentes.has(formulario.id)) {
+            continue;
+          }
+
+          formularios.push({
+            id: formulario.id,
+
+            edicion_id: formulario.edicion_id,
+
+            tipo: "EQUIPO",
+
+            estado: normalizarEstadoFormulario(formulario.estado),
+
+            usuario_id: formulario.usuario_id ?? null,
+
+            acceso_capitan: formulario.acceso_capitan === true,
+
+            iniciado_at: formulario.iniciado_at ?? null,
+
+            enviado_at: formulario.enviado_at ?? null,
+
+            completado_at: formulario.completado_at ?? null,
+
+            created_at: formulario.created_at ?? null,
+
+            updated_at: formulario.updated_at ?? null,
+
+            tipoAcceso: "capitan",
+          });
+
+          idsExistentes.add(formulario.id);
+        }
+      }
+    }
+  }
+
+  // ========================================================
+  // EQUIPOS
+  // ========================================================
+
+  const idsFormulariosEquipo = formularios
+    .filter((formulario) => formulario.tipo === "EQUIPO")
+    .map((formulario) => formulario.id);
+
+  if (idsFormulariosEquipo.length > 0) {
+    const {
+      data: equiposData,
+
+      error: errorEquipos,
+    } = await supabaseAdmin
+      .from("equipos")
+      .select("id,formulario_id,nombre,escudo,capitan_id")
+      .in("formulario_id", idsFormulariosEquipo);
+
+    if (errorEquipos) {
+      console.error("Error carregant els equips del perfil:", errorEquipos);
+    }
+
+    equipos = (equiposData ?? []).map((equipo) => ({
+      id: equipo.id,
+
+      formulario_id: equipo.formulario_id,
+
+      nombre: equipo.nombre ?? null,
+
+      escudo: equipo.escudo ?? null,
+
+      capitan_id: equipo.capitan_id ?? null,
+    }));
+  }
+
+  // ========================================================
+  // VOLUNTARIOS
+  // ========================================================
+
+  const idsFormulariosVoluntario = formularios
+    .filter((formulario) => formulario.tipo === "VOLUNTARIO")
+    .map((formulario) => formulario.id);
+
+  if (idsFormulariosVoluntario.length > 0) {
+    const {
+      data: voluntariosData,
+
+      error: errorVoluntarios,
+    } = await supabaseAdmin
+      .from("voluntarios")
+      .select(
+        "id,formulario_id,nombre,apellido1,apellido2,email,curso,grupo,tipo_voluntariado_id,tipo_voluntariado,descripcion,validacion_estado,plaza_estado,posicion_lista_espera,created_at,updated_at",
+      )
+      .in("formulario_id", idsFormulariosVoluntario);
+
+    if (errorVoluntarios) {
+      console.error(
+        "Error carregant les sol·licituds de voluntariat:",
+        errorVoluntarios,
+      );
+    }
+
+    voluntarios = (voluntariosData ?? []).map((voluntario) => ({
+      id: voluntario.id,
+
+      formulario_id: voluntario.formulario_id,
+
+      nombre: voluntario.nombre ?? null,
+
+      apellido1: voluntario.apellido1 ?? null,
+
+      apellido2: voluntario.apellido2 ?? null,
+
+      email: voluntario.email ?? null,
+
+      curso: voluntario.curso ?? null,
+
+      grupo: voluntario.grupo ?? null,
+
+      tipo_voluntariado_id: voluntario.tipo_voluntariado_id ?? null,
+
+      tipo_voluntariado: voluntario.tipo_voluntariado ?? null,
+
+      descripcion: voluntario.descripcion ?? null,
+
+      validacion_estado: voluntario.validacion_estado ?? null,
+
+      plaza_estado: voluntario.plaza_estado ?? null,
+
+      posicion_lista_espera: voluntario.posicion_lista_espera ?? null,
+
+      created_at: voluntario.created_at ?? null,
+
+      updated_at: voluntario.updated_at ?? null,
+    }));
+  }
+
+  // ========================================================
+  // EDICIONES
+  // ========================================================
+
+  const {
+    data: edicionesData,
+
+    error: errorEdiciones,
+  } = await supabaseAdmin
+    .from("ediciones")
+    .select("id,torneo_id,nombre,estado,sede,fecha_inicio,fecha_fin");
+
+  if (errorEdiciones) {
+    console.error("Error carregant les edicions del perfil:", errorEdiciones);
+  }
+
+  ediciones = (edicionesData ?? []).map((edicion) => ({
+    id: edicion.id,
+
+    torneo_id: edicion.torneo_id,
+
+    nombre: edicion.nombre ?? "Edició",
+
+    estado: edicion.estado ?? "",
+
+    sede: edicion.sede ?? null,
+
+    fecha_inicio: edicion.fecha_inicio ?? null,
+
+    fecha_fin: edicion.fecha_fin ?? null,
+  }));
+
+  // ========================================================
+  // TORNEOS
+  // ========================================================
+
+  const idsTorneos = [
+    ...new Set(ediciones.map((edicion) => edicion.torneo_id).filter(Boolean)),
+  ];
+
+  if (idsTorneos.length > 0) {
+    const {
+      data: torneosData,
+
+      error: errorTorneos,
+    } = await supabaseAdmin
+      .from("torneos")
+      .select("id,nombre,deporte,logo,banner,activo")
+      .in("id", idsTorneos);
+
+    if (errorTorneos) {
+      console.error("Error carregant els tornejos del perfil:", errorTorneos);
+    }
+
+    torneos = (torneosData ?? []).map((torneo) => ({
+      id: torneo.id,
+
+      nombre: torneo.nombre ?? "Torneig",
+
+      deporte: torneo.deporte ?? null,
+
+      logo: torneo.logo ?? null,
+
+      banner: torneo.banner ?? null,
+
+      activo: torneo.activo === true,
+    }));
+  }
+
+  // ========================================================
+  // MAPAS
+  // ========================================================
+
+  const equipoPorFormulario = new Map(
+    equipos.map((equipo) => [equipo.formulario_id, equipo]),
+  );
+
+  const voluntarioPorFormulario = new Map(
+    voluntarios.map((voluntario) => [voluntario.formulario_id, voluntario]),
+  );
+
+  const edicionPorID = new Map(
+    ediciones.map((edicion) => [edicion.id, edicion]),
+  );
+
+  const torneoPorID = new Map(torneos.map((torneo) => [torneo.id, torneo]));
+
+  // ========================================================
+  // FORMULARIOS DE EQUIPO POR EDICIÓN
+  // ========================================================
+
+  const formularioEquipoPorEdicion = new Map<string, FormularioPerfil>();
+
+  for (const formulario of formularios.filter(
+    (formulario) => formulario.tipo === "EQUIPO",
+  )) {
+    const existente = formularioEquipoPorEdicion.get(formulario.edicion_id);
+
+    if (
+      !existente ||
+      (existente.tipoAcceso === "capitan" &&
+        formulario.tipoAcceso === "propietario")
+    ) {
+      formularioEquipoPorEdicion.set(formulario.edicion_id, formulario);
+    }
+  }
+
+  // ========================================================
+  // FORMULARIOS DE VOLUNTARIADO POR EDICIÓN
+  // ========================================================
+
+  const formularioVoluntarioPorEdicion = new Map<string, FormularioPerfil>();
+
+  for (const formulario of formularios.filter(
+    (formulario) => formulario.tipo === "VOLUNTARIO",
+  )) {
+    formularioVoluntarioPorEdicion.set(formulario.edicion_id, formulario);
+  }
+
+  // ========================================================
+  // EDICIONES ACTIVAS
+  // ========================================================
+
+  const edicionesActivas = ediciones.filter((edicion) =>
+    edicionActiva(edicion.estado),
+  );
+
+  const idsEdicionesActivas = edicionesActivas.map((edicion) => edicion.id);
+
+  // ========================================================
+  // CONFIGURACIÓN
+  // ========================================================
+
+  if (idsEdicionesActivas.length > 0) {
+    const {
+      data: configuracionesData,
+
+      error: errorConfiguraciones,
+    } = await supabaseAdmin
+      .from("configuracion_ediciones")
+      .select("edicion_id,equipos,voluntarios")
+      .in("edicion_id", idsEdicionesActivas);
+
+    if (errorConfiguraciones) {
+      console.error(
+        "Error carregant les configuracions d'inscripció:",
+        errorConfiguraciones,
+      );
+    }
+
+    const configuracionPorEdicion = new Map<
+      string,
+      {
+        equipos: ConfiguracionInscripcion | null;
+
+        voluntarios: ConfiguracionInscripcion | null;
+      }
+    >();
+
+    for (const configuracion of configuracionesData ?? []) {
+      configuracionPorEdicion.set(configuracion.edicion_id, {
+        equipos: obtenerConfiguracionInscripcion(configuracion.equipos),
+
+        voluntarios: obtenerConfiguracionInscripcion(configuracion.voluntarios),
+      });
+    }
+
+    const abiertas: InscripcionAbiertaPerfil[] = [];
+
+    for (const edicion of edicionesActivas) {
+      const torneo = torneoPorID.get(edicion.torneo_id);
+
+      if (!torneo || !torneo.activo) {
+        continue;
+      }
+
+      const configuracion = configuracionPorEdicion.get(edicion.id);
+
+      if (!configuracion) {
+        continue;
+      }
+
+      // =================================================
+      // EQUIPOS
+      // =================================================
+
+      if (configuracion.equipos && periodoAbierto(configuracion.equipos)) {
+        const formulario = formularioEquipoPorEdicion.get(edicion.id) ?? null;
+
+        const equipo = formulario
+          ? (equipoPorFormulario.get(formulario.id) ?? null)
+          : null;
+
+        abiertas.push({
+          tipo: "EQUIPO",
+
+          edicion: {
+            id: edicion.id,
+
+            nombre: edicion.nombre,
+
+            sede: edicion.sede,
+
+            fecha_inicio: edicion.fecha_inicio,
+
+            fecha_fin: edicion.fecha_fin,
+          },
+
+          torneo: {
+            id: torneo.id,
+
+            nombre: torneo.nombre,
+
+            deporte: torneo.deporte,
+
+            logo: torneo.logo,
+
+            banner: torneo.banner,
+          },
+
+          inscripcion: {
+            apertura: configuracion.equipos.apertura,
+
+            cierre: configuracion.equipos.cierre,
+          },
+
+          formulario: formulario
+            ? {
+                id: formulario.id,
+
+                estado: formulario.estado,
+
+                tipoAcceso: formulario.tipoAcceso,
+              }
+            : null,
+
+          equipo: equipo
+            ? {
+                id: equipo.id,
+
+                nombre: equipo.nombre,
+
+                escudo: equipo.escudo,
+              }
+            : null,
+
+          voluntario: null,
+        });
+      }
+
+      // =================================================
+      // VOLUNTARIADO
+      // =================================================
+
+      if (
+        configuracion.voluntarios &&
+        periodoAbierto(configuracion.voluntarios)
+      ) {
+        const formulario =
+          formularioVoluntarioPorEdicion.get(edicion.id) ?? null;
+
+        const voluntario = formulario
+          ? (voluntarioPorFormulario.get(formulario.id) ?? null)
+          : null;
+
+        const estado = formulario
+          ? estadoEfectivo(formulario, voluntario)
+          : null;
+
+        abiertas.push({
+          tipo: "VOLUNTARIO",
+
+          edicion: {
+            id: edicion.id,
+
+            nombre: edicion.nombre,
+
+            sede: edicion.sede,
+
+            fecha_inicio: edicion.fecha_inicio,
+
+            fecha_fin: edicion.fecha_fin,
+          },
+
+          torneo: {
+            id: torneo.id,
+
+            nombre: torneo.nombre,
+
+            deporte: torneo.deporte,
+
+            logo: torneo.logo,
+
+            banner: torneo.banner,
+          },
+
+          inscripcion: {
+            apertura: configuracion.voluntarios.apertura,
+
+            cierre: configuracion.voluntarios.cierre,
+          },
+
+          formulario: formulario
+            ? {
+                id: formulario.id,
+
+                estado: estado ?? formulario.estado,
+
+                tipoAcceso: "propietario",
+              }
+            : null,
+
+          equipo: null,
+
+          voluntario: voluntario
+            ? {
+                id: voluntario.id,
+
+                nombre: nombreVoluntario(voluntario),
+
+                tipo_voluntariado: voluntario.tipo_voluntariado,
+
+                plaza_estado: voluntario.plaza_estado,
+              }
+            : null,
+        });
+      }
+    }
+
+    inscripcionesAbiertas = abiertas.sort(
+      (a, b) => tiempo(a.inscripcion.cierre) - tiempo(b.inscripcion.cierre),
+    );
+  }
+
+  // ========================================================
+  // ACTIVIDAD RECIENTE
+  // ========================================================
+
+  actividades = formularios
+    .map((formulario) => {
+      const equipo =
+        formulario.tipo === "EQUIPO"
+          ? (equipoPorFormulario.get(formulario.id) ?? null)
+          : null;
+
+      const voluntario =
+        formulario.tipo === "VOLUNTARIO"
+          ? (voluntarioPorFormulario.get(formulario.id) ?? null)
+          : null;
+
+      const edicion = edicionPorID.get(formulario.edicion_id) ?? null;
+
+      const torneo = edicion
+        ? (torneoPorID.get(edicion.torneo_id) ?? null)
         : null;
 
-// ============================================================
-// DATOS POR DEFECTO
-// ============================================================
-
-let formularios:
-    FormularioPerfil[] =
-    [];
-
-let equipos:
-    EquipoPerfil[] =
-    [];
-
-let ediciones:
-    EdicionPerfil[] =
-    [];
-
-let torneos:
-    TorneoPerfil[] =
-    [];
-
-let inscripcionesAbiertas:
-    InscripcionAbiertaPerfil[] =
-    [];
-
-let actividades:
-    ActividadPerfil[] =
-    [];
-
-// ============================================================
-// CARGAR DATOS DEL USUARIO
-// ============================================================
-
-if (
-    usuario
-) {
-    // ========================================================
-    // FORMULARIOS PROPIOS
-    // ========================================================
-
-    const {
-        data:
-            formulariosPropiosData,
-
-        error:
-            errorFormulariosPropios,
-    } =
-        await supabaseAdmin
-            .from("formularios")
-            .select("id,edicion_id,estado,usuario_id,acceso_capitan,iniciado_at,enviado_at,completado_at,created_at,updated_at")
-            .eq(
-                "usuario_id",
-                usuario.id,
-            )
-            .eq(
-                "tipo",
-                "EQUIPO",
-            );
-
-    if (
-        errorFormulariosPropios
-    ) {
-        console.error(
-            "Error carregant les inscripcions pròpies:",
-            errorFormulariosPropios,
-        );
-    }
-
-    formularios =
-        (
-            formulariosPropiosData ??
-            []
-        ).map(
-            formulario => ({
-                id:
-                    formulario.id,
-
-                edicion_id:
-                    formulario.edicion_id,
-
-                estado:
-                    normalizarEstadoFormulario(
-                        formulario.estado,
-                    ),
-
-                usuario_id:
-                    formulario.usuario_id ??
-                    null,
-
-                acceso_capitan:
-                    formulario.acceso_capitan ===
-                    true,
-
-                iniciado_at:
-                    formulario.iniciado_at ??
-                    null,
-
-                enviado_at:
-                    formulario.enviado_at ??
-                    null,
-
-                completado_at:
-                    formulario.completado_at ??
-                    null,
-
-                created_at:
-                    formulario.created_at ??
-                    null,
-
-                updated_at:
-                    formulario.updated_at ??
-                    null,
-
-                tipoAcceso:
-                    "propietario" as const,
-            }),
-        );
-
-    // ========================================================
-    // POSIBLES FORMULARIOS COMO CAPITÁN
-    // ========================================================
-
-    const emailUsuario =
-        usuario.email
-            ?.trim()
-            .toLowerCase() ??
-        "";
-
-    if (
-        emailUsuario
-    ) {
-        const {
-            data:
-                participantesCapitanData,
-
-            error:
-                errorParticipantesCapitan,
-        } =
-            await supabaseAdmin
-                .from("participantes_equipo")
-                .select("id,equipo_id,email,activo")
-                .eq(
-                    "email",
-                    emailUsuario,
-                )
-                .eq(
-                    "activo",
-                    true,
-                );
-
-        if (
-            errorParticipantesCapitan
-        ) {
-            console.error(
-                "Error carregant les vinculacions com a capità:",
-                errorParticipantesCapitan,
-            );
-        }
-
-        const idsParticipantesCapitan =
-            (
-                participantesCapitanData ??
-                []
-            ).map(
-                participante =>
-                    participante.id,
-            );
-
-        if (
-            idsParticipantesCapitan.length >
-            0
-        ) {
-            const {
-                data:
-                    equiposCapitanData,
-
-                error:
-                    errorEquiposCapitan,
-            } =
-                await supabaseAdmin
-                    .from("equipos")
-                    .select("id,formulario_id,capitan_id")
-                    .in(
-                        "capitan_id",
-                        idsParticipantesCapitan,
-                    );
-
-            if (
-                errorEquiposCapitan
-            ) {
-                console.error(
-                    "Error carregant els equips on l'usuari és capità:",
-                    errorEquiposCapitan,
-                );
-            }
-
-            const idsFormulariosCapitan = [
-                ...new Set(
-                    (
-                        equiposCapitanData ??
-                        []
-                    )
-                        .map(
-                            equipo =>
-                                equipo.formulario_id,
-                        )
-                        .filter(
-                            (
-                                id,
-                            ): id is string =>
-                                typeof id ===
-                                    "string" &&
-                                Boolean(id),
-                        ),
-                ),
-            ];
-
-            if (
-                idsFormulariosCapitan.length >
-                0
-            ) {
-                const {
-                    data:
-                        formulariosCapitanData,
-
-                    error:
-                        errorFormulariosCapitan,
-                } =
-                    await supabaseAdmin
-                        .from("formularios")
-                        .select("id,edicion_id,estado,usuario_id,acceso_capitan,iniciado_at,enviado_at,completado_at,created_at,updated_at")
-                        .in(
-                            "id",
-                            idsFormulariosCapitan,
-                        )
-                        .eq(
-                            "tipo",
-                            "EQUIPO",
-                        )
-                        .eq(
-                            "acceso_capitan",
-                            true,
-                        );
-
-                if (
-                    errorFormulariosCapitan
-                ) {
-                    console.error(
-                        "Error carregant els formularis amb accés de capità:",
-                        errorFormulariosCapitan,
-                    );
-                }
-
-                const idsExistentes =
-                    new Set(
-                        formularios.map(
-                            formulario =>
-                                formulario.id,
-                        ),
-                    );
-
-                for (
-                    const formulario
-                    of formulariosCapitanData ??
-                        []
-                ) {
-                    if (
-                        idsExistentes.has(
-                            formulario.id,
-                        )
-                    ) {
-                        continue;
-                    }
-
-                    formularios.push({
-                        id:
-                            formulario.id,
-
-                        edicion_id:
-                            formulario.edicion_id,
-
-                        estado:
-                            normalizarEstadoFormulario(
-                                formulario.estado,
-                            ),
-
-                        usuario_id:
-                            formulario.usuario_id ??
-                            null,
-
-                        acceso_capitan:
-                            formulario.acceso_capitan ===
-                            true,
-
-                        iniciado_at:
-                            formulario.iniciado_at ??
-                            null,
-
-                        enviado_at:
-                            formulario.enviado_at ??
-                            null,
-
-                        completado_at:
-                            formulario.completado_at ??
-                            null,
-
-                        created_at:
-                            formulario.created_at ??
-                            null,
-
-                        updated_at:
-                            formulario.updated_at ??
-                            null,
-
-                        tipoAcceso:
-                            "capitan",
-                    });
-
-                    idsExistentes.add(
-                        formulario.id,
-                    );
-                }
-            }
-        }
-    }
-
-    // ========================================================
-    // EQUIPOS DE LOS FORMULARIOS DEL USUARIO
-    // ========================================================
-
-    const idsFormularios =
-        formularios.map(
-            formulario =>
-                formulario.id,
-        );
-
-    if (
-        idsFormularios.length >
-        0
-    ) {
-        const {
-            data:
-                equiposData,
-
-            error:
-                errorEquipos,
-        } =
-            await supabaseAdmin
-                .from("equipos")
-                .select("id,formulario_id,nombre,escudo,capitan_id")
-                .in(
-                    "formulario_id",
-                    idsFormularios,
-                );
-
-        if (
-            errorEquipos
-        ) {
-            console.error(
-                "Error carregant els equips del perfil:",
-                errorEquipos,
-            );
-        }
-
-        equipos =
-            (
-                equiposData ??
-                []
-            ).map(
-                equipo => ({
-                    id:
-                        equipo.id,
-
-                    formulario_id:
-                        equipo.formulario_id,
-
-                    nombre:
-                        equipo.nombre ??
-                        null,
-
-                    escudo:
-                        equipo.escudo ??
-                        null,
-
-                    capitan_id:
-                        equipo.capitan_id ??
-                        null,
-                }),
-            );
-    }
-
-    // ========================================================
-    // TODAS LAS EDICIONES
-    // ========================================================
-
-    const {
-        data:
-            edicionesData,
-
-        error:
-            errorEdiciones,
-    } =
-        await supabaseAdmin
-            .from("ediciones")
-            .select("id,torneo_id,nombre,estado,sede,fecha_inicio,fecha_fin");
-
-    if (
-        errorEdiciones
-    ) {
-        console.error(
-            "Error carregant les edicions del perfil:",
-            errorEdiciones,
-        );
-    }
-
-    ediciones =
-        (
-            edicionesData ??
-            []
-        ).map(
-            edicion => ({
-                id:
-                    edicion.id,
-
-                torneo_id:
-                    edicion.torneo_id,
-
-                nombre:
-                    edicion.nombre ??
-                    "Edició",
-
-                estado:
-                    edicion.estado ??
-                    "",
-
-                sede:
-                    edicion.sede ??
-                    null,
-
-                fecha_inicio:
-                    edicion.fecha_inicio ??
-                    null,
-
-                fecha_fin:
-                    edicion.fecha_fin ??
-                    null,
-            }),
-        );
-
-    // ========================================================
-    // TORNEOS NECESARIOS
-    // ========================================================
-
-    const idsTorneos = [
-        ...new Set(
-            ediciones
-                .map(
-                    edicion =>
-                        edicion.torneo_id,
-                )
-                .filter(
-                    Boolean,
-                ),
-        ),
-    ];
-
-    if (
-        idsTorneos.length >
-        0
-    ) {
-        const {
-            data:
-                torneosData,
-
-            error:
-                errorTorneos,
-        } =
-            await supabaseAdmin
-                .from("torneos")
-                .select("id,nombre,deporte,logo,banner,activo")
-                .in(
-                    "id",
-                    idsTorneos,
-                );
-
-        if (
-            errorTorneos
-        ) {
-            console.error(
-                "Error carregant els tornejos del perfil:",
-                errorTorneos,
-            );
-        }
-
-        torneos =
-            (
-                torneosData ??
-                []
-            ).map(
-                torneo => ({
-                    id:
-                        torneo.id,
-
-                    nombre:
-                        torneo.nombre ??
-                        "Torneig",
-
-                    deporte:
-                        torneo.deporte ??
-                        null,
-
-                    logo:
-                        torneo.logo ??
-                        null,
-
-                    banner:
-                        torneo.banner ??
-                        null,
-
-                    activo:
-                        torneo.activo ===
-                        true,
-                }),
-            );
-    }
-
-    // ========================================================
-    // MAPAS
-    // ========================================================
-
-    const formularioPorEdicion =
-        new Map<
-            string,
-            FormularioPerfil
-        >();
-
-    for (
-        const formulario
-        of formularios
-    ) {
-        const existente =
-            formularioPorEdicion.get(
-                formulario.edicion_id,
-            );
-
-        /*
-         * Si existe más de una relación accidentalmente,
-         * priorizamos el formulario propio.
-         */
-        if (
-            !existente ||
-            (
-                existente.tipoAcceso ===
-                    "capitan" &&
-                formulario.tipoAcceso ===
-                    "propietario"
-            )
-        ) {
-            formularioPorEdicion.set(
-                formulario.edicion_id,
-                formulario,
-            );
-        }
-    }
-
-    const equipoPorFormulario =
-        new Map(
-            equipos.map(
-                equipo => [
-                    equipo.formulario_id,
-                    equipo,
-                ],
-            ),
-        );
-
-    const edicionPorID =
-        new Map(
-            ediciones.map(
-                edicion => [
-                    edicion.id,
-                    edicion,
-                ],
-            ),
-        );
-
-    const torneoPorID =
-        new Map(
-            torneos.map(
-                torneo => [
-                    torneo.id,
-                    torneo,
-                ],
-            ),
-        );
-
-    // ========================================================
-    // EDICIONES ACTIVAS
-    // ========================================================
-
-    const edicionesActivas =
-        ediciones.filter(
-            edicion =>
-                edicionActiva(
-                    edicion.estado,
-                ),
-        );
-
-    const idsEdicionesActivas =
-        edicionesActivas.map(
-            edicion =>
-                edicion.id,
-        );
-
-    // ========================================================
-    // CONFIGURACIÓN DE INSCRIPCIONES
-    // ========================================================
-
-    if (
-        idsEdicionesActivas.length >
-        0
-    ) {
-        const {
-            data:
-                configuracionesData,
-
-            error:
-                errorConfiguraciones,
-        } =
-            await supabaseAdmin
-                .from("configuracion_ediciones")
-                .select("edicion_id,equipos")
-                .in(
-                    "edicion_id",
-                    idsEdicionesActivas,
-                );
-
-        if (
-            errorConfiguraciones
-        ) {
-            console.error(
-                "Error carregant les configuracions d'inscripció:",
-                errorConfiguraciones,
-            );
-        }
-
-        const configuracionPorEdicion =
-            new Map<
-                string,
-                ConfiguracionInscripcion
-            >();
-
-        for (
-            const configuracion
-            of configuracionesData ??
-                []
-        ) {
-            const inscripcion =
-                obtenerConfiguracionInscripcion(
-                    configuracion.equipos,
-                );
-
-            if (
-                !inscripcion ||
-                !periodoAbierto(
-                    inscripcion,
-                )
-            ) {
-                continue;
-            }
-
-            configuracionPorEdicion.set(
-                configuracion.edicion_id,
-                inscripcion,
-            );
-        }
-
-        // ====================================================
-        // INSCRIPCIONES ABIERTAS
-        // ====================================================
-
-        inscripcionesAbiertas =
-            edicionesActivas
-                .map(
-                    edicion => {
-                        const configuracion =
-                            configuracionPorEdicion.get(
-                                edicion.id,
-                            );
-
-                        if (
-                            !configuracion
-                        ) {
-                            return null;
-                        }
-
-                        const torneo =
-                            torneoPorID.get(
-                                edicion.torneo_id,
-                            );
-
-                        if (
-                            !torneo ||
-                            !torneo.activo
-                        ) {
-                            return null;
-                        }
-
-                        const formulario =
-                            formularioPorEdicion.get(
-                                edicion.id,
-                            ) ??
-                            null;
-
-                        const equipo =
-                            formulario
-                                ? equipoPorFormulario.get(
-                                      formulario.id,
-                                  ) ??
-                                  null
-                                : null;
-
-                        return {
-                            edicion: {
-                                id:
-                                    edicion.id,
-
-                                nombre:
-                                    edicion.nombre,
-
-                                sede:
-                                    edicion.sede,
-
-                                fecha_inicio:
-                                    edicion.fecha_inicio,
-
-                                fecha_fin:
-                                    edicion.fecha_fin,
-                            },
-
-                            torneo: {
-                                id:
-                                    torneo.id,
-
-                                nombre:
-                                    torneo.nombre,
-
-                                deporte:
-                                    torneo.deporte,
-
-                                logo:
-                                    torneo.logo,
-
-                                banner:
-                                    torneo.banner,
-                            },
-
-                            inscripcion: {
-                                apertura:
-                                    configuracion.apertura,
-
-                                cierre:
-                                    configuracion.cierre,
-                            },
-
-                            formulario:
-                                formulario
-                                    ? {
-                                          id:
-                                              formulario.id,
-
-                                          estado:
-                                              formulario.estado,
-
-                                          tipoAcceso:
-                                              formulario.tipoAcceso,
-                                      }
-                                    : null,
-
-                            equipo:
-                                equipo
-                                    ? {
-                                          id:
-                                              equipo.id,
-
-                                          nombre:
-                                              equipo.nombre,
-
-                                          escudo:
-                                              equipo.escudo,
-                                      }
-                                    : null,
-                        } satisfies InscripcionAbiertaPerfil;
-                    },
-                )
-                .filter(
-                    (
-                        entrada,
-                    ): entrada is InscripcionAbiertaPerfil =>
-                        entrada !==
-                        null,
-                )
-                .sort(
-                    (
-                        a,
-                        b,
-                    ) =>
-                        tiempo(
-                            a.inscripcion.cierre,
-                        ) -
-                        tiempo(
-                            b.inscripcion.cierre,
-                        ),
-                );
-    }
-
-    // ========================================================
-    // ACTIVIDAD RECIENTE
-    // ========================================================
-
-    actividades =
-        formularios
-            .map(
-                formulario => {
-                    const equipo =
-                        equipoPorFormulario.get(
-                            formulario.id,
-                        ) ??
-                        null;
-
-                    const edicion =
-                        edicionPorID.get(
-                            formulario.edicion_id,
-                        ) ??
-                        null;
-
-                    const torneo =
-                        edicion
-                            ? torneoPorID.get(
-                                  edicion.torneo_id,
-                              ) ??
-                              null
-                            : null;
-
-                    return actividadFormulario(
-                        formulario,
-                        equipo,
-                        edicion,
-                        torneo,
-                    );
-                },
-            )
-            .sort(
-                (
-                    a,
-                    b,
-                ) =>
-                    tiempo(
-                        b.fecha,
-                    ) -
-                    tiempo(
-                        a.fecha,
-                    ),
-            );
+      return actividadFormulario(
+        formulario,
+        equipo,
+        voluntario,
+        edicion,
+        torneo,
+      );
+    })
+    .sort((a, b) => tiempo(b.fecha) - tiempo(a.fecha));
 }
 
 // ============================================================
 // ESTADÍSTICAS
 // ============================================================
 
-const totalInscripciones =
-    formularios.length;
+const voluntarioPorFormularioEstadisticas = new Map(
+  voluntarios.map((voluntario) => [voluntario.formulario_id, voluntario]),
+);
 
-const totalBorradores =
-    formularios.filter(
-        formulario =>
-            formulario.estado ===
-            "BORRADOR",
-    ).length;
+function estadoParaEstadisticas(formulario: FormularioPerfil) {
+  return estadoEfectivo(
+    formulario,
+    voluntarioPorFormularioEstadisticas.get(formulario.id) ?? null,
+  );
+}
 
-const totalEnRevision =
-    formularios.filter(
-        formulario =>
-            formulario.estado ===
-            "EN_REVISION",
-    ).length;
+const totalInscripciones = formularios.length;
 
-const totalAprobadas =
-    formularios.filter(
-        formulario =>
-            formulario.estado ===
-            "APROBADO",
-    ).length;
+const totalEquipos = formularios.filter(
+  (formulario) => formulario.tipo === "EQUIPO",
+).length;
+
+const totalVoluntariado = formularios.filter(
+  (formulario) => formulario.tipo === "VOLUNTARIO",
+).length;
+
+const totalBorradores = formularios.filter(
+  (formulario) => estadoParaEstadisticas(formulario) === "BORRADOR",
+).length;
+
+const totalEnRevision = formularios.filter(
+  (formulario) => estadoParaEstadisticas(formulario) === "EN_REVISION",
+).length;
+
+const totalAprobadas = formularios.filter(
+  (formulario) => estadoParaEstadisticas(formulario) === "APROBADO",
+).length;
 ---
 
 <LayoutPerfil title="El meu resum">
-    {
-        usuario && (
-            <div class="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
+  {
+    usuario && (
+      <div class="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
+        <Benvinguda
+          usuario={{
+            nombre: usuario.nombre,
+            apellido1: usuario.apellido1,
+            apellido2: usuario.apellido2,
+            email: usuario.email,
+            curso: usuario.curso,
+            ano_academico: usuario.ano_academico,
+            rol: usuario.rol,
+          }}
+        />
 
-                <!-- =================================================
-                    BENVINGUDA
-                ================================================== -->
+        <ResumInscripcions
+          total={totalInscripciones}
+          equipos={totalEquipos}
+          voluntariado={totalVoluntariado}
+          borradores={totalBorradores}
+          enRevision={totalEnRevision}
+          aprobadas={totalAprobadas}
+        />
 
-                <Benvinguda
-                    usuario={{
-                        nombre: usuario.nombre,
-                        apellido1: usuario.apellido1,
-                        apellido2: usuario.apellido2,
-                        email: usuario.email,
-                        curso: usuario.curso,
-                        ano_academico: usuario.ano_academico,
-                        rol: usuario.rol,
-                    }}
-                />
+        <InscripcionsObertes inscripciones={inscripcionesAbiertas} />
 
-                <!-- =================================================
-                    RESUM D'INSCRIPCIONS
-                ================================================== -->
-
-                <ResumInscripcions
-                    total={totalInscripciones}
-                    borradores={totalBorradores}
-                    enRevision={totalEnRevision}
-                    aprobadas={totalAprobadas}
-                />
-
-                <!-- =================================================
-                    INSCRIPCIONS OBERTES
-                ================================================== -->
-
-                <InscripcionsObertes inscripciones={inscripcionesAbiertas} />
-
-                <!-- =================================================
-                    ACTIVITAT RECENT
-                ================================================== -->
-
-                <ActivitatRecent
-                    actividades={actividades}
-                    maximo={5}
-                />
-            </div>
-        )
-    }
+        <ActivitatRecent actividades={actividades} maximo={5} />
+      </div>
+    )
+  }
 </LayoutPerfil>

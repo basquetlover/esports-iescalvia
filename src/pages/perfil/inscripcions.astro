@@ -16,6 +16,10 @@ type EstadoFormulario =
     | "APROBADO"
     | "DENEGADO";
 
+type TipoFormulario =
+    | "EQUIPO"
+    | "VOLUNTARIO";
+
 type TipoAcceso =
     | "propietario"
     | "capitan";
@@ -23,6 +27,7 @@ type TipoAcceso =
 type FormularioPerfil = {
     id: string;
     edicion_id: string;
+    tipo: TipoFormulario;
     estado: EstadoFormulario;
     usuario_id: string | null;
     acceso_capitan: boolean;
@@ -42,6 +47,33 @@ type EquipoPerfil = {
     capitan_id: string | null;
     plaza_estado: string | null;
     posicion_lista_espera: number | null;
+};
+
+type VoluntarioPerfil = {
+    id: string;
+    formulario_id: string;
+
+    nombre: string | null;
+    apellido1: string | null;
+    apellido2: string | null;
+
+    email: string | null;
+
+    curso: string | null;
+    grupo: string | null;
+
+    tipo_voluntariado_id: string | null;
+    tipo_voluntariado: string | null;
+
+    descripcion: string | null;
+
+    validacion_estado: string | null;
+
+    plaza_estado: string | null;
+    posicion_lista_espera: number | null;
+
+    created_at: string | null;
+    updated_at: string | null;
 };
 
 type EdicionPerfil = {
@@ -65,6 +97,7 @@ type TorneoPerfil = {
 type InscripcionPerfil = {
     formulario: FormularioPerfil;
     equipo: EquipoPerfil | null;
+    voluntario: VoluntarioPerfil | null;
     edicion: EdicionPerfil | null;
     torneo: TorneoPerfil | null;
 };
@@ -73,20 +106,59 @@ type InscripcionPerfil = {
 // HELPERS
 // ============================================================
 
+function normalizarTipoFormulario(
+    valor: unknown,
+): TipoFormulario | null {
+    if (
+        typeof valor !==
+        "string"
+    ) {
+        return null;
+    }
+
+    const tipo =
+        valor
+            .trim()
+            .toUpperCase();
+
+    if (
+        tipo === "EQUIPO" ||
+        tipo === "VOLUNTARIO"
+    ) {
+        return tipo;
+    }
+
+    return null;
+}
+
 function normalizarEstadoFormulario(
     valor: unknown,
 ): EstadoFormulario {
     const estado =
         typeof valor === "string"
-            ? valor.trim().toUpperCase()
+            ? valor
+                  .trim()
+                  .toUpperCase()
             : "";
 
     if (
-        estado === "EN_REVISION" ||
         estado === "APROBADO" ||
+        estado === "ACEPTADO"
+    ) {
+        return "APROBADO";
+    }
+
+    if (
         estado === "DENEGADO"
     ) {
-        return estado;
+        return "DENEGADO";
+    }
+
+    if (
+        estado === "EN_REVISION" ||
+        estado === "PENDIENTE"
+    ) {
+        return "EN_REVISION";
     }
 
     return "BORRADOR";
@@ -95,12 +167,16 @@ function normalizarEstadoFormulario(
 function tiempo(
     valor: string | null,
 ) {
-    if (!valor) {
+    if (
+        !valor
+    ) {
         return 0;
     }
 
     const fecha =
-        new Date(valor);
+        new Date(
+            valor,
+        );
 
     return Number.isNaN(
         fecha.getTime(),
@@ -112,12 +188,16 @@ function tiempo(
 function fechaVisible(
     valor: string | null,
 ) {
-    if (!valor) {
+    if (
+        !valor
+    ) {
         return null;
     }
 
     const fecha =
-        new Date(valor);
+        new Date(
+            valor,
+        );
 
     if (
         Number.isNaN(
@@ -130,55 +210,154 @@ function fechaVisible(
     return new Intl.DateTimeFormat(
         "ca-ES",
         {
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-            timeZone: "Europe/Madrid",
+            day:
+                "numeric",
+
+            month:
+                "long",
+
+            year:
+                "numeric",
+
+            timeZone:
+                "Europe/Madrid",
         },
-    ).format(fecha);
+    ).format(
+        fecha,
+    );
+}
+
+function estadoEfectivo(
+    inscripcion: InscripcionPerfil,
+): EstadoFormulario {
+    if (
+        inscripcion.formulario.tipo ===
+            "VOLUNTARIO" &&
+        inscripcion.voluntario
+    ) {
+        const validacion =
+            inscripcion.voluntario
+                .validacion_estado
+                ?.trim()
+                .toUpperCase() ??
+            "";
+
+        if (
+            validacion === "APROBADO" ||
+            validacion === "ACEPTADO"
+        ) {
+            return "APROBADO";
+        }
+
+        if (
+            validacion ===
+            "DENEGADO"
+        ) {
+            return "DENEGADO";
+        }
+
+        if (
+            validacion ===
+                "PENDIENTE" ||
+            validacion ===
+                "EN_REVISION"
+        ) {
+            return "EN_REVISION";
+        }
+    }
+
+    return inscripcion.formulario
+        .estado;
 }
 
 function configuracionEstado(
     estado: EstadoFormulario,
+    tipo: TipoFormulario,
 ) {
     if (
-        estado === "EN_REVISION"
+        estado ===
+        "EN_REVISION"
     ) {
         return {
-            etiqueta: "En revisió",
-            descripcion: "La inscripció està pendent de revisió per part de l'organització.",
-            clases: "bg-secondary/10 text-secondary",
-            icono: '<path d="M480-120q-150 0-255-105T120-480q0-150 105-255t255-105q150 0 255 105t105 255q0 150-105 255T480-120Zm40-200h80v-200H480v-200h-80v280q0 17 11.5 28.5T440-400h80v80Z"></path>',
+            etiqueta:
+                "En revisió",
+
+            descripcion:
+                tipo ===
+                "VOLUNTARIO"
+                    ? "La sol·licitud de voluntariat està pendent de revisió per part de l'organització."
+                    : "La inscripció està pendent de revisió per part de l'organització.",
+
+            clases:
+                "bg-secondary/10 text-secondary",
+
+            icono:
+                '<path d="M480-120q-150 0-255-105T120-480q0-150 105-255t255-105q150 0 255 105t105 255q0 150-105 255T480-120Zm40-200h80v-200H480v-200h-80v280q0 17 11.5 28.5T440-400h80v80Z"></path>',
         };
     }
 
     if (
-        estado === "APROBADO"
+        estado ===
+        "APROBADO"
     ) {
         return {
-            etiqueta: "Aprovada",
-            descripcion: "La inscripció ha estat validada per l'organització.",
-            clases: "bg-primary/10 text-primary",
-            icono: '<path d="m382-240-228-228 57-57 171 171 367-367 57 57-424 424Z"></path>',
+            etiqueta:
+                tipo ===
+                "VOLUNTARIO"
+                    ? "Acceptat"
+                    : "Aprovada",
+
+            descripcion:
+                tipo ===
+                "VOLUNTARIO"
+                    ? "La teva sol·licitud de voluntariat ha estat acceptada per l'organització."
+                    : "La inscripció ha estat validada per l'organització.",
+
+            clases:
+                "bg-primary/10 text-primary",
+
+            icono:
+                '<path d="m382-240-228-228 57-57 171 171 367-367 57 57-424 424Z"></path>',
         };
     }
 
     if (
-        estado === "DENEGADO"
+        estado ===
+        "DENEGADO"
     ) {
         return {
-            etiqueta: "Requereix canvis",
-            descripcion: "L'organització ha indicat que s'han de corregir algunes dades.",
-            clases: "bg-error/10 text-error",
-            icono: '<path d="M480-280q17 0 28.5-11.5T520-320q0-17-11.5-28.5T480-360q-17 0-28.5 11.5T440-320q0 17 11.5 28.5T480-280Zm-40-160h80v-240h-80v240Z"></path>',
+            etiqueta:
+                tipo ===
+                "VOLUNTARIO"
+                    ? "No acceptat"
+                    : "Requereix canvis",
+
+            descripcion:
+                tipo ===
+                "VOLUNTARIO"
+                    ? "La sol·licitud de voluntariat no ha estat acceptada."
+                    : "L'organització ha indicat que s'han de corregir algunes dades.",
+
+            clases:
+                "bg-error/10 text-error",
+
+            icono:
+                '<path d="M480-280q17 0 28.5-11.5T520-320q0-17-11.5-28.5T480-360q-17 0-28.5 11.5T440-320q0 17 11.5 28.5T480-280Zm-40-160h80v-240h-80v240Z"></path>',
         };
     }
 
     return {
-        etiqueta: "Esborrany",
-        descripcion: "La inscripció encara no s'ha enviat a revisió.",
-        clases: "bg-neutral/10 text-neutral",
-        icono: '<path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h447l193 193v447q0 33-23.5 56.5T760-120H200Zm280-80q50 0 85-35t35-85q0-50-35-85t-85-35q-50 0-85 35t-35 85q0 50 35 85t85 35ZM240-560h360v-160H240v160Z"></path>',
+        etiqueta:
+            "Esborrany",
+
+        descripcion:
+            "La inscripció encara no s'ha enviat a revisió.",
+
+        clases:
+            "bg-neutral/10 text-neutral",
+
+        icono:
+            '<path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h447l193 193v447q0 33-23.5 56.5T760-120H200Zm280-80q50 0 85-35t35-85q0-50-35-85t-85-35q-50 0-85 35t-35 85q0 50 35 85t85 35ZM240-560h360v-160H240v160Z"></path>',
     };
 }
 
@@ -216,6 +395,94 @@ function fechaActividad(
     );
 }
 
+function nombreVoluntario(
+    voluntario: VoluntarioPerfil | null,
+) {
+    if (
+        !voluntario
+    ) {
+        return "Voluntariat";
+    }
+
+    const nombre = [
+        voluntario.nombre,
+        voluntario.apellido1,
+        voluntario.apellido2,
+    ]
+        .map(
+            valor =>
+                valor?.trim() ??
+                "",
+        )
+        .filter(
+            Boolean,
+        )
+        .join(
+            " ",
+        );
+
+    return (
+        nombre ||
+        "Voluntariat"
+    );
+}
+
+function nombreRol(
+    voluntario: VoluntarioPerfil | null,
+) {
+    const rol =
+        voluntario
+            ?.tipo_voluntariado
+            ?.trim();
+
+    return (
+        rol ||
+        "Rol no disponible"
+    );
+}
+
+function plazaVisible(
+    valor: string | null,
+) {
+    const estado =
+        valor
+            ?.trim()
+            .toUpperCase();
+
+    if (
+        estado ===
+        "CONFIRMADA"
+    ) {
+        return "Plaça confirmada";
+    }
+
+    if (
+        estado ===
+        "LISTA_ESPERA"
+    ) {
+        return "Llista d'espera";
+    }
+
+    if (
+        estado ===
+            "SIN_PLAZA" ||
+        estado ===
+            "SENSE_PLAÇA"
+    ) {
+        return "Sense plaça";
+    }
+
+    if (
+        estado ===
+        "PENDIENTE"
+    ) {
+        return "Pendent";
+    }
+
+    return valor?.trim() ||
+        null;
+}
+
 // ============================================================
 // SESIÓN
 // ============================================================
@@ -233,17 +500,35 @@ const usuario =
         : null;
 
 // ============================================================
-// FORMULARIOS
+// DATOS
 // ============================================================
 
-let formularios: FormularioPerfil[] = [];
-let equipos: EquipoPerfil[] = [];
-let ediciones: EdicionPerfil[] = [];
-let torneos: TorneoPerfil[] = [];
+let formularios:
+    FormularioPerfil[] =
+    [];
 
-if (usuario) {
+let equipos:
+    EquipoPerfil[] =
+    [];
+
+let voluntarios:
+    VoluntarioPerfil[] =
+    [];
+
+let ediciones:
+    EdicionPerfil[] =
+    [];
+
+let torneos:
+    TorneoPerfil[] =
+    [];
+
+if (
+    usuario
+) {
     // ========================================================
-    // PROPIETARIO
+    // FORMULARIOS PROPIOS
+    // EQUIPO + VOLUNTARIO
     // ========================================================
 
     const {
@@ -254,15 +539,22 @@ if (usuario) {
             errorFormulariosPropios,
     } =
         await supabaseAdmin
-            .from("formularios")
-            .select("id,edicion_id,estado,usuario_id,acceso_capitan,iniciado_at,enviado_at,completado_at,created_at,updated_at")
+            .from(
+                "formularios",
+            )
+            .select(
+                "id,edicion_id,tipo,estado,usuario_id,acceso_capitan,iniciado_at,enviado_at,completado_at,created_at,updated_at",
+            )
             .eq(
                 "usuario_id",
                 usuario.id,
             )
-            .eq(
+            .in(
                 "tipo",
-                "EQUIPO",
+                [
+                    "EQUIPO",
+                    "VOLUNTARIO",
+                ],
             );
 
     if (
@@ -278,54 +570,72 @@ if (usuario) {
         (
             formulariosPropiosData ??
             []
-        ).map(
-            formulario => ({
-                id:
-                    formulario.id,
+        ).flatMap(
+            formulario => {
+                const tipo =
+                    normalizarTipoFormulario(
+                        formulario.tipo,
+                    );
 
-                edicion_id:
-                    formulario.edicion_id,
+                if (
+                    !tipo
+                ) {
+                    return [];
+                }
 
-                estado:
-                    normalizarEstadoFormulario(
-                        formulario.estado,
-                    ),
+                return [
+                    {
+                        id:
+                            formulario.id,
 
-                usuario_id:
-                    formulario.usuario_id ??
-                    null,
+                        edicion_id:
+                            formulario.edicion_id,
 
-                acceso_capitan:
-                    formulario.acceso_capitan ===
-                    true,
+                        tipo,
 
-                iniciado_at:
-                    formulario.iniciado_at ??
-                    null,
+                        estado:
+                            normalizarEstadoFormulario(
+                                formulario.estado,
+                            ),
 
-                enviado_at:
-                    formulario.enviado_at ??
-                    null,
+                        usuario_id:
+                            formulario.usuario_id ??
+                            null,
 
-                completado_at:
-                    formulario.completado_at ??
-                    null,
+                        acceso_capitan:
+                            formulario.acceso_capitan ===
+                            true,
 
-                created_at:
-                    formulario.created_at ??
-                    null,
+                        iniciado_at:
+                            formulario.iniciado_at ??
+                            null,
 
-                updated_at:
-                    formulario.updated_at ??
-                    null,
+                        enviado_at:
+                            formulario.enviado_at ??
+                            null,
 
-                tipoAcceso:
-                    "propietario" as const,
-            }),
+                        completado_at:
+                            formulario.completado_at ??
+                            null,
+
+                        created_at:
+                            formulario.created_at ??
+                            null,
+
+                        updated_at:
+                            formulario.updated_at ??
+                            null,
+
+                        tipoAcceso:
+                            "propietario" as const,
+                    },
+                ];
+            },
         );
 
     // ========================================================
     // ACCESO COMO CAPITÁN
+    // SOLO FORMULARIOS DE EQUIPO
     // ========================================================
 
     const emailUsuario =
@@ -334,7 +644,9 @@ if (usuario) {
             .toLowerCase() ??
         "";
 
-    if (emailUsuario) {
+    if (
+        emailUsuario
+    ) {
         const {
             data:
                 participantesData,
@@ -343,8 +655,12 @@ if (usuario) {
                 errorParticipantes,
         } =
             await supabaseAdmin
-                .from("participantes_equipo")
-                .select("id,equipo_id,email,activo")
+                .from(
+                    "participantes_equipo",
+                )
+                .select(
+                    "id,equipo_id,email,activo",
+                )
                 .eq(
                     "email",
                     emailUsuario,
@@ -384,8 +700,12 @@ if (usuario) {
                     errorEquiposCapitan,
             } =
                 await supabaseAdmin
-                    .from("equipos")
-                    .select("id,formulario_id,capitan_id")
+                    .from(
+                        "equipos",
+                    )
+                    .select(
+                        "id,formulario_id,capitan_id",
+                    )
                     .in(
                         "capitan_id",
                         idsParticipantes,
@@ -416,7 +736,9 @@ if (usuario) {
                             ): id is string =>
                                 typeof id ===
                                     "string" &&
-                                Boolean(id),
+                                Boolean(
+                                    id,
+                                ),
                         ),
                 ),
             ];
@@ -433,8 +755,12 @@ if (usuario) {
                         errorFormulariosCapitan,
                 } =
                     await supabaseAdmin
-                        .from("formularios")
-                        .select("id,edicion_id,estado,usuario_id,acceso_capitan,iniciado_at,enviado_at,completado_at,created_at,updated_at")
+                        .from(
+                            "formularios",
+                        )
+                        .select(
+                            "id,edicion_id,estado,usuario_id,acceso_capitan,iniciado_at,enviado_at,completado_at,created_at,updated_at",
+                        )
                         .in(
                             "id",
                             idsFormulariosCapitan,
@@ -478,49 +804,54 @@ if (usuario) {
                         continue;
                     }
 
-                    formularios.push({
-                        id:
-                            formulario.id,
+                    formularios.push(
+                        {
+                            id:
+                                formulario.id,
 
-                        edicion_id:
-                            formulario.edicion_id,
+                            edicion_id:
+                                formulario.edicion_id,
 
-                        estado:
-                            normalizarEstadoFormulario(
-                                formulario.estado,
-                            ),
+                            tipo:
+                                "EQUIPO",
 
-                        usuario_id:
-                            formulario.usuario_id ??
-                            null,
+                            estado:
+                                normalizarEstadoFormulario(
+                                    formulario.estado,
+                                ),
 
-                        acceso_capitan:
-                            formulario.acceso_capitan ===
-                            true,
+                            usuario_id:
+                                formulario.usuario_id ??
+                                null,
 
-                        iniciado_at:
-                            formulario.iniciado_at ??
-                            null,
+                            acceso_capitan:
+                                formulario.acceso_capitan ===
+                                true,
 
-                        enviado_at:
-                            formulario.enviado_at ??
-                            null,
+                            iniciado_at:
+                                formulario.iniciado_at ??
+                                null,
 
-                        completado_at:
-                            formulario.completado_at ??
-                            null,
+                            enviado_at:
+                                formulario.enviado_at ??
+                                null,
 
-                        created_at:
-                            formulario.created_at ??
-                            null,
+                            completado_at:
+                                formulario.completado_at ??
+                                null,
 
-                        updated_at:
-                            formulario.updated_at ??
-                            null,
+                            created_at:
+                                formulario.created_at ??
+                                null,
 
-                        tipoAcceso:
-                            "capitan",
-                    });
+                            updated_at:
+                                formulario.updated_at ??
+                                null,
+
+                            tipoAcceso:
+                                "capitan",
+                        },
+                    );
 
                     idsExistentes.add(
                         formulario.id,
@@ -534,14 +865,20 @@ if (usuario) {
     // EQUIPOS
     // ========================================================
 
-    const idsFormularios =
-        formularios.map(
-            formulario =>
-                formulario.id,
-        );
+    const idsFormulariosEquipo =
+        formularios
+            .filter(
+                formulario =>
+                    formulario.tipo ===
+                    "EQUIPO",
+            )
+            .map(
+                formulario =>
+                    formulario.id,
+            );
 
     if (
-        idsFormularios.length >
+        idsFormulariosEquipo.length >
         0
     ) {
         const {
@@ -552,11 +889,15 @@ if (usuario) {
                 errorEquipos,
         } =
             await supabaseAdmin
-                .from("equipos")
-                .select("id,formulario_id,nombre,escudo,capitan_id,plaza_estado,posicion_lista_espera")
+                .from(
+                    "equipos",
+                )
+                .select(
+                    "id,formulario_id,nombre,escudo,capitan_id,plaza_estado,posicion_lista_espera",
+                )
                 .in(
                     "formulario_id",
-                    idsFormularios,
+                    idsFormulariosEquipo,
                 );
 
         if (
@@ -604,15 +945,138 @@ if (usuario) {
     }
 
     // ========================================================
+    // VOLUNTARIOS
+    // ========================================================
+
+    const idsFormulariosVoluntario =
+        formularios
+            .filter(
+                formulario =>
+                    formulario.tipo ===
+                    "VOLUNTARIO",
+            )
+            .map(
+                formulario =>
+                    formulario.id,
+            );
+
+    if (
+        idsFormulariosVoluntario.length >
+        0
+    ) {
+        const {
+            data:
+                voluntariosData,
+
+            error:
+                errorVoluntarios,
+        } =
+            await supabaseAdmin
+                .from(
+                    "voluntarios",
+                )
+                .select(
+                    "id,formulario_id,nombre,apellido1,apellido2,email,curso,grupo,tipo_voluntariado_id,tipo_voluntariado,descripcion,validacion_estado,plaza_estado,posicion_lista_espera,created_at,updated_at",
+                )
+                .in(
+                    "formulario_id",
+                    idsFormulariosVoluntario,
+                );
+
+        if (
+            errorVoluntarios
+        ) {
+            console.error(
+                "Error carregant les sol·licituds de voluntariat:",
+                errorVoluntarios,
+            );
+        }
+
+        voluntarios =
+            (
+                voluntariosData ??
+                []
+            ).map(
+                voluntario => ({
+                    id:
+                        voluntario.id,
+
+                    formulario_id:
+                        voluntario.formulario_id,
+
+                    nombre:
+                        voluntario.nombre ??
+                        null,
+
+                    apellido1:
+                        voluntario.apellido1 ??
+                        null,
+
+                    apellido2:
+                        voluntario.apellido2 ??
+                        null,
+
+                    email:
+                        voluntario.email ??
+                        null,
+
+                    curso:
+                        voluntario.curso ??
+                        null,
+
+                    grupo:
+                        voluntario.grupo ??
+                        null,
+
+                    tipo_voluntariado_id:
+                        voluntario.tipo_voluntariado_id ??
+                        null,
+
+                    tipo_voluntariado:
+                        voluntario.tipo_voluntariado ??
+                        null,
+
+                    descripcion:
+                        voluntario.descripcion ??
+                        null,
+
+                    validacion_estado:
+                        voluntario.validacion_estado ??
+                        null,
+
+                    plaza_estado:
+                        voluntario.plaza_estado ??
+                        null,
+
+                    posicion_lista_espera:
+                        voluntario.posicion_lista_espera ??
+                        null,
+
+                    created_at:
+                        voluntario.created_at ??
+                        null,
+
+                    updated_at:
+                        voluntario.updated_at ??
+                        null,
+                }),
+            );
+    }
+
+    // ========================================================
     // EDICIONES
     // ========================================================
 
     const idsEdiciones = [
         ...new Set(
-            formularios.map(
-                formulario =>
-                    formulario.edicion_id,
-            ),
+            formularios
+                .map(
+                    formulario =>
+                        formulario.edicion_id,
+                )
+                .filter(
+                    Boolean,
+                ),
         ),
     ];
 
@@ -628,8 +1092,12 @@ if (usuario) {
                 errorEdiciones,
         } =
             await supabaseAdmin
-                .from("ediciones")
-                .select("id,torneo_id,nombre,estado,sede,fecha_inicio,fecha_fin")
+                .from(
+                    "ediciones",
+                )
+                .select(
+                    "id,torneo_id,nombre,estado,sede,fecha_inicio,fecha_fin",
+                )
                 .in(
                     "id",
                     idsEdiciones,
@@ -708,8 +1176,12 @@ if (usuario) {
                 errorTorneos,
         } =
             await supabaseAdmin
-                .from("torneos")
-                .select("id,nombre,deporte,logo,banner")
+                .from(
+                    "torneos",
+                )
+                .select(
+                    "id,nombre,deporte,logo,banner",
+                )
                 .in(
                     "id",
                     idsTorneos,
@@ -767,6 +1239,16 @@ const equipoPorFormulario =
         ),
     );
 
+const voluntarioPorFormulario =
+    new Map(
+        voluntarios.map(
+            voluntario => [
+                voluntario.formulario_id,
+                voluntario,
+            ],
+        ),
+    );
+
 const edicionPorID =
     new Map(
         ediciones.map(
@@ -793,10 +1275,22 @@ const inscripciones:
         .map(
             formulario => {
                 const equipo =
-                    equipoPorFormulario.get(
-                        formulario.id,
-                    ) ??
-                    null;
+                    formulario.tipo ===
+                    "EQUIPO"
+                        ? equipoPorFormulario.get(
+                              formulario.id,
+                          ) ??
+                          null
+                        : null;
+
+                const voluntario =
+                    formulario.tipo ===
+                    "VOLUNTARIO"
+                        ? voluntarioPorFormulario.get(
+                              formulario.id,
+                          ) ??
+                          null
+                        : null;
 
                 const edicion =
                     edicionPorID.get(
@@ -815,6 +1309,7 @@ const inscripciones:
                 return {
                     formulario,
                     equipo,
+                    voluntario,
                     edicion,
                     torneo,
                 };
@@ -838,7 +1333,58 @@ const inscripciones:
         );
 
 // ============================================================
-// FILTRO
+// FILTRO POR TIPO
+// ============================================================
+
+const tiposPermitidos =
+    new Set([
+        "totes",
+        "equips",
+        "voluntariat",
+    ]);
+
+const parametroTipo =
+    Astro.url.searchParams.get(
+        "tipus",
+    ) ??
+    "totes";
+
+const filtroTipo =
+    tiposPermitidos.has(
+        parametroTipo,
+    )
+        ? parametroTipo
+        : "totes";
+
+const inscripcionesPorTipo =
+    inscripciones.filter(
+        inscripcion => {
+            if (
+                filtroTipo ===
+                "totes"
+            ) {
+                return true;
+            }
+
+            if (
+                filtroTipo ===
+                "equips"
+            ) {
+                return (
+                    inscripcion.formulario.tipo ===
+                    "EQUIPO"
+                );
+            }
+
+            return (
+                inscripcion.formulario.tipo ===
+                "VOLUNTARIO"
+            );
+        },
+    );
+
+// ============================================================
+// FILTRO POR ESTADO
 // ============================================================
 
 const estadosPermitidos =
@@ -856,7 +1402,7 @@ const parametroEstado =
     ) ??
     "totes";
 
-const filtro =
+const filtroEstado =
     estadosPermitidos.has(
         parametroEstado,
     )
@@ -864,43 +1410,52 @@ const filtro =
         : "totes";
 
 const inscripcionesFiltradas =
-    inscripciones.filter(
+    inscripcionesPorTipo.filter(
         inscripcion => {
             if (
-                filtro === "totes"
+                filtroEstado ===
+                "totes"
             ) {
                 return true;
             }
 
+            const estado =
+                estadoEfectivo(
+                    inscripcion,
+                );
+
             if (
-                filtro === "esborrany"
+                filtroEstado ===
+                "esborrany"
             ) {
                 return (
-                    inscripcion.formulario.estado ===
+                    estado ===
                     "BORRADOR"
                 );
             }
 
             if (
-                filtro === "revisio"
+                filtroEstado ===
+                "revisio"
             ) {
                 return (
-                    inscripcion.formulario.estado ===
+                    estado ===
                     "EN_REVISION"
                 );
             }
 
             if (
-                filtro === "aprovades"
+                filtroEstado ===
+                "aprovades"
             ) {
                 return (
-                    inscripcion.formulario.estado ===
+                    estado ===
                     "APROBADO"
                 );
             }
 
             return (
-                inscripcion.formulario.estado ===
+                estado ===
                 "DENEGADO"
             );
         },
@@ -913,61 +1468,183 @@ const inscripcionesFiltradas =
 const total =
     inscripciones.length;
 
-const totalBorradores =
+const totalEquipos =
     inscripciones.filter(
         inscripcion =>
-            inscripcion.formulario.estado ===
+            inscripcion.formulario.tipo ===
+            "EQUIPO",
+    ).length;
+
+const totalVoluntariado =
+    inscripciones.filter(
+        inscripcion =>
+            inscripcion.formulario.tipo ===
+            "VOLUNTARIO",
+    ).length;
+
+const totalTipoActual =
+    inscripcionesPorTipo.length;
+
+const totalBorradores =
+    inscripcionesPorTipo.filter(
+        inscripcion =>
+            estadoEfectivo(
+                inscripcion,
+            ) ===
             "BORRADOR",
     ).length;
 
 const totalRevision =
-    inscripciones.filter(
+    inscripcionesPorTipo.filter(
         inscripcion =>
-            inscripcion.formulario.estado ===
+            estadoEfectivo(
+                inscripcion,
+            ) ===
             "EN_REVISION",
     ).length;
 
 const totalAprobadas =
-    inscripciones.filter(
+    inscripcionesPorTipo.filter(
         inscripcion =>
-            inscripcion.formulario.estado ===
+            estadoEfectivo(
+                inscripcion,
+            ) ===
             "APROBADO",
     ).length;
 
 const totalCambios =
-    inscripciones.filter(
+    inscripcionesPorTipo.filter(
         inscripcion =>
-            inscripcion.formulario.estado ===
+            estadoEfectivo(
+                inscripcion,
+            ) ===
             "DENEGADO",
     ).length;
 
-const filtros = [
+const filtrosTipo = [
     {
-        id: "totes",
-        nombre: "Totes",
-        cantidad: total,
+        id:
+            "totes",
+
+        nombre:
+            "Totes",
+
+        cantidad:
+            total,
     },
     {
-        id: "esborrany",
-        nombre: "Esborranys",
-        cantidad: totalBorradores,
+        id:
+            "equips",
+
+        nombre:
+            "Equips",
+
+        cantidad:
+            totalEquipos,
     },
     {
-        id: "revisio",
-        nombre: "En revisió",
-        cantidad: totalRevision,
-    },
-    {
-        id: "aprovades",
-        nombre: "Aprovades",
-        cantidad: totalAprobadas,
-    },
-    {
-        id: "canvis",
-        nombre: "Requereixen canvis",
-        cantidad: totalCambios,
+        id:
+            "voluntariat",
+
+        nombre:
+            "Voluntariat",
+
+        cantidad:
+            totalVoluntariado,
     },
 ];
+
+const filtrosEstado = [
+    {
+        id:
+            "totes",
+
+        nombre:
+            "Totes",
+
+        cantidad:
+            totalTipoActual,
+    },
+    {
+        id:
+            "esborrany",
+
+        nombre:
+            "Esborranys",
+
+        cantidad:
+            totalBorradores,
+    },
+    {
+        id:
+            "revisio",
+
+        nombre:
+            "En revisió",
+
+        cantidad:
+            totalRevision,
+    },
+    {
+        id:
+            "aprovades",
+
+        nombre:
+            "Aprovades",
+
+        cantidad:
+            totalAprobadas,
+    },
+    {
+        id:
+            "canvis",
+
+        nombre:
+            "No aprovades",
+
+        cantidad:
+            totalCambios,
+    },
+];
+
+// ============================================================
+// ENLACES DE FILTRO
+// ============================================================
+
+function enlaceFiltros(
+    estado: string,
+    tipo: string,
+) {
+    const parametros =
+        new URLSearchParams();
+
+    if (
+        estado !==
+        "totes"
+    ) {
+        parametros.set(
+            "estat",
+            estado,
+        );
+    }
+
+    if (
+        tipo !==
+        "totes"
+    ) {
+        parametros.set(
+            "tipus",
+            tipo,
+        );
+    }
+
+    const consulta =
+        parametros.toString();
+
+    return consulta
+        ? `/perfil/inscripcions?${consulta}`
+        : "/perfil/inscripcions";
+}
 ---
 
 <LayoutPerfil title="Les meves inscripcions">
@@ -988,12 +1665,21 @@ const filtros = [
                 </h1>
 
                 <p class="mt-2 max-w-2xl text-sm leading-6 text-neutral">
-                    Consulta l'estat dels teus equips i accedeix als formularis que pots gestionar.
+                    Consulta les inscripcions dels teus equips i les teves
+                    sol·licituds de voluntariat.
                 </p>
             </div>
 
-            <a href="/tornejos" class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary/90">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-4 w-4 fill-current" aria-hidden="true">
+            <a
+                href="/tornejos"
+                class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary/90"
+            >
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 -960 960 960"
+                    class="h-4 w-4 fill-current"
+                    aria-hidden="true"
+                >
                     <path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z"></path>
                 </svg>
 
@@ -1002,25 +1688,135 @@ const filtros = [
         </header>
 
         <!-- =================================================
-            FILTROS
+            FILTRO POR TIPO
         ================================================== -->
 
         {
             total > 0 && (
-                <div class="mt-8 overflow-x-auto border-b border-border">
-                    <nav aria-label="Filtrar inscripcions" class="flex min-w-max gap-1">
-                        {
-                            filtros.map(
-                                item => (
-                                    <a href={item.id === "totes" ? "/perfil/inscripcions" : `/perfil/inscripcions?estat=${item.id}`} aria-current={filtro === item.id ? "page" : undefined} class={`relative flex min-h-12 items-center gap-2 px-3 text-sm transition ${filtro === item.id ? "font-semibold text-primary" : "font-medium text-neutral hover:text-neutral-titulos"}`}>
-                                        {item.nombre}
+                <div class="mt-8 flex flex-wrap gap-2">
+                    {
+                        filtrosTipo.map(
+                            item => (
+                                <a
+                                    href={enlaceFiltros(
+                                        filtroEstado,
+                                        item.id,
+                                    )}
+                                    aria-current={
+                                        filtroTipo ===
+                                        item.id
+                                            ? "page"
+                                            : undefined
+                                    }
+                                    class={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-semibold transition ${
+                                        filtroTipo ===
+                                        item.id
+                                            ? "border-primary bg-primary/10 text-primary"
+                                            : "border-border bg-card text-neutral hover:border-primary/30 hover:text-neutral-titulos"
+                                    }`}
+                                >
+                                    {
+                                        item.id ===
+                                        "equips" && (
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                viewBox="0 -960 960 960"
+                                                class="h-4 w-4 fill-current"
+                                                aria-hidden="true"
+                                            >
+                                                <path d="M160-120v-80h80v-560q0-33 23.5-56.5T320-840h320q33 0 56.5 23.5T720-760v560h80v80H160Zm160-80h320v-560H320v560Z"></path>
+                                            </svg>
+                                        )
+                                    }
 
-                                        <span class={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${filtro === item.id ? "bg-primary/10 text-primary" : "bg-card text-neutral"}`}>
-                                            {item.cantidad}
+                                    {
+                                        item.id ===
+                                        "voluntariat" && (
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                viewBox="0 -960 960 960"
+                                                class="h-4 w-4 fill-current"
+                                                aria-hidden="true"
+                                            >
+                                                <path d="M480-480q-66 0-113-47t-47-113 47-113 113-47 113 47 47 113-47 113-113 47ZM160-160v-112q0-34 17.5-62.5T224-378q62-31 126-46.5T480-440t130 15.5T736-378q29 15 46.5 43.5T800-272v112H160Z"></path>
+                                            </svg>
+                                        )
+                                    }
+
+                                    {item.nombre}
+
+                                    <span
+                                        class={`rounded-full px-2 py-0.5 text-[11px] ${
+                                            filtroTipo ===
+                                            item.id
+                                                ? "bg-primary/15 text-primary"
+                                                : "bg-background text-neutral"
+                                        }`}
+                                    >
+                                        {
+                                            item.cantidad
+                                        }
+                                    </span>
+                                </a>
+                            ),
+                        )
+                    }
+                </div>
+            )
+        }
+
+        <!-- =================================================
+            FILTRO POR ESTADO
+        ================================================== -->
+
+        {
+            totalTipoActual > 0 && (
+                <div class="mt-5 overflow-x-auto border-b border-border">
+                    <nav
+                        aria-label="Filtrar per estat"
+                        class="flex min-w-max gap-1"
+                    >
+                        {
+                            filtrosEstado.map(
+                                item => (
+                                    <a
+                                        href={enlaceFiltros(
+                                            item.id,
+                                            filtroTipo,
+                                        )}
+                                        aria-current={
+                                            filtroEstado ===
+                                            item.id
+                                                ? "page"
+                                                : undefined
+                                        }
+                                        class={`relative flex min-h-12 items-center gap-2 px-3 text-sm transition ${
+                                            filtroEstado ===
+                                            item.id
+                                                ? "font-semibold text-primary"
+                                                : "font-medium text-neutral hover:text-neutral-titulos"
+                                        }`}
+                                    >
+                                        {
+                                            item.nombre
+                                        }
+
+                                        <span
+                                            class={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                                                filtroEstado ===
+                                                item.id
+                                                    ? "bg-primary/10 text-primary"
+                                                    : "bg-card text-neutral"
+                                            }`}
+                                        >
+                                            {
+                                                item.cantidad
+                                            }
                                         </span>
 
                                         {
-                                            filtro === item.id && (
+                                            filtroEstado ===
+                                                item.id && (
                                                 <span class="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-primary"></span>
                                             )
                                         }
@@ -1043,60 +1839,215 @@ const filtros = [
                     {
                         inscripcionesFiltradas.map(
                             inscripcion => {
+                                const esVoluntario =
+                                    inscripcion.formulario
+                                        .tipo ===
+                                    "VOLUNTARIO";
+
+                                const estadoActual =
+                                    estadoEfectivo(
+                                        inscripcion,
+                                    );
+
                                 const estado =
                                     configuracionEstado(
-                                        inscripcion.formulario.estado,
+                                        estadoActual,
+                                        inscripcion
+                                            .formulario
+                                            .tipo,
                                     );
 
                                 const fecha =
                                     fechaVisible(
                                         fechaActividad(
-                                            inscripcion.formulario,
+                                            inscripcion
+                                                .formulario,
                                         ),
                                     );
 
                                 const fechaTorneo =
                                     fechaVisible(
-                                        inscripcion.edicion?.fecha_inicio ??
-                                        null,
+                                        inscripcion
+                                            .edicion
+                                            ?.fecha_inicio ??
+                                            null,
                                     );
 
+                                const titulo =
+                                    esVoluntario
+                                        ? nombreVoluntario(
+                                              inscripcion.voluntario,
+                                          )
+                                        : inscripcion
+                                              .equipo
+                                              ?.nombre
+                                              ?.trim() ||
+                                          "Equip sense nom";
+
+                                const rol =
+                                    nombreRol(
+                                        inscripcion.voluntario,
+                                    );
+
+                                const plaza =
+                                    esVoluntario
+                                        ? plazaVisible(
+                                              inscripcion
+                                                  .voluntario
+                                                  ?.plaza_estado ??
+                                                  null,
+                                          )
+                                        : plazaVisible(
+                                              inscripcion
+                                                  .equipo
+                                                  ?.plaza_estado ??
+                                                  null,
+                                          );
+
                                 const enlaceFormulario =
+                                    !esVoluntario &&
                                     inscripcion.edicion
-                                        ? `/inscripcio?edicionID=${encodeURIComponent(inscripcion.edicion.id)}`
+                                        ? `/inscripcio?edicionID=${encodeURIComponent(
+                                              inscripcion
+                                                  .edicion
+                                                  .id,
+                                          )}`
+                                        : null;
+
+                                const enlaceVoluntariado =
+                                    esVoluntario &&
+                                    inscripcion.torneo
+                                        ? `/tornejos/${encodeURIComponent(
+                                              inscripcion
+                                                  .torneo
+                                                  .id,
+                                          )}?seccio=voluntariat#formulari-voluntariat`
                                         : null;
 
                                 const enlaceTorneo =
                                     inscripcion.torneo
-                                        ? `/tornejos/${encodeURIComponent(inscripcion.torneo.id)}`
+                                        ? `/tornejos/${encodeURIComponent(
+                                              inscripcion
+                                                  .torneo
+                                                  .id,
+                                          )}`
                                         : null;
 
                                 return (
                                     <article class="overflow-hidden rounded-2xl border border-border bg-card">
-                                        <!-- BANNER -->
+                                        <!-- =================================================
+                                            BANNER
+                                        ================================================== -->
 
-                                        <div class="relative h-32 overflow-hidden bg-primary/10 sm:h-36">
+                                        <div class="relative h-36 overflow-hidden bg-primary/10">
                                             {
-                                                inscripcion.torneo?.banner ? (
-                                                    <img src={inscripcion.torneo.banner} alt="" class="h-full w-full object-cover" />
+                                                inscripcion
+                                                    .torneo
+                                                    ?.banner ? (
+                                                    <img
+                                                        src={
+                                                            inscripcion
+                                                                .torneo
+                                                                .banner
+                                                        }
+                                                        alt=""
+                                                        class="h-full w-full object-cover"
+                                                    />
                                                 ) : (
                                                     <div class="absolute inset-0 bg-linear-to-br from-primary/20 via-primary/5 to-secondary/15"></div>
                                                 )
                                             }
 
-                                            <div class="absolute inset-0 bg-linear-to-t from-black/65 via-black/10 to-transparent"></div>
+                                            <div class="absolute inset-0 bg-linear-to-t from-black/70 via-black/15 to-transparent"></div>
+
+                                            <div class="absolute left-4 top-4">
+                                                <span
+                                                    class={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold backdrop-blur ${
+                                                        esVoluntario
+                                                            ? "bg-secondary/90 text-white"
+                                                            : "bg-primary/90 text-white"
+                                                    }`}
+                                                >
+                                                    {
+                                                        esVoluntario ? (
+                                                            <>
+                                                                <svg
+                                                                    xmlns="http://www.w3.org/2000/svg"
+                                                                    viewBox="0 -960 960 960"
+                                                                    class="h-3.5 w-3.5 fill-current"
+                                                                    aria-hidden="true"
+                                                                >
+                                                                    <path d="M480-480q-66 0-113-47t-47-113 47-113 113-47 113 47 47 113-47 113-113 47ZM160-160v-112q0-34 17.5-62.5T224-378q62-31 126-46.5T480-440t130 15.5T736-378q29 15 46.5 43.5T800-272v112H160Z"></path>
+                                                                </svg>
+
+                                                                Voluntariat
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <svg
+                                                                    xmlns="http://www.w3.org/2000/svg"
+                                                                    viewBox="0 -960 960 960"
+                                                                    class="h-3.5 w-3.5 fill-current"
+                                                                    aria-hidden="true"
+                                                                >
+                                                                    <path d="M160-120v-80h80v-560q0-33 23.5-56.5T320-840h320q33 0 56.5 23.5T720-760v560h80v80H160Z"></path>
+                                                                </svg>
+
+                                                                Equip
+                                                            </>
+                                                        )
+                                                    }
+                                                </span>
+                                            </div>
 
                                             <div class="absolute inset-x-4 bottom-4 flex items-end justify-between gap-4">
                                                 <div class="flex min-w-0 items-center gap-3">
                                                     {
-                                                        inscripcion.equipo?.escudo ? (
-                                                            <img src={inscripcion.equipo.escudo} alt="" class="h-12 w-12 shrink-0 rounded-xl border border-white/20 bg-white/90 object-contain p-1.5 shadow-sm" />
-                                                        ) : inscripcion.torneo?.logo ? (
-                                                            <img src={inscripcion.torneo.logo} alt="" class="h-12 w-12 shrink-0 rounded-xl border border-white/20 bg-white/90 object-contain p-1.5 shadow-sm" />
+                                                        !esVoluntario &&
+                                                        inscripcion
+                                                            .equipo
+                                                            ?.escudo ? (
+                                                            <img
+                                                                src={
+                                                                    inscripcion
+                                                                        .equipo
+                                                                        .escudo
+                                                                }
+                                                                alt=""
+                                                                class="h-12 w-12 shrink-0 rounded-xl border border-white/20 bg-white/90 object-contain p-1.5 shadow-sm"
+                                                            />
+                                                        ) : esVoluntario ? (
+                                                            <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-white/15 text-white backdrop-blur">
+                                                                <svg
+                                                                    xmlns="http://www.w3.org/2000/svg"
+                                                                    viewBox="0 -960 960 960"
+                                                                    class="h-6 w-6 fill-current"
+                                                                    aria-hidden="true"
+                                                                >
+                                                                    <path d="M480-480q-66 0-113-47t-47-113 47-113 113-47 113 47 47 113-47 113-113 47ZM160-160v-112q0-34 17.5-62.5T224-378q62-31 126-46.5T480-440t130 15.5T736-378q29 15 46.5 43.5T800-272v112H160Z"></path>
+                                                                </svg>
+                                                            </span>
+                                                        ) : inscripcion
+                                                              .torneo
+                                                              ?.logo ? (
+                                                            <img
+                                                                src={
+                                                                    inscripcion
+                                                                        .torneo
+                                                                        .logo
+                                                                }
+                                                                alt=""
+                                                                class="h-12 w-12 shrink-0 rounded-xl border border-white/20 bg-white/90 object-contain p-1.5 shadow-sm"
+                                                            />
                                                         ) : (
                                                             <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-white/15 text-white backdrop-blur">
-                                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-6 w-6 fill-current" aria-hidden="true">
-                                                                    <path d="M160-120v-80h80v-560q0-33 23.5-56.5T320-840h320q33 0 56.5 23.5T720-760v560h80v80H160Zm160-80h320v-560H320v560Zm80-80h160v-80H400v80Zm0-160h160v-80H400v80Zm0-160h160v-80H400v80Z"></path>
+                                                                <svg
+                                                                    xmlns="http://www.w3.org/2000/svg"
+                                                                    viewBox="0 -960 960 960"
+                                                                    class="h-6 w-6 fill-current"
+                                                                    aria-hidden="true"
+                                                                >
+                                                                    <path d="M160-120v-80h80v-560q0-33 23.5-56.5T320-840h320q33 0 56.5 23.5T720-760v560h80v80H160Z"></path>
                                                                 </svg>
                                                             </span>
                                                         )
@@ -1104,74 +2055,221 @@ const filtros = [
 
                                                     <div class="min-w-0">
                                                         <h2 class="truncate text-lg font-bold text-white">
-                                                            {inscripcion.equipo?.nombre?.trim() || "Equip sense nom"}
+                                                            {
+                                                                titulo
+                                                            }
                                                         </h2>
 
                                                         <p class="truncate text-xs font-medium text-white/75">
-                                                            {inscripcion.torneo?.nombre ?? "Torneig"}
+                                                            {
+                                                                inscripcion
+                                                                    .torneo
+                                                                    ?.nombre ??
+                                                                "Torneig"
+                                                            }
                                                         </p>
                                                     </div>
                                                 </div>
 
-                                                <span class={`shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold ${estado.clases}`}>
-                                                    {estado.etiqueta}
+                                                <span
+                                                    class={`shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold ${estado.clases}`}
+                                                >
+                                                    {
+                                                        estado.etiqueta
+                                                    }
                                                 </span>
                                             </div>
                                         </div>
 
-                                        <!-- CONTENIDO -->
+                                        <!-- =================================================
+                                            CONTENIDO
+                                        ================================================== -->
 
                                         <div class="p-5 sm:p-6">
                                             <div class="flex items-start gap-3">
-                                                <span class={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${estado.clases}`}>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-4.5 w-4.5 fill-current" aria-hidden="true" set:html={estado.icono}></svg>
+                                                <span
+                                                    class={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${estado.clases}`}
+                                                >
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        viewBox="0 -960 960 960"
+                                                        class="h-4.5 w-4.5 fill-current"
+                                                        aria-hidden="true"
+                                                        set:html={
+                                                            estado.icono
+                                                        }
+                                                    ></svg>
                                                 </span>
 
                                                 <div>
                                                     <p class="text-sm font-semibold text-neutral-titulos">
-                                                        {estado.etiqueta}
+                                                        {
+                                                            estado.etiqueta
+                                                        }
                                                     </p>
 
                                                     <p class="mt-1 text-xs leading-5 text-neutral">
-                                                        {estado.descripcion}
+                                                        {
+                                                            estado.descripcion
+                                                        }
                                                     </p>
                                                 </div>
                                             </div>
 
+                                            <!-- =================================================
+                                                DATOS VOLUNTARIO
+                                            ================================================== -->
+
+                                            {
+                                                esVoluntario &&
+                                                inscripcion.voluntario && (
+                                                    <div class="mt-5 rounded-2xl border border-primary/20 bg-primary/5 p-4">
+                                                        <div class="flex items-start gap-3">
+                                                            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                                                                <svg
+                                                                    xmlns="http://www.w3.org/2000/svg"
+                                                                    viewBox="0 -960 960 960"
+                                                                    class="h-5 w-5 fill-current"
+                                                                    aria-hidden="true"
+                                                                >
+                                                                    <path d="M160-160v-80h112l88-248 104 312 72-144h264v80H585l-133 266-96-287-28 81H160Zm320-400q-66 0-113-47t-47-113 47-113 113-47 113 47 47 113-47 113-113 47Z"></path>
+                                                                </svg>
+                                                            </span>
+
+                                                            <div class="min-w-0">
+                                                                <p class="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
+                                                                    Rol seleccionat
+                                                                </p>
+
+                                                                <p class="mt-1 text-lg font-bold text-neutral-titulos">
+                                                                    {
+                                                                        rol
+                                                                    }
+                                                                </p>
+
+                                                                <p class="mt-1 text-xs leading-5 text-neutral">
+                                                                    Aquest és el rol de voluntariat que vas seleccionar en enviar la sol·licitud.
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            }
+
                                             <dl class="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
                                                 {
-                                                    inscripcion.edicion && (
+                                                    inscripcion
+                                                        .edicion && (
                                                         <div class="rounded-xl bg-background px-4 py-3">
                                                             <dt class="text-[11px] font-semibold uppercase tracking-wide text-neutral/60">
                                                                 Edició
                                                             </dt>
 
                                                             <dd class="mt-1 text-sm font-medium text-neutral-titulos">
-                                                                {inscripcion.edicion.nombre}
+                                                                {
+                                                                    inscripcion
+                                                                        .edicion
+                                                                        .nombre
+                                                                }
                                                             </dd>
                                                         </div>
                                                     )
                                                 }
 
-                                                <div class="rounded-xl bg-background px-4 py-3">
-                                                    <dt class="text-[11px] font-semibold uppercase tracking-wide text-neutral/60">
-                                                        Accés
-                                                    </dt>
+                                                {
+                                                    !esVoluntario && (
+                                                        <div class="rounded-xl bg-background px-4 py-3">
+                                                            <dt class="text-[11px] font-semibold uppercase tracking-wide text-neutral/60">
+                                                                Accés
+                                                            </dt>
 
-                                                    <dd class="mt-1 text-sm font-medium text-neutral-titulos">
-                                                        {inscripcion.formulario.tipoAcceso === "propietario" ? "Responsable de la inscripció" : "Capità de l'equip"}
-                                                    </dd>
-                                                </div>
+                                                            <dd class="mt-1 text-sm font-medium text-neutral-titulos">
+                                                                {
+                                                                    inscripcion
+                                                                        .formulario
+                                                                        .tipoAcceso ===
+                                                                    "propietario"
+                                                                        ? "Responsable de la inscripció"
+                                                                        : "Capità de l'equip"
+                                                                }
+                                                            </dd>
+                                                        </div>
+                                                    )
+                                                }
 
                                                 {
-                                                    inscripcion.edicion?.sede && (
+                                                    esVoluntario &&
+                                                    inscripcion
+                                                        .voluntario
+                                                        ?.curso && (
+                                                        <div class="rounded-xl bg-background px-4 py-3">
+                                                            <dt class="text-[11px] font-semibold uppercase tracking-wide text-neutral/60">
+                                                                Curs
+                                                            </dt>
+
+                                                            <dd class="mt-1 text-sm font-medium text-neutral-titulos">
+                                                                {
+                                                                    inscripcion
+                                                                        .voluntario
+                                                                        .curso
+                                                                }
+                                                            </dd>
+                                                        </div>
+                                                    )
+                                                }
+
+                                                {
+                                                    esVoluntario &&
+                                                    inscripcion
+                                                        .voluntario
+                                                        ?.grupo && (
+                                                        <div class="rounded-xl bg-background px-4 py-3">
+                                                            <dt class="text-[11px] font-semibold uppercase tracking-wide text-neutral/60">
+                                                                Grup
+                                                            </dt>
+
+                                                            <dd class="mt-1 text-sm font-medium text-neutral-titulos">
+                                                                {
+                                                                    inscripcion
+                                                                        .voluntario
+                                                                        .grupo
+                                                                }
+                                                            </dd>
+                                                        </div>
+                                                    )
+                                                }
+
+                                                {
+                                                    plaza && (
+                                                        <div class="rounded-xl bg-background px-4 py-3">
+                                                            <dt class="text-[11px] font-semibold uppercase tracking-wide text-neutral/60">
+                                                                Plaça
+                                                            </dt>
+
+                                                            <dd class="mt-1 text-sm font-medium text-neutral-titulos">
+                                                                {
+                                                                    plaza
+                                                                }
+                                                            </dd>
+                                                        </div>
+                                                    )
+                                                }
+
+                                                {
+                                                    inscripcion
+                                                        .edicion
+                                                        ?.sede && (
                                                         <div class="rounded-xl bg-background px-4 py-3">
                                                             <dt class="text-[11px] font-semibold uppercase tracking-wide text-neutral/60">
                                                                 Seu
                                                             </dt>
 
                                                             <dd class="mt-1 text-sm font-medium text-neutral-titulos">
-                                                                {inscripcion.edicion.sede}
+                                                                {
+                                                                    inscripcion
+                                                                        .edicion
+                                                                        .sede
+                                                                }
                                                             </dd>
                                                         </div>
                                                     )
@@ -1185,18 +2283,40 @@ const filtros = [
                                                             </dt>
 
                                                             <dd class="mt-1 text-sm font-medium text-neutral-titulos">
-                                                                {fechaTorneo}
+                                                                {
+                                                                    fechaTorneo
+                                                                }
                                                             </dd>
                                                         </div>
                                                     )
                                                 }
                                             </dl>
 
+                                            <!-- =================================================
+                                                LISTA DE ESPERA
+                                            ================================================== -->
+
                                             {
-                                                inscripcion.equipo?.plaza_estado === "LISTA_ESPERA" && (
+                                                (
+                                                    esVoluntario
+                                                        ? inscripcion
+                                                              .voluntario
+                                                              ?.plaza_estado
+                                                        : inscripcion
+                                                              .equipo
+                                                              ?.plaza_estado
+                                                )
+                                                    ?.trim()
+                                                    .toUpperCase() ===
+                                                    "LISTA_ESPERA" && (
                                                     <div class="mt-4 flex items-start gap-3 rounded-xl border border-border bg-background p-4">
                                                         <span class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-secondary/10 text-secondary">
-                                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-4 w-4 fill-current" aria-hidden="true">
+                                                            <svg
+                                                                xmlns="http://www.w3.org/2000/svg"
+                                                                viewBox="0 -960 960 960"
+                                                                class="h-4 w-4 fill-current"
+                                                                aria-hidden="true"
+                                                            >
                                                                 <path d="M160-200v-80h560v80H160Zm0-160v-80h560v80H160Zm0-160v-80h560v80H160Zm0-160v-80h560v80H160Zm640 480v-560h80v560h-80Z"></path>
                                                             </svg>
                                                         </span>
@@ -1207,9 +2327,37 @@ const filtros = [
                                                             </p>
 
                                                             {
-                                                                inscripcion.equipo.posicion_lista_espera !== null && (
+                                                                (
+                                                                    esVoluntario
+                                                                        ? inscripcion
+                                                                              .voluntario
+                                                                              ?.posicion_lista_espera
+                                                                        : inscripcion
+                                                                              .equipo
+                                                                              ?.posicion_lista_espera
+                                                                ) !==
+                                                                    null &&
+                                                                    (
+                                                                        esVoluntario
+                                                                            ? inscripcion
+                                                                                  .voluntario
+                                                                                  ?.posicion_lista_espera
+                                                                            : inscripcion
+                                                                                  .equipo
+                                                                                  ?.posicion_lista_espera
+                                                                    ) !==
+                                                                        undefined && (
                                                                     <p class="mt-1 text-xs text-neutral">
-                                                                        Posició actual: {inscripcion.equipo.posicion_lista_espera}
+                                                                        Posició actual:{" "}
+                                                                        {
+                                                                            esVoluntario
+                                                                                ? inscripcion
+                                                                                      .voluntario
+                                                                                      ?.posicion_lista_espera
+                                                                                : inscripcion
+                                                                                      .equipo
+                                                                                      ?.posicion_lista_espera
+                                                                        }
                                                                     </p>
                                                                 )
                                                             }
@@ -1218,6 +2366,10 @@ const filtros = [
                                                 )
                                             }
 
+                                            <!-- =================================================
+                                                ACCIONES
+                                            ================================================== -->
+
                                             <div class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
                                                 <div class="text-xs text-neutral/70">
                                                     {
@@ -1225,7 +2377,9 @@ const filtros = [
                                                             <>
                                                                 Darrera actualització:{" "}
                                                                 <span class="font-medium text-neutral">
-                                                                    {fecha}
+                                                                    {
+                                                                        fecha
+                                                                    }
                                                                 </span>
                                                             </>
                                                         )
@@ -1235,7 +2389,12 @@ const filtros = [
                                                 <div class="flex flex-wrap gap-2">
                                                     {
                                                         enlaceTorneo && (
-                                                            <a href={enlaceTorneo} class="inline-flex items-center justify-center rounded-lg border border-border px-3.5 py-2 text-sm font-semibold text-neutral-titulos transition hover:border-primary/30 hover:text-primary">
+                                                            <a
+                                                                href={
+                                                                    enlaceTorneo
+                                                                }
+                                                                class="inline-flex items-center justify-center rounded-lg border border-border px-3.5 py-2 text-sm font-semibold text-neutral-titulos transition hover:border-primary/30 hover:text-primary"
+                                                            >
                                                                 Veure torneig
                                                             </a>
                                                         )
@@ -1243,14 +2402,47 @@ const filtros = [
 
                                                     {
                                                         enlaceFormulario && (
-                                                            <a href={enlaceFormulario} class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-primary/90">
+                                                            <a
+                                                                href={
+                                                                    enlaceFormulario
+                                                                }
+                                                                class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-primary/90"
+                                                            >
                                                                 {
-                                                                    inscripcion.formulario.estado === "EN_REVISION"
+                                                                    estadoActual ===
+                                                                    "EN_REVISION"
                                                                         ? "Veure inscripció"
-                                                                        : "Modificar inscripció"
+                                                                        : "Gestionar inscripció"
                                                                 }
 
-                                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-4 w-4 fill-current" aria-hidden="true">
+                                                                <svg
+                                                                    xmlns="http://www.w3.org/2000/svg"
+                                                                    viewBox="0 -960 960 960"
+                                                                    class="h-4 w-4 fill-current"
+                                                                    aria-hidden="true"
+                                                                >
+                                                                    <path d="m647-440-224 224 57 56 320-320-320-320-57 56 224 224H160v80h487Z"></path>
+                                                                </svg>
+                                                            </a>
+                                                        )
+                                                    }
+
+                                                    {
+                                                        enlaceVoluntariado && (
+                                                            <a
+                                                                href={
+                                                                    enlaceVoluntariado
+                                                                }
+                                                                class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-primary/90"
+                                                            >
+                                                                Veure voluntariat
+
+                                                                <svg
+                                                                    xmlns="http://www.w3.org/2000/svg"
+                                                                    viewBox="0 -960 960 960"
+                                                                    class="h-4 w-4 fill-current"
+                                                                    aria-hidden="true"
+                                                                >
                                                                     <path d="m647-440-224 224 57 56 320-320-320-320-57 56 224 224H160v80h487Z"></path>
                                                                 </svg>
                                                             </a>
@@ -1268,20 +2460,28 @@ const filtros = [
             ) : total > 0 ? (
                 <div class="mt-8 rounded-2xl border border-dashed border-border bg-card/40 px-6 py-12 text-center">
                     <span class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-6 w-6 fill-current" aria-hidden="true">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 -960 960 960"
+                            class="h-6 w-6 fill-current"
+                            aria-hidden="true"
+                        >
                             <path d="M280-200h400v-80H280v80Zm0-160h400v-80H280v80Zm0-160h400v-80H280v80Zm-80 400q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Z"></path>
                         </svg>
                     </span>
 
                     <h2 class="mt-4 text-lg font-semibold text-neutral-titulos">
-                        No hi ha inscripcions amb aquest estat
+                        No hi ha inscripcions amb aquests filtres
                     </h2>
 
                     <p class="mx-auto mt-2 max-w-lg text-sm leading-6 text-neutral">
-                        Prova un altre filtre per consultar la resta de les teves inscripcions.
+                        Prova un altre tipus d'inscripció o un altre estat.
                     </p>
 
-                    <a href="/perfil/inscripcions" class="mt-5 inline-flex items-center justify-center rounded-lg border border-border px-4 py-2.5 text-sm font-semibold text-neutral-titulos transition hover:border-primary/30 hover:text-primary">
+                    <a
+                        href="/perfil/inscripcions"
+                        class="mt-5 inline-flex items-center justify-center rounded-lg border border-border px-4 py-2.5 text-sm font-semibold text-neutral-titulos transition hover:border-primary/30 hover:text-primary"
+                    >
                         Mostrar-les totes
                     </a>
                 </div>
@@ -1289,7 +2489,12 @@ const filtros = [
                 <div class="mt-8 overflow-hidden rounded-2xl border border-border bg-card">
                     <div class="flex flex-col items-center justify-center px-6 py-14 text-center">
                         <span class="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-7 w-7 fill-current" aria-hidden="true">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 -960 960 960"
+                                class="h-7 w-7 fill-current"
+                                aria-hidden="true"
+                            >
                                 <path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h168q13-36 43.5-58t68.5-22 68.5 22 43.5 58h168q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm80-160h280v-80H280v80Zm0-160h400v-80H280v80Zm0-160h400v-80H280v80Z"></path>
                             </svg>
                         </span>
@@ -1299,13 +2504,23 @@ const filtros = [
                         </h2>
 
                         <p class="mt-2 max-w-lg text-sm leading-6 text-neutral">
-                            Quan inscriguis un equip o un responsable et doni accés com a capità, la inscripció apareixerà aquí.
+                            Quan inscriguis un equip, et donin accés com a
+                            capità o enviïs una sol·licitud de voluntariat,
+                            apareixerà aquí.
                         </p>
 
-                        <a href="/tornejos" class="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary/90">
+                        <a
+                            href="/tornejos"
+                            class="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary/90"
+                        >
                             Consultar tornejos
 
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-4 w-4 fill-current" aria-hidden="true">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 -960 960 960"
+                                class="h-4 w-4 fill-current"
+                                aria-hidden="true"
+                            >
                                 <path d="m647-440-224 224 57 56 320-320-320-320-57 56 224 224H160v80h487Z"></path>
                             </svg>
                         </a>

@@ -1,106 +1,264 @@
 ---
 type Props = {
-    total: number;
-    borradores: number;
-    enRevision: number;
-    aprobadas: number;
+  total: number;
+  equipos: number;
+  voluntariado: number;
+  borradores: number;
+  enRevision: number;
+  aprobadas: number;
 };
 
-const {
-    total,
-    borradores,
-    enRevision,
-    aprobadas,
-} = Astro.props as Props;
+const { total, equipos, voluntariado, borradores, enRevision, aprobadas } =
+  Astro.props as Props;
+
+// ============================================================
+// ESTADÍSTICAS GENERALES
+// ============================================================
 
 const estadisticas = [
-    {
-        nombre: "Inscripcions",
-        valor: total,
-        descripcion: "Total d'inscripcions",
-        enlace: "/perfil/inscripcions",
-        clasesIcono: "bg-primary/10 text-primary",
-        icono: '<path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h168q13-36 43.5-58t68.5-22 68.5 22 43.5 58h168q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm80-160h280v-80H280v80Zm0-160h400v-80H280v80Zm0-160h400v-80H280v80Z"></path>',
-    },
-    {
-        nombre: "Esborranys",
-        valor: borradores,
-        descripcion: "Pendents d'enviar",
-        enlace: "/perfil/inscripcions",
-        clasesIcono: "bg-neutral/10 text-neutral",
-        icono: '<path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h447l193 193v447q0 33-23.5 56.5T760-120H200Zm280-80q50 0 85-35t35-85q0-50-35-85t-85-35q-50 0-85 35t-35 85q0 50 35 85t85 35ZM240-560h360v-160H240v160Z"></path>',
-    },
-    {
-        nombre: "En revisió",
-        valor: enRevision,
-        descripcion: "Pendents de validació",
-        enlace: "/perfil/inscripcions",
-        clasesIcono: "bg-secondary/10 text-secondary",
-        icono: '<path d="M480-120q-150 0-255-105T120-480q0-150 105-255t255-105q150 0 255 105t105 255q0 150-105 255T480-120Zm40-200h80v-200H480v-200h-80v280q0 17 11.5 28.5T440-400h80v80Z"></path>',
-    },
-    {
-        nombre: "Aprovades",
-        valor: aprobadas,
-        descripcion: "Inscripcions acceptades",
-        enlace: "/perfil/inscripcions",
-        clasesIcono: "bg-primary/10 text-primary",
-        icono: '<path d="m382-240-228-228 57-57 171 171 367-367 57 57-424 424Z"></path>',
-    },
+  {
+    nombre: "Participacions",
+
+    valor: total,
+
+    descripcion: "Equips i voluntariat",
+
+    enlace: "/perfil/inscripcions",
+
+    clasesIcono: "bg-primary/10 text-primary",
+
+    icono:
+      '<path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h168q13-36 43.5-58t68.5-22 68.5 22 43.5 58h168q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm80-160h280v-80H280v80Zm0-160h400v-80H280v80Zm0-160h400v-80H280v80Z"></path>',
+  },
+
+  {
+    nombre: "Esborranys",
+
+    valor: borradores,
+
+    descripcion: "Pendents d'enviar",
+
+    enlace: "/perfil/inscripcions?estat=esborrany",
+
+    clasesIcono: "bg-neutral/10 text-neutral",
+
+    icono:
+      '<path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h447l193 193v447q0 33-23.5 56.5T760-120H200Zm280-80q50 0 85-35t35-85q0-50-35-85t-85-35q-50 0-85 35t-35 85q0 50 35 85t85 35ZM240-560h360v-160H240v160Z"></path>',
+  },
+
+  {
+    nombre: "En revisió",
+
+    valor: enRevision,
+
+    descripcion: "Pendents de validació",
+
+    enlace: "/perfil/inscripcions?estat=revisio",
+
+    clasesIcono: "bg-secondary/10 text-secondary",
+
+    icono:
+      '<path d="M480-120q-150 0-255-105T120-480q0-150 105-255t255-105q150 0 255 105t105 255q0 150-105 255T480-120Zm40-200h80v-200H480v-200h-80v280q0 17 11.5 28.5T440-400h80v80Z"></path>',
+  },
+
+  {
+    nombre: "Acceptades",
+
+    valor: aprobadas,
+
+    descripcion: "Participacions aprovades",
+
+    enlace: "/perfil/inscripcions?estat=aprovades",
+
+    clasesIcono: "bg-primary/10 text-primary",
+
+    icono:
+      '<path d="m382-240-228-228 57-57 171 171 367-367 57 57-424 424Z"></path>',
+  },
+];
+
+// ============================================================
+// TIPOS DE PARTICIPACIÓN
+// ============================================================
+
+const tipusParticipacio = [
+  {
+    nombre: "Equips",
+
+    valor: equipos,
+
+    descripcion:
+      "Inscripcions d'equips en què participes com a responsable o capità.",
+
+    enlace: "/perfil/inscripcions?tipus=equips",
+
+    clasesIcono: "bg-primary/10 text-primary",
+
+    icono:
+      '<path d="M40-160v-112q0-34 17.5-62.5T104-378q62-31 126-46.5T360-440t130 15.5T616-378q29 15 46.5 43.5T680-272v112H40ZM360-480q-66 0-113-47t-47-113 47-113 113-47 113 47 47 113-47 113-113 47Z"></path>',
+  },
+
+  {
+    nombre: "Voluntariat",
+
+    valor: voluntariado,
+
+    descripcion:
+      "Sol·licituds de voluntariat i rols seleccionats als tornejos.",
+
+    enlace: "/perfil/inscripcions?tipus=voluntariat",
+
+    clasesIcono: "bg-secondary/10 text-secondary",
+
+    icono:
+      '<path d="M480-480q-66 0-113-47t-47-113 47-113 113-47 113 47 47 113-47 113-113 47ZM160-160v-112q0-34 17.5-62.5T224-378q62-31 126-46.5T480-440t130 15.5T736-378q29 15 46.5 43.5T800-272v112H160Z"></path>',
+  },
 ];
 ---
 
 <section class="w-full">
-    <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-                Activitat
-            </p>
+  <!-- =====================================================
+        CABECERA
+    ====================================================== -->
 
-            <h2 class="mt-1 text-xl font-bold tracking-tight text-neutral-titulos sm:text-2xl">
-                Les teves inscripcions
-            </h2>
-        </div>
+  <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+        Activitat
+      </p>
 
-        <a href="/perfil/inscripcions" class="inline-flex items-center gap-1.5 text-sm font-semibold text-primary transition hover:opacity-75">
-            Veure totes
+      <h2
+        class="mt-1 text-xl font-bold tracking-tight text-neutral-titulos sm:text-2xl"
+      >
+        Les teves participacions
+      </h2>
 
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-4 w-4 fill-current" aria-hidden="true">
-                <path d="m647-440-224 224 57 56 320-320-320-320-57 56 224 224H160v80h487Z"></path>
-            </svg>
+      <p class="mt-1 max-w-2xl text-sm leading-6 text-neutral">
+        Resum de les inscripcions d'equips i les sol·licituds de voluntariat
+        vinculades al teu compte.
+      </p>
+    </div>
+
+    <a
+      href="/perfil/inscripcions"
+      class="inline-flex items-center gap-1.5 text-sm font-semibold text-primary transition hover:opacity-75"
+    >
+      Veure totes
+
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 -960 960 960"
+        class="h-4 w-4 fill-current"
+        aria-hidden="true"
+      >
+        <path
+          d="m647-440-224 224 57 56 320-320-320-320-57 56 224 224H160v80h487Z"
+        ></path>
+      </svg>
+    </a>
+  </div>
+
+  <!-- =====================================================
+        RESUM GENERAL
+    ====================================================== -->
+
+  <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    {
+      estadisticas.map((estadistica) => (
+        <a
+          href={estadistica.enlace}
+          class="group rounded-2xl border border-border bg-card p-4 transition hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-sm sm:p-5"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <span
+              class={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${estadistica.clasesIcono}`}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 -960 960 960"
+                class="h-5 w-5 fill-current"
+                aria-hidden="true"
+                set:html={estadistica.icono}
+              />
+            </span>
+
+            <span class="flex h-7 w-7 items-center justify-center rounded-lg text-neutral/40 transition group-hover:bg-primary/10 group-hover:text-primary">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 -960 960 960"
+                class="h-4 w-4 fill-current"
+                aria-hidden="true"
+              >
+                <path d="m647-440-224 224 57 56 320-320-320-320-57 56 224 224H160v80h487Z" />
+              </svg>
+            </span>
+          </div>
+
+          <p class="mt-5 text-3xl font-bold tracking-tight text-neutral-titulos">
+            {estadistica.valor}
+          </p>
+
+          <p class="mt-1 text-sm font-semibold text-neutral-titulos">
+            {estadistica.nombre}
+          </p>
+
+          <p class="mt-1 text-xs leading-5 text-neutral">
+            {estadistica.descripcion}
+          </p>
         </a>
-    </div>
+      ))
+    }
+  </div>
 
-    <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {
-            estadisticas.map(
-                estadistica => (
-                    <a href={estadistica.enlace} class="group rounded-2xl border border-border bg-card p-4 transition hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-sm sm:p-5">
-                        <div class="flex items-start justify-between gap-3">
-                            <span class={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${estadistica.clasesIcono}`}>
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-5 w-5 fill-current" aria-hidden="true" set:html={estadistica.icono}></svg>
-                            </span>
+  <!-- =====================================================
+        DISTRIBUCIÓN POR TIPO
+    ====================================================== -->
 
-                            <span class="flex h-7 w-7 items-center justify-center rounded-lg text-neutral/40 transition group-hover:bg-primary/10 group-hover:text-primary">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" class="h-4 w-4 fill-current" aria-hidden="true">
-                                    <path d="m647-440-224 224 57 56 320-320-320-320-57 56 224 224H160v80h487Z"></path>
-                                </svg>
-                            </span>
-                        </div>
+  <div class="mt-4 grid gap-3 sm:grid-cols-2">
+    {
+      tipusParticipacio.map((tipus) => (
+        <a
+          href={tipus.enlace}
+          class="group flex items-center gap-4 rounded-2xl border border-border bg-card p-4 transition hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-sm sm:p-5"
+        >
+          <span
+            class={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${tipus.clasesIcono}`}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 -960 960 960"
+              class="h-6 w-6 fill-current"
+              aria-hidden="true"
+              set:html={tipus.icono}
+            />
+          </span>
 
-                        <p class="mt-5 text-3xl font-bold tracking-tight text-neutral-titulos">
-                            {estadistica.valor}
-                        </p>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2">
+              <p class="font-semibold text-neutral-titulos">{tipus.nombre}</p>
 
-                        <p class="mt-1 text-sm font-semibold text-neutral-titulos">
-                            {estadistica.nombre}
-                        </p>
+              <span class="inline-flex min-w-6 items-center justify-center rounded-md bg-background px-2 py-0.5 text-xs font-bold text-neutral-titulos">
+                {tipus.valor}
+              </span>
+            </div>
 
-                        <p class="mt-1 text-xs leading-5 text-neutral">
-                            {estadistica.descripcion}
-                        </p>
-                    </a>
-                ),
-            )
-        }
-    </div>
+            <p class="mt-1 text-xs leading-5 text-neutral">
+              {tipus.descripcion}
+            </p>
+          </div>
+
+          <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-neutral/40 transition group-hover:bg-primary/10 group-hover:text-primary">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 -960 960 960"
+              class="h-4 w-4 fill-current"
+              aria-hidden="true"
+            >
+              <path d="m647-440-224 224 57 56 320-320-320-320-57 56 224 224H160v80h487Z" />
+            </svg>
+          </span>
+        </a>
+      ))
+    }
+  </div>
 </section>
