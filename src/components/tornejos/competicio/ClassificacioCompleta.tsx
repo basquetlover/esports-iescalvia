@@ -421,12 +421,12 @@ function FilaDesktop({
             items-center
             justify-center
             rounded-xl
-            bg-primary/10
+            bg-secondary/10
             px-2
             py-1.5
             text-base
             font-black
-            text-primary
+            text-secondary
           "
         >
           {valor(fila.puntos)}

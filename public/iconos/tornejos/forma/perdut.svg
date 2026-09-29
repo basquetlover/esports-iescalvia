@@ -1,1 +1,27 @@
-<svg class="v7hVPc" aria-hidden="true" viewBox="0 0 22 22">  <path class="JjaXob" clip-rule="evenodd" d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16" fill-rule="evenodd"></path> <path class="Hiu7kb" clip-rule="evenodd" d="M13.263 14.394 11 12.131l-2.263 2.263-1.131-1.131L9.869 11 7.606 8.737l1.131-1.131L11 9.869l2.263-2.263 1.131 1.131L12.131 11l2.263 2.263z" fill-rule="evenodd"></path>  </svg>
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 22 22"
+  class="w-full"
+  aria-hidden="true"
+>
+  <path
+    d="M11 0C4.925 0 0 4.925 0 11s4.925 11 11 11 11-4.925 11-11S17.075 0 11 0Z"
+    fill="#EA4335"
+  />
+  <path
+    d="M11 2a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z"
+    fill="#FFFFFF"
+  />
+  <path
+    d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"
+    fill="#EA4335"
+    fill-rule="evenodd"
+    clip-rule="evenodd"
+  />
+  <path
+    d="M13.263 14.394 11 12.131l-2.263 2.263-1.131-1.131L9.869 11 7.606 8.737l1.131-1.131L11 9.869l2.263-2.263 1.131 1.131L12.131 11l2.263 2.263Z"
+    fill="#FFFFFF"
+    fill-rule="evenodd"
+    clip-rule="evenodd"
+  />
+</svg>

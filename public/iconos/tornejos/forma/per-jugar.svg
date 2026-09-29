@@ -1,1 +1,13 @@
-<svg class="v7hVPc" aria-hidden="true" viewBox="0 0 22 22">  <path class="zitmNb" d="M18 11a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z" fill="none" stroke-width="2"></path>  </svg>
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 22 22"
+  class="w-full h-full"
+  aria-hidden="true"
+>
+  <path
+    d="M18 11a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"
+    fill="none"
+    stroke="#9D9BA7"
+    stroke-width="2"
+  />
+</svg>
