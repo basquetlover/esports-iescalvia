@@ -1,0 +1,108 @@
+---
+import Layout from "@layouts/Layout.astro";
+
+import PartitDetallClient from "@components/tornejos/partits/PartitDetallClient";
+
+import { supabaseAdmin } from "@utils/supabase";
+
+export const prerender = false;
+
+// ============================================================
+// PARÁMETROS
+// ============================================================
+
+const torneoID = Astro.params.id;
+
+const partidoID = Astro.params.partidoID;
+
+if (!torneoID || !partidoID) {
+  return new Response(null, {
+    status: 404,
+  });
+}
+
+// ============================================================
+// PARTIDO
+// ============================================================
+//
+// No dependemos de ?edicionID=
+// La edición se obtiene directamente del partido.
+//
+// ============================================================
+
+const {
+  data: partidoData,
+
+  error: errorPartido,
+} = await supabaseAdmin
+  .from("competicion_partidos")
+  .select(
+    `
+                id,
+                edicion_id
+            `,
+  )
+  .eq("id", partidoID)
+  .maybeSingle();
+
+if (errorPartido) {
+  console.error("Error carregant el partit públic:", errorPartido);
+}
+
+if (errorPartido || !partidoData) {
+  return new Response(null, {
+    status: 404,
+  });
+}
+
+// ============================================================
+// COMPROBAR EDICIÓN / TORNEO
+// ============================================================
+
+const {
+  data: edicionData,
+
+  error: errorEdicion,
+} = await supabaseAdmin
+  .from("ediciones")
+  .select(
+    `
+                id,
+                torneo_id
+            `,
+  )
+  .eq("id", partidoData.edicion_id)
+  .eq("torneo_id", torneoID)
+  .maybeSingle();
+
+if (errorEdicion) {
+  console.error("Error comprovant l'edició del partit:", errorEdicion);
+}
+
+if (errorEdicion || !edicionData) {
+  return new Response(null, {
+    status: 404,
+  });
+}
+
+const edicionID = edicionData.id;
+
+// ============================================================
+// SEO
+// ============================================================
+
+const titulo = "Detall del partit";
+
+const descripcion = "Consulta el resultat i el desenvolupament del partit.";
+---
+
+<Layout title={titulo} description={descripcion}>
+  <main class="min-h-screen bg-background">
+    <PartitDetallClient
+      client:load
+      torneoID={torneoID}
+      edicionID={edicionID}
+      partidoID={partidoID}
+    />
+  </main>
+</Layout>

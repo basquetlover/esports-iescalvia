@@ -6,27 +6,47 @@ type Equip = {
 
 type Fila = {
   equipo: Equip;
+
   posicion: number | null;
+
   pj: number | null;
+
   pg: number | null;
+
   pe: number | null;
+
   pp: number | null;
+
   favor: number | null;
+
   contra: number | null;
+
   diferencia: number | null;
+
   puntos: number | null;
+
   amarillas: number | null;
+
   rojas: number | null;
 };
 
 type Props = {
   grupNom: string;
+
   files: Fila[];
+
   esFutbol: boolean;
+
   etiquetaFavor: string;
+
   etiquetaContra: string;
+
   teClassificacio: boolean;
 };
+
+// ============================================================
+// VALORES
+// ============================================================
 
 function valor(numero: number | null) {
   return numero === null ? "—" : numero;
@@ -40,6 +60,10 @@ function diferencia(numero: number | null) {
   return numero > 0 ? `+${numero}` : numero;
 }
 
+// ============================================================
+// COMPONENTE
+// ============================================================
+
 export default function ClassificacioCompleta({
   grupNom,
   files,
@@ -49,24 +73,156 @@ export default function ClassificacioCompleta({
   teClassificacio,
 }: Props) {
   return (
-    <section className="mt-6 overflow-hidden rounded-2xl border border-border bg-card">
-      <div className="border-b border-border/50 px-5 py-4">
-        <p className="text-xs font-semibold uppercase tracking-wider text-primary">
-          Classificació completa
-        </p>
+    <section
+      className="
+                overflow-hidden
+                rounded-3xl
+                border
+                border-border
+                bg-card
+            "
+    >
+      {/* =============================================
+                CABECERA
+            ============================================= */}
 
-        <h3 className="mt-1 text-xl font-bold text-neutral-titulos">
-          {grupNom}
-        </h3>
+      <div
+        className="
+                    flex
+                    flex-col
+                    gap-3
+                    border-b
+                    border-border/60
+                    px-5
+                    py-5
+                    sm:flex-row
+                    sm:items-center
+                    sm:justify-between
+                    sm:px-6
+                "
+      >
+        <div>
+          <p
+            className="
+                            text-xs
+                            font-bold
+                            uppercase
+                            tracking-[0.16em]
+                            text-primary
+                        "
+          >
+            Classificació
+          </p>
+
+          <h3
+            className="
+                            mt-1
+                            text-xl
+                            font-bold
+                            text-neutral-titulos
+                            sm:text-2xl
+                        "
+          >
+            {grupNom}
+          </h3>
+        </div>
+
+        <div
+          className="
+                        flex
+                        items-center
+                        gap-2
+                    "
+        >
+          <span
+            className={`
+                            inline-flex
+                            items-center
+                            gap-2
+                            rounded-full
+                            px-3
+                            py-1.5
+                            text-xs
+                            font-bold
+                            ${
+                              teClassificacio
+                                ? "bg-green-50 text-green-700"
+                                : "bg-background text-neutral"
+                            }
+                        `}
+          >
+            <span
+              className={`
+                                h-2
+                                w-2
+                                rounded-full
+                                ${
+                                  teClassificacio
+                                    ? "bg-green-500"
+                                    : "bg-neutral/40"
+                                }
+                            `}
+            />
+
+            {teClassificacio ? "Actualitzada" : "Pendent de calcular"}
+          </span>
+        </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[760px] border-collapse">
-          <thead className="bg-background/60">
-            <tr className="border-b border-border/50 text-[10px] font-bold uppercase tracking-wider text-neutral">
-              <th className="px-4 py-3 text-center">Pos</th>
+      {/* =============================================
+                DESKTOP
+            ============================================= */}
 
-              <th className="px-4 py-3 text-left">Equip</th>
+      <div
+        className="
+                    hidden
+                    overflow-x-auto
+                    md:block
+                "
+      >
+        <table
+          className="
+                        w-full
+                        min-w-[820px]
+                        border-collapse
+                    "
+        >
+          <thead
+            className="
+                            bg-background/55
+                        "
+          >
+            <tr
+              className="
+                                border-b
+                                border-border/50
+                                text-[10px]
+                                font-bold
+                                uppercase
+                                tracking-wider
+                                text-neutral
+                            "
+            >
+              <th
+                className="
+                                    w-16
+                                    px-4
+                                    py-3
+                                    text-center
+                                "
+              >
+                #
+              </th>
+
+              <th
+                className="
+                                    px-4
+                                    py-3
+                                    text-left
+                                "
+              >
+                Equip
+              </th>
 
               <th className="px-3 py-3 text-center">PJ</th>
 
@@ -90,107 +246,496 @@ export default function ClassificacioCompleta({
                 </>
               )}
 
-              <th className="px-4 py-3 text-center">PTS</th>
+              <th
+                className="
+                                    px-5
+                                    py-3
+                                    text-center
+                                "
+              >
+                PTS
+              </th>
             </tr>
           </thead>
 
-          <tbody className="divide-y divide-border/50">
+          <tbody
+            className="
+                            divide-y
+                            divide-border/50
+                        "
+          >
             {files.map((fila, index) => (
-              <tr
+              <FilaDesktop
                 key={fila.equipo.id}
-                className="transition hover:bg-background/40"
-              >
-                <td className="px-4 py-3 text-center">
-                  <span
-                    className={[
-                      "inline-flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold",
-                      index < 2
-                        ? "bg-primary text-white"
-                        : "bg-primary/10 text-primary",
-                    ].join(" ")}
-                  >
-                    {fila.posicion ?? index + 1}
-                  </span>
-                </td>
-
-                <td className="px-4 py-3">
-                  <div className="flex min-w-48 items-center gap-3">
-                    {fila.equipo.escudo ? (
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-white">
-                        <img
-                          src={fila.equipo.escudo}
-                          alt=""
-                          className="h-full w-full object-contain p-1"
-                        />
-                      </div>
-                    ) : (
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-background text-xs font-bold text-primary">
-                        {fila.equipo.nombre.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-
-                    <span className="font-semibold text-neutral-titulos">
-                      {fila.equipo.nombre}
-                    </span>
-                  </div>
-                </td>
-
-                <td className="px-3 py-3 text-center text-sm">
-                  {valor(fila.pj)}
-                </td>
-
-                <td className="px-3 py-3 text-center text-sm">
-                  {valor(fila.pg)}
-                </td>
-
-                <td className="px-3 py-3 text-center text-sm">
-                  {valor(fila.pe)}
-                </td>
-
-                <td className="px-3 py-3 text-center text-sm">
-                  {valor(fila.pp)}
-                </td>
-
-                <td className="px-3 py-3 text-center text-sm">
-                  {valor(fila.favor)}
-                </td>
-
-                <td className="px-3 py-3 text-center text-sm">
-                  {valor(fila.contra)}
-                </td>
-
-                <td className="px-3 py-3 text-center text-sm font-semibold">
-                  {diferencia(fila.diferencia)}
-                </td>
-
-                {esFutbol && (
-                  <>
-                    <td className="px-3 py-3 text-center text-sm">
-                      {valor(fila.amarillas)}
-                    </td>
-
-                    <td className="px-3 py-3 text-center text-sm">
-                      {valor(fila.rojas)}
-                    </td>
-                  </>
-                )}
-
-                <td className="px-4 py-3 text-center text-base font-bold text-primary">
-                  {fila.puntos ?? "—"}
-                </td>
-              </tr>
+                fila={fila}
+                index={index}
+                esFutbol={esFutbol}
+              />
             ))}
           </tbody>
         </table>
       </div>
 
-      {!teClassificacio && (
-        <div className="border-t border-border/50 bg-background/30 px-5 py-3">
-          <p className="text-xs text-neutral">
-            La classificació encara no s'ha calculat.
+      {/* =============================================
+                MOBILE
+            ============================================= */}
+
+      <div
+        className="
+                    divide-y
+                    divide-border/60
+                    md:hidden
+                "
+      >
+        {files.map((fila, index) => (
+          <FilaMobil
+            key={fila.equipo.id}
+            fila={fila}
+            index={index}
+            esFutbol={esFutbol}
+            etiquetaFavor={etiquetaFavor}
+            etiquetaContra={etiquetaContra}
+          />
+        ))}
+      </div>
+
+      {/* =============================================
+                SIN EQUIPOS
+            ============================================= */}
+
+      {files.length === 0 && (
+        <div
+          className="
+                        px-6
+                        py-14
+                        text-center
+                    "
+        >
+          <p
+            className="
+                            font-semibold
+                            text-neutral-titulos
+                        "
+          >
+            No hi ha equips en aquest grup.
+          </p>
+        </div>
+      )}
+
+      {!teClassificacio && files.length > 0 && (
+        <div
+          className="
+                            border-t
+                            border-border/50
+                            bg-background/30
+                            px-5
+                            py-3
+                            sm:px-6
+                        "
+        >
+          <p
+            className="
+                                text-xs
+                                text-neutral
+                            "
+          >
+            La classificació es mostrarà automàticament quan hi hagi resultats
+            disponibles.
           </p>
         </div>
       )}
     </section>
+  );
+}
+
+// ============================================================
+// FILA DESKTOP
+// ============================================================
+
+function FilaDesktop({
+  fila,
+  index,
+  esFutbol,
+}: {
+  fila: Fila;
+  index: number;
+  esFutbol: boolean;
+}) {
+  return (
+    <tr
+      className="
+                transition
+                hover:bg-background/40
+            "
+    >
+      <td
+        className="
+                    px-4
+                    py-3
+                    text-center
+                "
+      >
+        <Posicio posicion={fila.posicion ?? index + 1} destacada={index < 2} />
+      </td>
+
+      <td
+        className="
+                    px-4
+                    py-3
+                "
+      >
+        <Equip equip={fila.equipo} />
+      </td>
+
+      <Celda valor={fila.pj} />
+
+      <Celda valor={fila.pg} />
+
+      <Celda valor={fila.pe} />
+
+      <Celda valor={fila.pp} />
+
+      <Celda valor={fila.favor} />
+
+      <Celda valor={fila.contra} />
+
+      <td
+        className="
+                    px-3
+                    py-3
+                    text-center
+                    text-sm
+                    font-semibold
+                    text-neutral-titulos
+                "
+      >
+        {diferencia(fila.diferencia)}
+      </td>
+
+      {esFutbol && (
+        <>
+          <Celda valor={fila.amarillas} />
+
+          <Celda valor={fila.rojas} />
+        </>
+      )}
+
+      <td
+        className="
+                    px-5
+                    py-3
+                    text-center
+                "
+      >
+        <span
+          className="
+                        inline-flex
+                        min-w-10
+                        items-center
+                        justify-center
+                        rounded-xl
+                        bg-primary/10
+                        px-2
+                        py-1.5
+                        text-base
+                        font-black
+                        text-primary
+                    "
+        >
+          {valor(fila.puntos)}
+        </span>
+      </td>
+    </tr>
+  );
+}
+
+// ============================================================
+// FILA MOBILE
+// ============================================================
+
+function FilaMobil({
+  fila,
+  index,
+  esFutbol,
+  etiquetaFavor,
+  etiquetaContra,
+}: {
+  fila: Fila;
+
+  index: number;
+
+  esFutbol: boolean;
+
+  etiquetaFavor: string;
+
+  etiquetaContra: string;
+}) {
+  return (
+    <article
+      className="
+                px-4
+                py-4
+            "
+    >
+      <div
+        className="
+                    flex
+                    items-center
+                    gap-3
+                "
+      >
+        <Posicio posicion={fila.posicion ?? index + 1} destacada={index < 2} />
+
+        <div
+          className="
+                        min-w-0
+                        flex-1
+                    "
+        >
+          <Equip equip={fila.equipo} />
+        </div>
+
+        <div
+          className="
+                        shrink-0
+                        text-right
+                    "
+        >
+          <p
+            className="
+                            text-[10px]
+                            font-bold
+                            uppercase
+                            tracking-wider
+                            text-neutral
+                        "
+          >
+            Punts
+          </p>
+
+          <p
+            className="
+                            text-xl
+                            font-black
+                            text-primary
+                        "
+          >
+            {valor(fila.puntos)}
+          </p>
+        </div>
+      </div>
+
+      <div
+        className="
+                    mt-4
+                    grid
+                    grid-cols-4
+                    gap-2
+                "
+      >
+        <DadaMobil etiqueta="PJ" valor={fila.pj} />
+
+        <DadaMobil etiqueta="PG" valor={fila.pg} />
+
+        <DadaMobil etiqueta="PE" valor={fila.pe} />
+
+        <DadaMobil etiqueta="PP" valor={fila.pp} />
+
+        <DadaMobil etiqueta={etiquetaFavor} valor={fila.favor} />
+
+        <DadaMobil etiqueta={etiquetaContra} valor={fila.contra} />
+
+        <DadaMobil etiqueta="DIF" valorTexto={diferencia(fila.diferencia)} />
+
+        {esFutbol ? (
+          <DadaMobil
+            etiqueta="TA / TR"
+            valorTexto={`${valor(fila.amarillas)} / ${valor(fila.rojas)}`}
+          />
+        ) : (
+          <div />
+        )}
+      </div>
+    </article>
+  );
+}
+
+// ============================================================
+// POSICIÓN
+// ============================================================
+
+function Posicio({
+  posicion,
+  destacada,
+}: {
+  posicion: number;
+  destacada: boolean;
+}) {
+  return (
+    <span
+      className={`
+                inline-flex
+                h-8
+                w-8
+                shrink-0
+                items-center
+                justify-center
+                rounded-xl
+                text-xs
+                font-black
+                ${
+                  destacada
+                    ? "bg-primary text-white"
+                    : "bg-background text-neutral-titulos"
+                }
+            `}
+    >
+      {posicion}
+    </span>
+  );
+}
+
+// ============================================================
+// EQUIPO
+// ============================================================
+
+function Equip({ equip }: { equip: Equip }) {
+  return (
+    <div
+      className="
+                flex
+                min-w-0
+                items-center
+                gap-3
+            "
+    >
+      {equip.escudo ? (
+        <div
+          className="
+                        flex
+                        h-10
+                        w-10
+                        shrink-0
+                        items-center
+                        justify-center
+                        overflow-hidden
+                        rounded-xl
+                        border
+                        border-border
+                        bg-white
+                        p-1
+                    "
+        >
+          <img
+            src={equip.escudo}
+            alt=""
+            className="
+                            h-full
+                            w-full
+                            object-contain
+                        "
+          />
+        </div>
+      ) : (
+        <div
+          className="
+                        flex
+                        h-10
+                        w-10
+                        shrink-0
+                        items-center
+                        justify-center
+                        rounded-xl
+                        bg-background
+                        text-sm
+                        font-black
+                        text-primary
+                    "
+        >
+          {equip.nombre.charAt(0).toUpperCase()}
+        </div>
+      )}
+
+      <span
+        className="
+                    truncate
+                    font-semibold
+                    text-neutral-titulos
+                "
+      >
+        {equip.nombre}
+      </span>
+    </div>
+  );
+}
+
+// ============================================================
+// CELDA
+// ============================================================
+
+function Celda({ valor: numero }: { valor: number | null }) {
+  return (
+    <td
+      className="
+                px-3
+                py-3
+                text-center
+                text-sm
+                text-neutral-titulos
+            "
+    >
+      {valor(numero)}
+    </td>
+  );
+}
+
+// ============================================================
+// DATO MOBILE
+// ============================================================
+
+function DadaMobil({
+  etiqueta,
+  valor: numero,
+  valorTexto,
+}: {
+  etiqueta: string;
+
+  valor?: number | null;
+
+  valorTexto?: string | number;
+}) {
+  return (
+    <div
+      className="
+                rounded-xl
+                bg-background/70
+                px-2
+                py-2.5
+                text-center
+            "
+    >
+      <p
+        className="
+                    text-[9px]
+                    font-bold
+                    uppercase
+                    tracking-wider
+                    text-neutral
+                "
+      >
+        {etiqueta}
+      </p>
+
+      <p
+        className="
+                    mt-1
+                    text-sm
+                    font-bold
+                    text-neutral-titulos
+                "
+      >
+        {valorTexto ?? valor(numero ?? null)}
+      </p>
+    </div>
   );
 }
