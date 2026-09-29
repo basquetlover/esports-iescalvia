@@ -2,6 +2,7 @@
 import Layout from "@layouts/Layout.astro";
 
 import Resum from "@components/tornejos/seccions/Resum.astro";
+import Equips from "@components/tornejos/seccions/Equips.astro";
 import Competicio from "@components/tornejos/seccions/Competicio.astro";
 import Eliminatoria from "@components/tornejos/seccions/Eliminatoria.astro";
 import Informacio from "@components/tornejos/seccions/Informacio.astro";
@@ -46,6 +47,7 @@ type ConfiguracionEdicion = {
 
 type SeccionID =
     | "resum"
+    | "equips"
     | "competicio"
     | "eliminatoria"
     | "informacio"
@@ -776,6 +778,11 @@ if (
 // SECCIONES DISPONIBLES
 // ============================================================
 
+const mostrarEquips =
+    Boolean(
+        edicion,
+    );
+
 const mostrarInformacion =
     Boolean(
         edicion,
@@ -880,6 +887,15 @@ const parametroSeccion =
 let seccionActiva:
     SeccionID =
     "resum";
+
+if (
+    parametroSeccion ===
+        "equips" &&
+    mostrarEquips
+) {
+    seccionActiva =
+        "equips";
+}
 
 if (
     parametroSeccion ===
@@ -1246,6 +1262,38 @@ const descripcionPagina =
                             )
                         }
 
+                        <!-- EQUIPS -->
+
+                        {
+                            mostrarEquips && (
+                                seccionActiva ===
+                                "equips" ? (
+                                    <a
+                                        href={urlSeccion(
+                                            "equips",
+                                        )}
+                                        aria-current="page"
+                                        class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-semibold text-primary"
+                                    >
+                                        Equips
+
+                                        <span
+                                            class="absolute inset-x-4 bottom-0 h-0.5 rounded-full bg-primary"
+                                        ></span>
+                                    </a>
+                                ) : (
+                                    <a
+                                        href={urlSeccion(
+                                            "equips",
+                                        )}
+                                        class="relative flex min-h-14 shrink-0 items-center px-4 text-sm font-medium text-neutral transition hover:text-neutral-titulos"
+                                    >
+                                        Equips
+                                    </a>
+                                )
+                            )
+                        }
+
                         <!-- COMPETICIÓ / GRUPS -->
 
                         {
@@ -1573,6 +1621,23 @@ const descripcionPagina =
                     />
                 ) : edicion ? (
                     <>
+                        <!-- EQUIPS -->
+
+                        {
+                            seccionActiva ===
+                                "equips" &&
+                            mostrarEquips && (
+                                <Equips
+                                    torneoID={
+                                        torneo.id
+                                    }
+                                    edicionID={
+                                        edicion.id
+                                    }
+                                />
+                            )
+                        }
+
                         <!-- COMPETICIÓ -->
 
                         {

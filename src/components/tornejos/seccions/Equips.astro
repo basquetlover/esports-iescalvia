@@ -1,0 +1,24 @@
+---
+import EquipsClient from "@components/tornejos/equips/EquipsClient";
+
+type Props = {
+  torneoID: string;
+  edicionID: string;
+};
+
+const { torneoID, edicionID } = Astro.props;
+---
+
+<section class="py-8
+        sm:py-10">
+  <div
+    class="mx-auto
+            w-full
+            max-w-7xl
+            px-4
+            sm:px-6
+            lg:px-8"
+  >
+    <EquipsClient client:load torneoID={torneoID} edicionID={edicionID} />
+  </div>
+</section>

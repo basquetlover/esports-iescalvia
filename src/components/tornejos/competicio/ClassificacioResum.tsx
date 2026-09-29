@@ -6,12 +6,28 @@ type Equip = {
   escudo: string | null;
 };
 
+type EstadoForma = "GANADO" | "EMPATADO" | "PERDIDO" | "PENDIENTE";
+
+type FormaPartido = {
+  partidoID: string | null;
+
+  estado: EstadoForma;
+
+  jornada: number | null;
+
+  marcadorFavor: number | null;
+
+  marcadorContra: number | null;
+};
+
 type Fila = {
   equipo: Equip;
 
   posicion: number | null;
 
   puntos: number | null;
+
+  forma?: FormaPartido[];
 };
 
 type Props = {
@@ -22,6 +38,48 @@ type Props = {
   teClassificacio: boolean;
 };
 
+// ============================================================
+// ICONOS
+// ============================================================
+
+const ICONOS_FORMA: Record<EstadoForma, string> = {
+  GANADO: "/iconos/tornejos/forma/guanyat.svg",
+
+  EMPATADO: "/iconos/tornejos/forma/empatat.svg",
+
+  PERDIDO: "/iconos/tornejos/forma/perdut.svg",
+
+  PENDIENTE: "/iconos/tornejos/forma/per-jugar.svg",
+};
+
+// ============================================================
+// COMPLETAR HASTA 5
+// ============================================================
+
+function completarForma(forma: FormaPartido[]) {
+  const resultado = forma.slice(0, 5);
+
+  while (resultado.length < 5) {
+    resultado.push({
+      partidoID: null,
+
+      estado: "PENDIENTE",
+
+      jornada: null,
+
+      marcadorFavor: null,
+
+      marcadorContra: null,
+    });
+  }
+
+  return resultado;
+}
+
+// ============================================================
+// COMPONENTE
+// ============================================================
+
 export default function ClassificacioResum({
   grupNom,
   files,
@@ -30,50 +88,54 @@ export default function ClassificacioResum({
   return (
     <section
       className="
-                overflow-hidden
-                rounded-3xl
-                border
-                border-border
-                bg-card
-            "
+        overflow-hidden
+        rounded-3xl
+        border
+        border-border
+        bg-card
+      "
     >
       {/* =============================================
-                CABECERA
-            ============================================= */}
+          CABECERA
+      ============================================= */}
 
       <div
         className="
-                    flex
-                    items-center
-                    justify-between
-                    gap-3
-                    border-b
-                    border-border/60
-                    px-5
-                    py-5
-                "
+          flex
+          items-center
+          justify-between
+          gap-3
+          border-b
+          border-border/60
+          px-5
+          py-5
+        "
       >
-        <div className="min-w-0">
+        <div
+          className="
+            min-w-0
+          "
+        >
           <p
             className="
-                            text-xs
-                            font-bold
-                            uppercase
-                            tracking-[0.16em]
-                            text-primary
-                        "
+              text-xs
+              font-bold
+              uppercase
+              tracking-[0.16em]
+              text-primary
+            "
           >
             Classificació
           </p>
 
           <h3
             className="
-                            mt-1
-                            truncate
-                            text-lg
-                            font-bold
-                            text-neutral-titulos
-                        "
+              mt-1
+              truncate
+              text-lg
+              font-bold
+              text-neutral-titulos
+            "
           >
             {grupNom}
           </h3>
@@ -81,33 +143,31 @@ export default function ClassificacioResum({
 
         <span
           className={`
-                        inline-flex
-                        shrink-0
-                        items-center
-                        gap-2
-                        rounded-full
-                        px-2.5
-                        py-1
-                        text-[10px]
-                        font-bold
+            inline-flex
+            shrink-0
+            items-center
+            gap-2
+            rounded-full
+            px-2.5
+            py-1
+            text-[10px]
+            font-bold
 
-                        ${
-                          teClassificacio
-                            ? "bg-green-50 text-green-700"
-                            : "bg-background text-neutral"
-                        }
-                    `}
+            ${
+              teClassificacio
+                ? "bg-green-50 text-green-700"
+                : "bg-background text-neutral"
+            }
+          `}
         >
           <span
             className={`
-                            h-2
-                            w-2
-                            rounded-full
+              h-2
+              w-2
+              rounded-full
 
-                            ${
-                              teClassificacio ? "bg-green-500" : "bg-neutral/40"
-                            }
-                        `}
+              ${teClassificacio ? "bg-green-500" : "bg-neutral/40"}
+            `}
           />
 
           {teClassificacio ? "Actualitzada" : "Pendent"}
@@ -115,50 +175,50 @@ export default function ClassificacioResum({
       </div>
 
       {/* =============================================
-                EQUIPOS
-            ============================================= */}
+          EQUIPOS
+      ============================================= */}
 
       {files.length > 0 ? (
         <div
           className="
-                        divide-y
-                        divide-border/50
-                    "
+            divide-y
+            divide-border/50
+          "
         >
           {files.map((fila, index) => (
             <div
               key={fila.equipo.id}
               className="
-                                    grid
-                                    min-h-16
-                                    grid-cols-[36px_minmax(0,1fr)_auto]
-                                    items-center
-                                    gap-3
-                                    px-4
-                                    py-3
-                                    transition
-                                    hover:bg-background/40
-                                "
+                  grid
+                  min-h-20
+                  grid-cols-[36px_minmax(0,1fr)_auto]
+                  items-center
+                  gap-3
+                  px-4
+                  py-3
+                  transition
+                  hover:bg-background/40
+                "
             >
               {/* POSICIÓN */}
 
               <div
                 className={`
-                                        flex
-                                        h-8
-                                        w-8
-                                        items-center
-                                        justify-center
-                                        rounded-lg
-                                        text-xs
-                                        font-black
+                    flex
+                    h-8
+                    w-8
+                    items-center
+                    justify-center
+                    rounded-lg
+                    text-xs
+                    font-black
 
-                                        ${
-                                          index < 2
-                                            ? "bg-primary text-white"
-                                            : "bg-primary/10 text-primary"
-                                        }
-                                    `}
+                    ${
+                      index < 2
+                        ? "bg-primary text-white"
+                        : "bg-primary/10 text-primary"
+                    }
+                  `}
               >
                 {fila.posicion ?? index + 1}
               </div>
@@ -167,98 +227,112 @@ export default function ClassificacioResum({
 
               <div
                 className="
-                                        flex
-                                        min-w-0
-                                        items-center
-                                        gap-3
-                                    "
+                    flex
+                    min-w-0
+                    items-center
+                    gap-3
+                  "
               >
                 {fila.equipo.escudo ? (
                   <div
                     className="
-                                                flex
-                                                h-10
-                                                w-10
-                                                shrink-0
-                                                items-center
-                                                justify-center
-                                                overflow-hidden
-                                                rounded-xl
-                                                border
-                                                border-border
-                                                bg-white
-                                                p-1
-                                            "
+                        flex
+                        h-10
+                        w-10
+                        shrink-0
+                        items-center
+                        justify-center
+                        overflow-hidden
+                        rounded-xl
+                        border
+                        border-border
+                        bg-white
+                        p-1
+                      "
                   >
                     <img
                       src={fila.equipo.escudo}
                       alt=""
                       className="
-                                                    h-full
-                                                    w-full
-                                                    object-contain
-                                                "
+                          h-full
+                          w-full
+                          object-contain
+                        "
                     />
                   </div>
                 ) : (
                   <div
                     className="
-                                                flex
-                                                h-10
-                                                w-10
-                                                shrink-0
-                                                items-center
-                                                justify-center
-                                                rounded-xl
-                                                bg-background
-                                                text-sm
-                                                font-black
-                                                text-primary
-                                            "
+                        flex
+                        h-10
+                        w-10
+                        shrink-0
+                        items-center
+                        justify-center
+                        rounded-xl
+                        bg-background
+                        text-sm
+                        font-black
+                        text-primary
+                      "
                   >
                     {fila.equipo.nombre.charAt(0).toUpperCase()}
                   </div>
                 )}
 
-                <p
+                <div
                   className="
-                                            min-w-0
-                                            truncate
-                                            text-sm
-                                            font-semibold
-                                            text-neutral-titulos
-                                        "
+                      min-w-0
+                      flex-1
+                    "
                 >
-                  {fila.equipo.nombre}
-                </p>
+                  <p
+                    className="
+                        truncate
+                        text-sm
+                        font-semibold
+                        text-neutral-titulos
+                      "
+                  >
+                    {fila.equipo.nombre}
+                  </p>
+
+                  <div
+                    className="
+                        mt-2
+                      "
+                  >
+                    <Forma forma={completarForma(fila.forma ?? [])} />
+                  </div>
+                </div>
               </div>
 
               {/* PUNTOS */}
 
               <div
                 className="
-                                        shrink-0
-                                        text-right
-                                    "
+                    shrink-0
+                    text-right
+                  "
               >
                 <p
                   className="
-                                            text-lg
-                                            font-black
-                                            text-primary
-                                        "
+                      text-lg
+                      font-black
+                      text-primary
+                    "
                 >
                   {fila.puntos ?? "—"}
                 </p>
 
                 <p
                   className="
-                                            text-[9px]
-                                            font-bold
-                                            uppercase
-                                            tracking-wider
-                                            text-neutral
-                                        "
+                      text-[9px]
+                      font-bold
+                      uppercase
+                      tracking-wider
+                      text-neutral
+                    "
                 >
                   punts
                 </p>
@@ -269,16 +343,16 @@ export default function ClassificacioResum({
       ) : (
         <div
           className="
-                        px-6
-                        py-12
-                        text-center
-                    "
+            px-6
+            py-12
+            text-center
+          "
         >
           <p
             className="
-                            text-sm
-                            text-neutral
-                        "
+              text-sm
+              text-neutral
+            "
           >
             Encara no hi ha equips al grup.
           </p>
@@ -286,4 +360,79 @@ export default function ClassificacioResum({
       )}
     </section>
   );
+}
+
+// ============================================================
+// FORMA
+// ============================================================
+
+function Forma({ forma }: { forma: FormaPartido[] }) {
+  return (
+    <div
+      className="
+        flex
+        items-center
+        gap-1.5
+      "
+    >
+      {forma.map((partido, index) => (
+        <IndicadorForma
+          key={`${partido.partidoID ?? "pendent"}-${index}`}
+          partido={partido}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ============================================================
+// INDICADOR
+// ============================================================
+
+function IndicadorForma({ partido }: { partido: FormaPartido }) {
+  const nombre = nombreEstado(partido.estado);
+
+  const marcador =
+    partido.marcadorFavor !== null && partido.marcadorContra !== null
+      ? ` · ${partido.marcadorFavor}-${partido.marcadorContra}`
+      : "";
+
+  const jornada =
+    partido.jornada !== null ? `Jornada ${partido.jornada} · ` : "";
+
+  return (
+    <img
+      src={ICONOS_FORMA[partido.estado]}
+      alt={nombre}
+      title={`${jornada}${nombre}${marcador}`}
+      className="
+        h-5
+        w-5
+        shrink-0
+        rounded-full
+        object-contain
+      "
+    />
+  );
+}
+
+// ============================================================
+// NOMBRE ESTADO
+// ============================================================
+
+function nombreEstado(estado: EstadoForma) {
+  switch (estado) {
+    case "GANADO":
+      return "Guanyat";
+
+    case "EMPATADO":
+      return "Empatat";
+
+    case "PERDIDO":
+      return "Perdut";
+
+    case "PENDIENTE":
+    default:
+      return "Per jugar";
+  }
 }

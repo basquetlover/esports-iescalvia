@@ -12,31 +12,22 @@ type Registro = Record<string, unknown>;
 
 type Fase = {
   id: string;
-
   nombre: string;
-
   orden: number;
-
   estado: string;
 };
 
 type Grupo = {
   id: string;
-
   fase_id: string;
-
   nombre: string;
-
   orden: number;
-
   estado: string;
 };
 
 type Equipo = {
   id: string;
-
   nombre: string;
-
   escudo: string | null;
 };
 
@@ -44,7 +35,6 @@ type Plaza = {
   id: string;
 
   grupo_id: string | null;
-
   partido_id: string | null;
 
   lado: string | null;
@@ -52,7 +42,6 @@ type Plaza = {
   orden: number;
 
   equipo_origen_id: string | null;
-
   equipo_resuelto_id: string | null;
 };
 
@@ -116,6 +105,20 @@ type EventoActa = {
   estado: string;
 };
 
+type EstadoForma = "GANADO" | "EMPATADO" | "PERDIDO" | "PENDIENTE";
+
+type FormaPartido = {
+  partidoID: string | null;
+
+  estado: EstadoForma;
+
+  jornada: number | null;
+
+  marcadorFavor: number | null;
+
+  marcadorContra: number | null;
+};
+
 type FilaCalculada = {
   equipo: Equipo;
 
@@ -140,6 +143,8 @@ type FilaCalculada = {
   amarillas: number | null;
 
   rojas: number | null;
+
+  forma: FormaPartido[];
 
   ordenInicial: number;
 };
@@ -175,11 +180,7 @@ function esRegistro(valor: unknown): valor is Registro {
 // TEXTO
 // ============================================================
 
-function texto(
-  registro: Registro | null | undefined,
-
-  claves: string[],
-) {
+function texto(registro: Registro | null | undefined, claves: string[]) {
   if (!registro) {
     return null;
   }
@@ -199,11 +200,7 @@ function texto(
 // NÚMERO
 // ============================================================
 
-function numero(
-  registro: Registro | null | undefined,
-
-  claves: string[],
-) {
+function numero(registro: Registro | null | undefined, claves: string[]) {
   if (!registro) {
     return null;
   }
@@ -233,7 +230,6 @@ function numero(
 
 function numeroAnidado(
   registro: Registro | null | undefined,
-
   claves: string[],
 ) {
   const directo = numero(registro, claves);
@@ -309,12 +305,6 @@ function claveDiaMadrid(fecha: Date) {
 // ============================================================
 // RESULTADO PREFERIDO
 // ============================================================
-//
-// 1. Confirmado.
-// 2. Si hay varios confirmados, el más reciente.
-// 3. Si no hay confirmado, el provisional más reciente.
-//
-// ============================================================
 
 function prioridadResultado(resultado: Resultado) {
   return resultado.confirmado ? 0 : 1;
@@ -364,14 +354,12 @@ function crearMapaResultados(resultados: Resultado[]) {
 }
 
 // ============================================================
-// EQUIPO DE UNA PLAZA DE PARTIDO
+// EQUIPO DE PLAZA
 // ============================================================
 
 function obtenerEquipoPlaza(
   plazas: Plaza[],
-
   partidoID: string,
-
   lado: "LOCAL" | "VISITANTE",
 ) {
   const plaza = plazas.find(
@@ -385,11 +373,7 @@ function obtenerEquipoPlaza(
 // PUNTOS FÚTBOL
 // ============================================================
 
-function puntosFutbol(
-  favor: number,
-
-  contra: number,
-) {
+function puntosFutbol(favor: number, contra: number) {
   if (favor > contra) {
     return 3;
   }
@@ -402,26 +386,202 @@ function puntosFutbol(
 }
 
 // ============================================================
-// ORDENAR CLASIFICACIÓN FÚTBOL
+// ORDEN DE PARTIDOS
 // ============================================================
-//
-// 1. Puntos.
-//
-// Si hay empate:
-//
-// 2. Enfrentamiento directo entre los equipos empatados.
-// 3. Diferencia directa.
-// 4. Diferencia general.
-// 5. Goles a favor.
-// 6. Menos tarjetas rojas.
-// 7. Menos tarjetas amarillas.
-// 8. Orden inicial.
-//
+
+function tiempoPartido(partido: Partido) {
+  if (!partido.fecha_hora) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  const tiempo = new Date(partido.fecha_hora).getTime();
+
+  return Number.isFinite(tiempo) ? tiempo : Number.MAX_SAFE_INTEGER;
+}
+
+function ordenarPartidos(partidos: Partido[]) {
+  return [...partidos].sort((a, b) => {
+    const jornadaA = a.jornada ?? Number.MAX_SAFE_INTEGER;
+
+    const jornadaB = b.jornada ?? Number.MAX_SAFE_INTEGER;
+
+    if (jornadaA !== jornadaB) {
+      return jornadaA - jornadaB;
+    }
+
+    const fechaA = tiempoPartido(a);
+
+    const fechaB = tiempoPartido(b);
+
+    if (fechaA !== fechaB) {
+      return fechaA - fechaB;
+    }
+
+    return a.orden - b.orden;
+  });
+}
+
+// ============================================================
+// COMPLETAR FORMA HASTA 5
+// ============================================================
+
+function completarForma(forma: FormaPartido[]) {
+  const resultado = forma.slice(0, 5);
+
+  while (resultado.length < 5) {
+    resultado.push({
+      partidoID: null,
+
+      estado: "PENDIENTE",
+
+      jornada: null,
+
+      marcadorFavor: null,
+
+      marcadorContra: null,
+    });
+  }
+
+  return resultado;
+}
+
+// ============================================================
+// FORMA ÚLTIMOS 5 PARTIDOS
+// ============================================================
+
+function calcularFormaEquipos(
+  partidos: Partido[],
+  plazas: Plaza[],
+  resultadosPorPartido: Map<string, Resultado>,
+) {
+  const formaCompleta = new Map<string, FormaPartido[]>();
+
+  const partidosOrdenados = ordenarPartidos(partidos);
+
+  for (const partido of partidosOrdenados) {
+    const localID = obtenerEquipoPlaza(plazas, partido.id, "LOCAL");
+
+    const visitanteID = obtenerEquipoPlaza(plazas, partido.id, "VISITANTE");
+
+    if (!localID || !visitanteID) {
+      continue;
+    }
+
+    const resultado = resultadosPorPartido.get(partido.id);
+
+    let estadoLocal: EstadoForma = "PENDIENTE";
+
+    let estadoVisitante: EstadoForma = "PENDIENTE";
+
+    let marcadorLocal: number | null = null;
+
+    let marcadorVisitante: number | null = null;
+
+    // ========================================================
+    // IMPORTANTE:
+    //
+    // Comprobación explícita de number para que TypeScript
+    // descarte null antes de comparar los marcadores.
+    // ========================================================
+
+    if (
+      resultado &&
+      resultado.confirmado &&
+      typeof resultado.marcador_local === "number" &&
+      typeof resultado.marcador_visitante === "number"
+    ) {
+      marcadorLocal = resultado.marcador_local;
+
+      marcadorVisitante = resultado.marcador_visitante;
+
+      if (marcadorLocal > marcadorVisitante) {
+        estadoLocal = "GANADO";
+
+        estadoVisitante = "PERDIDO";
+      } else if (marcadorLocal < marcadorVisitante) {
+        estadoLocal = "PERDIDO";
+
+        estadoVisitante = "GANADO";
+      } else {
+        estadoLocal = "EMPATADO";
+
+        estadoVisitante = "EMPATADO";
+      }
+    }
+
+    // ========================================================
+    // LOCAL
+    // ========================================================
+
+    const formaLocal = formaCompleta.get(localID) ?? [];
+
+    formaLocal.push({
+      partidoID: partido.id,
+
+      estado: estadoLocal,
+
+      jornada: partido.jornada,
+
+      marcadorFavor: marcadorLocal,
+
+      marcadorContra: marcadorVisitante,
+    });
+
+    formaCompleta.set(localID, formaLocal);
+
+    // ========================================================
+    // VISITANTE
+    // ========================================================
+
+    const formaVisitante = formaCompleta.get(visitanteID) ?? [];
+
+    formaVisitante.push({
+      partidoID: partido.id,
+
+      estado: estadoVisitante,
+
+      jornada: partido.jornada,
+
+      marcadorFavor: marcadorVisitante,
+
+      marcadorContra: marcadorLocal,
+    });
+
+    formaCompleta.set(visitanteID, formaVisitante);
+  }
+
+  const resultado = new Map<string, FormaPartido[]>();
+
+  for (const [equipoID, partidosEquipo] of formaCompleta) {
+    const jugados = partidosEquipo.filter(
+      (partido) => partido.estado !== "PENDIENTE",
+    );
+
+    const pendientes = partidosEquipo.filter(
+      (partido) => partido.estado === "PENDIENTE",
+    );
+
+    const ultimosJugados = jugados.slice(-5);
+
+    const faltan = Math.max(0, 5 - ultimosJugados.length);
+
+    const proximosPendientes = pendientes.slice(0, faltan);
+
+    resultado.set(
+      equipoID,
+      completarForma([...ultimosJugados, ...proximosPendientes]),
+    );
+  }
+
+  return resultado;
+}
+
+// ============================================================
+// ORDENAR CLASIFICACIÓN FÚTBOL
 // ============================================================
 
 function ordenarClasificacionFutbol(
   filas: FilaCalculada[],
-
   partidos: PartidoClasificacion[],
 ) {
   const porPuntos = new Map<number, FilaCalculada[]>();
@@ -455,11 +615,8 @@ function ordenarClasificacionFutbol(
       string,
       {
         puntos: number;
-
         favor: number;
-
         contra: number;
-
         diferencia: number;
       }
     >();
@@ -567,9 +724,9 @@ function ordenarClasificacionFutbol(
 
 export const GET: APIRoute = async ({ url }) => {
   try {
-    // ====================================================
+    // ======================================================
     // PARÁMETROS
-    // ====================================================
+    // ======================================================
 
     const torneoID = url.searchParams.get("torneoID");
 
@@ -631,9 +788,9 @@ export const GET: APIRoute = async ({ url }) => {
       );
     }
 
-    // ====================================================
+    // ======================================================
     // TORNEO / EDICIÓN
-    // ====================================================
+    // ======================================================
 
     const [torneoRespuesta, edicionRespuesta] = await Promise.all([
       supabaseAdmin
@@ -673,9 +830,9 @@ export const GET: APIRoute = async ({ url }) => {
 
     const esFutbol = deporte.includes("fut");
 
-    // ====================================================
+    // ======================================================
     // RESPUESTA VACÍA
-    // ====================================================
+    // ======================================================
 
     function respuestaVacia() {
       return Response.json(
@@ -716,9 +873,9 @@ export const GET: APIRoute = async ({ url }) => {
       );
     }
 
-    // ====================================================
+    // ======================================================
     // FASES
-    // ====================================================
+    // ======================================================
 
     const {
       data: fasesData,
@@ -745,9 +902,9 @@ export const GET: APIRoute = async ({ url }) => {
 
     const idsFases = fases.map((fase) => fase.id);
 
-    // ====================================================
+    // ======================================================
     // GRUPOS
-    // ====================================================
+    // ======================================================
 
     const {
       data: gruposData,
@@ -800,9 +957,9 @@ export const GET: APIRoute = async ({ url }) => {
 
     const faseSeleccionada = fasesPorID.get(grupoSeleccionado.fase_id) ?? null;
 
-    // ====================================================
-    // PLAZAS GRUPO / PARTIDOS / SNAPSHOTS
-    // ====================================================
+    // ======================================================
+    // PLAZAS / PARTIDOS / SNAPSHOT
+    // ======================================================
 
     const [plazasGrupoRespuesta, partidosRespuesta, clasificacionesRespuesta] =
       await Promise.all([
@@ -859,9 +1016,9 @@ export const GET: APIRoute = async ({ url }) => {
 
     const idsPartidos = partidos.map((partido) => partido.id);
 
-    // ====================================================
-    // PLAZAS PARTIDOS
-    // ====================================================
+    // ======================================================
+    // PLAZAS PARTIDO
+    // ======================================================
 
     let plazasPartido: Plaza[] = [];
 
@@ -882,9 +1039,9 @@ export const GET: APIRoute = async ({ url }) => {
       plazasPartido = (data ?? []) as Plaza[];
     }
 
-    // ====================================================
+    // ======================================================
     // RESULTADOS
-    // ====================================================
+    // ======================================================
 
     let resultados: Resultado[] = [];
 
@@ -893,19 +1050,19 @@ export const GET: APIRoute = async ({ url }) => {
         .from("competicion_resultados")
         .select(
           `
-                                id,
-                                partido_id,
-                                edicion_id,
-                                marcador_local,
-                                marcador_visitante,
-                                ganador_equipo_id,
-                                resultado_tipo,
-                                confirmado,
-                                confirmado_at,
-                                observaciones,
-                                created_at,
-                                updated_at
-                            `,
+              id,
+              partido_id,
+              edicion_id,
+              marcador_local,
+              marcador_visitante,
+              ganador_equipo_id,
+              resultado_tipo,
+              confirmado,
+              confirmado_at,
+              observaciones,
+              created_at,
+              updated_at
+            `,
         )
         .in("partido_id", idsPartidos)
         .eq("edicion_id", edicionID);
@@ -919,9 +1076,15 @@ export const GET: APIRoute = async ({ url }) => {
 
     const resultadosPorPartido = crearMapaResultados(resultados);
 
-    // ====================================================
-    // SNAPSHOT DE CLASIFICACIÓN
-    // ====================================================
+    const formaPorEquipo = calcularFormaEquipos(
+      partidos,
+      plazasPartido,
+      resultadosPorPartido,
+    );
+
+    // ======================================================
+    // SNAPSHOT
+    // ======================================================
 
     const clasificaciones = (clasificacionesRespuesta.data ?? []) as Registro[];
 
@@ -950,33 +1113,12 @@ export const GET: APIRoute = async ({ url }) => {
 
       if (!error) {
         filasSnapshot = (data ?? []) as Registro[];
-      } else {
-        /*
-         * Fallback por compatibilidad con datos
-         * antiguos.
-         */
-        const fallback = await supabaseAdmin
-          .from("competicion_clasificacion_filas")
-          .select("*");
-
-        if (!fallback.error) {
-          filasSnapshot = (fallback.data ?? [])
-            .map((fila) => fila as Registro)
-            .filter((fila) => {
-              const idFila = texto(fila, [
-                "clasificacion_id",
-                "clasificacio_id",
-              ]);
-
-              return idFila === clasificacionID;
-            });
-        }
       }
     }
 
-    // ====================================================
+    // ======================================================
     // IDS EQUIPOS
-    // ====================================================
+    // ======================================================
 
     const idsEquipos = new Set<string>();
 
@@ -1004,9 +1146,9 @@ export const GET: APIRoute = async ({ url }) => {
       }
     }
 
-    // ====================================================
+    // ======================================================
     // EQUIPOS
-    // ====================================================
+    // ======================================================
 
     let equipos: Equipo[] = [];
 
@@ -1033,9 +1175,9 @@ export const GET: APIRoute = async ({ url }) => {
       equipos.map((equipo) => [equipo.id, equipo]),
     );
 
-    // ====================================================
+    // ======================================================
     // ORDEN GRUPO
-    // ====================================================
+    // ======================================================
 
     const ordenGrupo = new Map<string, number>();
 
@@ -1047,9 +1189,9 @@ export const GET: APIRoute = async ({ url }) => {
       }
     }
 
-    // ====================================================
-    // PARTIDOS CONFIRMADOS PARA CLASIFICACIÓN
-    // ====================================================
+    // ======================================================
+    // PARTIDOS CONFIRMADOS
+    // ======================================================
 
     const partidosClasificacion: PartidoClasificacion[] = [];
 
@@ -1061,8 +1203,8 @@ export const GET: APIRoute = async ({ url }) => {
       if (
         !resultado ||
         !resultado.confirmado ||
-        resultado.marcador_local === null ||
-        resultado.marcador_visitante === null
+        typeof resultado.marcador_local !== "number" ||
+        typeof resultado.marcador_visitante !== "number"
       ) {
         continue;
       }
@@ -1094,9 +1236,9 @@ export const GET: APIRoute = async ({ url }) => {
       });
     }
 
-    // ====================================================
-    // TARJETAS DESDE ACTA_EVENTOS
-    // ====================================================
+    // ======================================================
+    // TARJETAS
+    // ======================================================
 
     const tarjetasPorEquipo = new Map<
       string,
@@ -1142,17 +1284,13 @@ export const GET: APIRoute = async ({ url }) => {
       }
     }
 
-    // ====================================================
+    // ======================================================
     // CLASIFICACIÓN
-    // ====================================================
+    // ======================================================
 
     let clasificacion: FilaCalculada[] = [];
 
     let tieneClasificacion = false;
-
-    // ====================================================
-    // FÚTBOL
-    // ====================================================
 
     if (esFutbol) {
       const mapa = new Map<string, FilaCalculada>();
@@ -1197,13 +1335,11 @@ export const GET: APIRoute = async ({ url }) => {
 
           rojas: tarjetas?.rojas ?? 0,
 
+          forma: completarForma(formaPorEquipo.get(equipoID) ?? []),
+
           ordenInicial: plaza.orden,
         });
       }
-
-      // =================================================
-      // APLICAR PARTIDOS
-      // =================================================
 
       for (const partido of partidosClasificacion) {
         const local = mapa.get(partido.localID);
@@ -1261,12 +1397,9 @@ export const GET: APIRoute = async ({ url }) => {
 
       tieneClasificacion = partidosClasificacion.length > 0;
     } else {
-      // =================================================
+      // ====================================================
       // OTROS DEPORTES
-      //
-      // Se mantiene el snapshot existente hasta
-      // implementar su sistema de puntuación propio.
-      // =================================================
+      // ====================================================
 
       clasificacion = filasSnapshot
         .map<FilaCalculada | null>((fila) => {
@@ -1352,16 +1485,14 @@ export const GET: APIRoute = async ({ url }) => {
 
             rojas: null,
 
+            forma: completarForma(formaPorEquipo.get(equipoID) ?? []),
+
             ordenInicial: ordenGrupo.get(equipoID) ?? 9999,
           };
 
           return resultado;
         })
         .filter((fila): fila is FilaCalculada => fila !== null);
-
-      // =================================================
-      // EQUIPOS QUE NO ESTÁN TODAVÍA EN EL SNAPSHOT
-      // =================================================
 
       const clasificados = new Set(clasificacion.map((fila) => fila.equipo.id));
 
@@ -1403,6 +1534,8 @@ export const GET: APIRoute = async ({ url }) => {
 
           rojas: null,
 
+          forma: completarForma(formaPorEquipo.get(equipoID) ?? []),
+
           ordenInicial: plaza.orden,
         });
       }
@@ -1426,9 +1559,9 @@ export const GET: APIRoute = async ({ url }) => {
       tieneClasificacion = filasSnapshot.length > 0;
     }
 
-    // ====================================================
+    // ======================================================
     // PARTIDOS PÚBLICOS
-    // ====================================================
+    // ======================================================
 
     const partidosPublicos = partidos.map((partido) => {
       const resultado = resultadosPorPartido.get(partido.id);
@@ -1471,9 +1604,9 @@ export const GET: APIRoute = async ({ url }) => {
       };
     });
 
-    // ====================================================
+    // ======================================================
     // JORNADAS
-    // ====================================================
+    // ======================================================
 
     const mapaJornadas = new Map<number, typeof partidosPublicos>();
 
@@ -1511,9 +1644,9 @@ export const GET: APIRoute = async ({ url }) => {
       }))
       .sort((a, b) => a.numero - b.numero);
 
-    // ====================================================
+    // ======================================================
     // JORNADA SELECCIONADA
-    // ====================================================
+    // ======================================================
 
     const jornadaSeleccionada =
       jornadaSolicitada !== null
@@ -1536,9 +1669,9 @@ export const GET: APIRoute = async ({ url }) => {
       );
     }
 
-    // ====================================================
-    // FECHA DE JORNADA
-    // ====================================================
+    // ======================================================
+    // FECHA JORNADA
+    // ======================================================
 
     function fechaJornada(jornada: (typeof jornadas)[number]) {
       const fechas = jornada.partidos
@@ -1556,9 +1689,9 @@ export const GET: APIRoute = async ({ url }) => {
       return Math.min(...fechas);
     }
 
-    // ====================================================
+    // ======================================================
     // JORNADA AUTOMÁTICA
-    // ====================================================
+    // ======================================================
 
     const ahora = Date.now();
 
@@ -1608,9 +1741,9 @@ export const GET: APIRoute = async ({ url }) => {
 
     const referencia = jornadaSeleccionada ?? referenciaAutomatica;
 
-    // ====================================================
-    // SIGUIENTE JORNADA
-    // ====================================================
+    // ======================================================
+    // SIGUIENTE
+    // ======================================================
 
     let indiceReferencia = -1;
 
@@ -1623,9 +1756,9 @@ export const GET: APIRoute = async ({ url }) => {
     const siguiente =
       indiceReferencia >= 0 ? (jornadas[indiceReferencia + 1] ?? null) : null;
 
-    // ====================================================
+    // ======================================================
     // CONVERTIR JORNADA
-    // ====================================================
+    // ======================================================
 
     function convertirJornada(
       jornada: (typeof jornadas)[number] | null,
@@ -1657,9 +1790,9 @@ export const GET: APIRoute = async ({ url }) => {
       };
     }
 
-    // ====================================================
+    // ======================================================
     // RESPUESTA
-    // ====================================================
+    // ======================================================
 
     return Response.json(
       {
