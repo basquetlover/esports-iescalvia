@@ -4,7 +4,11 @@ type Equip = {
   escudo: string | null;
 };
 
-type EstadoForma = "GANADO" | "EMPATADO" | "PERDIDO" | "PENDIENTE";
+type EstadoForma =
+  | "GANADO"
+  | "EMPATADO"
+  | "PERDIDO"
+  | "PENDIENTE";
 
 type FormaPartido = {
   partidoID: string | null;
@@ -58,56 +62,94 @@ type Props = {
   etiquetaContra: string;
 
   teClassificacio: boolean;
+
+  /*
+   * Opcional.
+   *
+   * Se utiliza, por ejemplo, en la página de un partido
+   * para destacar local y visitante.
+   */
+  equipsDestacats?: string[];
 };
 
 // ============================================================
 // ICONOS FORMA
 // ============================================================
 
-const ICONOS_FORMA: Record<EstadoForma, string> = {
-  GANADO: "/iconos/tornejos/forma/guanyat.svg",
+const ICONOS_FORMA: Record<
+  EstadoForma,
+  string
+> = {
+  GANADO:
+    "/iconos/tornejos/forma/guanyat.svg",
 
-  EMPATADO: "/iconos/tornejos/forma/empatat.svg",
+  EMPATADO:
+    "/iconos/tornejos/forma/empatat.svg",
 
-  PERDIDO: "/iconos/tornejos/forma/perdut.svg",
+  PERDIDO:
+    "/iconos/tornejos/forma/perdut.svg",
 
-  PENDIENTE: "/iconos/tornejos/forma/per-jugar.svg",
+  PENDIENTE:
+    "/iconos/tornejos/forma/per-jugar.svg",
 };
 
 // ============================================================
 // VALORES
 // ============================================================
 
-function valor(numero: number | null) {
-  return numero === null ? "—" : numero;
+function valor(
+  numero: number | null,
+) {
+  return numero === null
+    ? "—"
+    : numero;
 }
 
-function diferencia(numero: number | null) {
-  if (numero === null) {
+function diferencia(
+  numero: number | null,
+) {
+  if (
+    numero === null
+  ) {
     return "—";
   }
 
-  return numero > 0 ? `+${numero}` : numero;
+  return numero > 0
+    ? `+${numero}`
+    : numero;
 }
 
 // ============================================================
 // COMPLETAR FORMA
 // ============================================================
 
-function completarForma(forma: FormaPartido[]) {
-  const resultado = forma.slice(0, 5);
+function completarForma(
+  forma: FormaPartido[],
+) {
+  const resultado =
+    forma.slice(
+      0,
+      5,
+    );
 
-  while (resultado.length < 5) {
+  while (
+    resultado.length < 5
+  ) {
     resultado.push({
-      partidoID: null,
+      partidoID:
+        null,
 
-      estado: "PENDIENTE",
+      estado:
+        "PENDIENTE",
 
-      jornada: null,
+      jornada:
+        null,
 
-      marcadorFavor: null,
+      marcadorFavor:
+        null,
 
-      marcadorContra: null,
+      marcadorContra:
+        null,
     });
   }
 
@@ -125,6 +167,7 @@ export default function ClassificacioCompleta({
   etiquetaFavor,
   etiquetaContra,
   teClassificacio,
+  equipsDestacats = [],
 }: Props) {
   return (
     <section
@@ -206,11 +249,17 @@ export default function ClassificacioCompleta({
               w-2
               rounded-full
 
-              ${teClassificacio ? "bg-green-500" : "bg-neutral/40"}
+              ${
+                teClassificacio
+                  ? "bg-green-500"
+                  : "bg-neutral/40"
+              }
             `}
           />
 
-          {teClassificacio ? "Actualitzada" : "Pendent de calcular"}
+          {teClassificacio
+            ? "Actualitzada"
+            : "Pendent de calcular"}
         </span>
       </div>
 
@@ -269,25 +318,43 @@ export default function ClassificacioCompleta({
                 Equip
               </th>
 
-              <th className="px-3 py-3 text-center">PJ</th>
+              <th className="px-3 py-3 text-center">
+                PJ
+              </th>
 
-              <th className="px-3 py-3 text-center">PG</th>
+              <th className="px-3 py-3 text-center">
+                PG
+              </th>
 
-              <th className="px-3 py-3 text-center">PE</th>
+              <th className="px-3 py-3 text-center">
+                PE
+              </th>
 
-              <th className="px-3 py-3 text-center">PP</th>
+              <th className="px-3 py-3 text-center">
+                PP
+              </th>
 
-              <th className="px-3 py-3 text-center">{etiquetaFavor}</th>
+              <th className="px-3 py-3 text-center">
+                {etiquetaFavor}
+              </th>
 
-              <th className="px-3 py-3 text-center">{etiquetaContra}</th>
+              <th className="px-3 py-3 text-center">
+                {etiquetaContra}
+              </th>
 
-              <th className="px-3 py-3 text-center">DIF</th>
+              <th className="px-3 py-3 text-center">
+                DIF
+              </th>
 
               {esFutbol && (
                 <>
-                  <th className="px-3 py-3 text-center">TA</th>
+                  <th className="px-3 py-3 text-center">
+                    TA
+                  </th>
 
-                  <th className="px-3 py-3 text-center">TR</th>
+                  <th className="px-3 py-3 text-center">
+                    TR
+                  </th>
                 </>
               )}
 
@@ -319,14 +386,32 @@ export default function ClassificacioCompleta({
               divide-border/50
             "
           >
-            {files.map((fila, index) => (
-              <FilaDesktop
-                key={fila.equipo.id}
-                fila={fila}
-                index={index}
-                esFutbol={esFutbol}
-              />
-            ))}
+            {files.map(
+              (
+                fila,
+                index,
+              ) => (
+                <FilaDesktop
+                  key={
+                    fila.equipo.id
+                  }
+                  fila={
+                    fila
+                  }
+                  index={
+                    index
+                  }
+                  esFutbol={
+                    esFutbol
+                  }
+                  destacada={
+                    equipsDestacats.includes(
+                      fila.equipo.id,
+                    )
+                  }
+                />
+              ),
+            )}
           </tbody>
         </table>
       </div>
@@ -342,16 +427,38 @@ export default function ClassificacioCompleta({
           md:hidden
         "
       >
-        {files.map((fila, index) => (
-          <FilaMobil
-            key={fila.equipo.id}
-            fila={fila}
-            index={index}
-            esFutbol={esFutbol}
-            etiquetaFavor={etiquetaFavor}
-            etiquetaContra={etiquetaContra}
-          />
-        ))}
+        {files.map(
+          (
+            fila,
+            index,
+          ) => (
+            <FilaMobil
+              key={
+                fila.equipo.id
+              }
+              fila={
+                fila
+              }
+              index={
+                index
+              }
+              esFutbol={
+                esFutbol
+              }
+              etiquetaFavor={
+                etiquetaFavor
+              }
+              etiquetaContra={
+                etiquetaContra
+              }
+              destacada={
+                equipsDestacats.includes(
+                  fila.equipo.id,
+                )
+              }
+            />
+          ),
+        )}
       </div>
 
       {/* =============================================
@@ -383,9 +490,15 @@ export default function ClassificacioCompleta({
 
       {files.length > 0 && (
         <Llegenda
-          esFutbol={esFutbol}
-          etiquetaFavor={etiquetaFavor}
-          etiquetaContra={etiquetaContra}
+          esFutbol={
+            esFutbol
+          }
+          etiquetaFavor={
+            etiquetaFavor
+          }
+          etiquetaContra={
+            etiquetaContra
+          }
         />
       )}
     </section>
@@ -400,28 +513,51 @@ function FilaDesktop({
   fila,
   index,
   esFutbol,
+  destacada,
 }: {
   fila: Fila;
 
   index: number;
 
   esFutbol: boolean;
+
+  destacada: boolean;
 }) {
   return (
     <tr
-      className="
+      className={`
         transition
-        hover:bg-background/40
-      "
+
+        ${
+          destacada
+            ? "bg-primary/10 hover:bg-primary/15"
+            : "hover:bg-background/40"
+        }
+      `}
     >
       <td
-        className="
+        className={`
+          border-l-4
           px-4
           py-3
           text-center
-        "
+
+          ${
+            destacada
+              ? "border-primary"
+              : "border-transparent"
+          }
+        `}
       >
-        <Posicio posicion={fila.posicion ?? index + 1} destacada={index < 2} />
+        <Posicio
+          posicion={
+            fila.posicion ??
+            index + 1
+          }
+          destacada={
+            index < 2
+          }
+        />
       </td>
 
       <td
@@ -430,20 +566,48 @@ function FilaDesktop({
           py-3
         "
       >
-        <Equip equip={fila.equipo} />
+        <Equip
+          equip={
+            fila.equipo
+          }
+        />
       </td>
 
-      <Celda valor={fila.pj} />
+      <Celda
+        valor={
+          fila.pj
+        }
+      />
 
-      <Celda valor={fila.pg} />
+      <Celda
+        valor={
+          fila.pg
+        }
+      />
 
-      <Celda valor={fila.pe} />
+      <Celda
+        valor={
+          fila.pe
+        }
+      />
 
-      <Celda valor={fila.pp} />
+      <Celda
+        valor={
+          fila.pp
+        }
+      />
 
-      <Celda valor={fila.favor} />
+      <Celda
+        valor={
+          fila.favor
+        }
+      />
 
-      <Celda valor={fila.contra} />
+      <Celda
+        valor={
+          fila.contra
+        }
+      />
 
       <td
         className="
@@ -455,14 +619,24 @@ function FilaDesktop({
           text-neutral-titulos
         "
       >
-        {diferencia(fila.diferencia)}
+        {diferencia(
+          fila.diferencia,
+        )}
       </td>
 
       {esFutbol && (
         <>
-          <Celda valor={fila.amarillas} />
+          <Celda
+            valor={
+              fila.amarillas
+            }
+          />
 
-          <Celda valor={fila.rojas} />
+          <Celda
+            valor={
+              fila.rojas
+            }
+          />
         </>
       )}
 
@@ -473,7 +647,15 @@ function FilaDesktop({
           text-center
         "
       >
-        <Forma forma={completarForma(fila.forma ?? [])} centrada />
+        <Forma
+          forma={
+            completarForma(
+              fila.forma ??
+                [],
+            )
+          }
+          centrada
+        />
       </td>
 
       <td
@@ -498,7 +680,9 @@ function FilaDesktop({
             text-secondary
           "
         >
-          {valor(fila.puntos)}
+          {valor(
+            fila.puntos,
+          )}
         </span>
       </td>
     </tr>
@@ -515,6 +699,7 @@ function FilaMobil({
   esFutbol,
   etiquetaFavor,
   etiquetaContra,
+  destacada,
 }: {
   fila: Fila;
 
@@ -525,13 +710,23 @@ function FilaMobil({
   etiquetaFavor: string;
 
   etiquetaContra: string;
+
+  destacada: boolean;
 }) {
   return (
     <article
-      className="
+      className={`
+        border-l-4
         px-4
         py-4
-      "
+        transition
+
+        ${
+          destacada
+            ? "border-primary bg-primary/10"
+            : "border-transparent"
+        }
+      `}
     >
       <div
         className="
@@ -540,7 +735,15 @@ function FilaMobil({
           gap-3
         "
       >
-        <Posicio posicion={fila.posicion ?? index + 1} destacada={index < 2} />
+        <Posicio
+          posicion={
+            fila.posicion ??
+            index + 1
+          }
+          destacada={
+            index < 2
+          }
+        />
 
         <div
           className="
@@ -548,14 +751,25 @@ function FilaMobil({
             flex-1
           "
         >
-          <Equip equip={fila.equipo} />
+          <Equip
+            equip={
+              fila.equipo
+            }
+          />
 
           <div
             className="
               mt-2
             "
           >
-            <Forma forma={completarForma(fila.forma ?? [])} />
+            <Forma
+              forma={
+                completarForma(
+                  fila.forma ??
+                    [],
+                )
+              }
+            />
           </div>
         </div>
 
@@ -584,7 +798,9 @@ function FilaMobil({
               text-primary
             "
           >
-            {valor(fila.puntos)}
+            {valor(
+              fila.puntos,
+            )}
           </p>
         </div>
       </div>
@@ -597,24 +813,69 @@ function FilaMobil({
           gap-2
         "
       >
-        <DadaMobil etiqueta="PJ" valor={fila.pj} />
+        <DadaMobil
+          etiqueta="PJ"
+          valor={
+            fila.pj
+          }
+        />
 
-        <DadaMobil etiqueta="PG" valor={fila.pg} />
+        <DadaMobil
+          etiqueta="PG"
+          valor={
+            fila.pg
+          }
+        />
 
-        <DadaMobil etiqueta="PE" valor={fila.pe} />
+        <DadaMobil
+          etiqueta="PE"
+          valor={
+            fila.pe
+          }
+        />
 
-        <DadaMobil etiqueta="PP" valor={fila.pp} />
+        <DadaMobil
+          etiqueta="PP"
+          valor={
+            fila.pp
+          }
+        />
 
-        <DadaMobil etiqueta={etiquetaFavor} valor={fila.favor} />
+        <DadaMobil
+          etiqueta={
+            etiquetaFavor
+          }
+          valor={
+            fila.favor
+          }
+        />
 
-        <DadaMobil etiqueta={etiquetaContra} valor={fila.contra} />
+        <DadaMobil
+          etiqueta={
+            etiquetaContra
+          }
+          valor={
+            fila.contra
+          }
+        />
 
-        <DadaMobil etiqueta="DIF" valorTexto={diferencia(fila.diferencia)} />
+        <DadaMobil
+          etiqueta="DIF"
+          valorTexto={
+            diferencia(
+              fila.diferencia,
+            )
+          }
+        />
 
         {esFutbol ? (
           <DadaMobil
             etiqueta="TA / TR"
-            valorTexto={`${valor(fila.amarillas)} / ${valor(fila.rojas)}`}
+            valorTexto={`${valor(
+              fila.amarillas,
+            )} / ${valor(
+              fila.rojas,
+            )}`}
           />
         ) : (
           <div />
@@ -643,15 +904,26 @@ function Forma({
         items-center
         gap-1.5
 
-        ${centrada ? "justify-center" : ""}
+        ${
+          centrada
+            ? "justify-center"
+            : ""
+        }
       `}
     >
-      {forma.map((partido, index) => (
-        <IndicadorForma
-          key={`${partido.partidoID ?? "pendent"}-${index}`}
-          partido={partido}
-        />
-      ))}
+      {forma.map(
+        (
+          partido,
+          index,
+        ) => (
+          <IndicadorForma
+            key={`${partido.partidoID ?? "pendent"}-${index}`}
+            partido={
+              partido
+            }
+          />
+        ),
+      )}
     </div>
   );
 }
@@ -660,21 +932,40 @@ function Forma({
 // INDICADOR FORMA
 // ============================================================
 
-function IndicadorForma({ partido }: { partido: FormaPartido }) {
-  const nombre = nombreEstadoForma(partido.estado);
+function IndicadorForma({
+  partido,
+}: {
+  partido: FormaPartido;
+}) {
+  const nombre =
+    nombreEstadoForma(
+      partido.estado,
+    );
 
   const marcador =
-    partido.marcadorFavor !== null && partido.marcadorContra !== null
+    partido.marcadorFavor !==
+      null &&
+    partido.marcadorContra !==
+      null
       ? ` · ${partido.marcadorFavor}-${partido.marcadorContra}`
       : "";
 
   const jornada =
-    partido.jornada !== null ? `Jornada ${partido.jornada} · ` : "";
+    partido.jornada !==
+    null
+      ? `Jornada ${partido.jornada} · `
+      : "";
 
   return (
     <img
-      src={ICONOS_FORMA[partido.estado]}
-      alt={nombre}
+      src={
+        ICONOS_FORMA[
+          partido.estado
+        ]
+      }
+      alt={
+        nombre
+      }
       title={`${jornada}${nombre}${marcador}`}
       className="
         h-6
@@ -690,8 +981,12 @@ function IndicadorForma({ partido }: { partido: FormaPartido }) {
 // NOMBRE ESTADO FORMA
 // ============================================================
 
-function nombreEstadoForma(estado: EstadoForma) {
-  switch (estado) {
+function nombreEstadoForma(
+  estado: EstadoForma,
+) {
+  switch (
+    estado
+  ) {
     case "GANADO":
       return "Guanyat";
 
@@ -746,10 +1041,6 @@ function Llegenda({
         Llegenda
       </p>
 
-      {/* =============================================
-          ABREVIATURAS
-      ============================================= */}
-
       <div
         className="
           flex
@@ -760,27 +1051,55 @@ function Llegenda({
           text-neutral
         "
       >
-        <LlegendaAbreviatura abreviatura="PJ" descripcion="Partits jugats" />
-
-        <LlegendaAbreviatura abreviatura="PG" descripcion="Partits guanyats" />
-
-        <LlegendaAbreviatura abreviatura="PE" descripcion="Partits empatats" />
-
-        <LlegendaAbreviatura abreviatura="PP" descripcion="Partits perduts" />
-
         <LlegendaAbreviatura
-          abreviatura={etiquetaFavor}
-          descripcion={esFutbol ? "Gols marcats" : "Punts a favor"}
+          abreviatura="PJ"
+          descripcion="Partits jugats"
         />
 
         <LlegendaAbreviatura
-          abreviatura={etiquetaContra}
-          descripcion={esFutbol ? "Gols rebuts" : "Punts en contra"}
+          abreviatura="PG"
+          descripcion="Partits guanyats"
+        />
+
+        <LlegendaAbreviatura
+          abreviatura="PE"
+          descripcion="Partits empatats"
+        />
+
+        <LlegendaAbreviatura
+          abreviatura="PP"
+          descripcion="Partits perduts"
+        />
+
+        <LlegendaAbreviatura
+          abreviatura={
+            etiquetaFavor
+          }
+          descripcion={
+            esFutbol
+              ? "Gols marcats"
+              : "Punts a favor"
+          }
+        />
+
+        <LlegendaAbreviatura
+          abreviatura={
+            etiquetaContra
+          }
+          descripcion={
+            esFutbol
+              ? "Gols rebuts"
+              : "Punts en contra"
+          }
         />
 
         <LlegendaAbreviatura
           abreviatura="DIF"
-          descripcion={esFutbol ? "Diferència de gols" : "Diferència de punts"}
+          descripcion={
+            esFutbol
+              ? "Diferència de gols"
+              : "Diferència de punts"
+          }
         />
 
         {esFutbol && (
@@ -802,10 +1121,6 @@ function Llegenda({
           descripcion="Punts de classificació"
         />
       </div>
-
-      {/* =============================================
-          FORMA
-      ============================================= */}
 
       <div
         className="
@@ -830,13 +1145,25 @@ function Llegenda({
           Forma:
         </span>
 
-        <LlegendaForma estado="GANADO" texto="Guanyat" />
+        <LlegendaForma
+          estado="GANADO"
+          texto="Guanyat"
+        />
 
-        <LlegendaForma estado="EMPATADO" texto="Empatat" />
+        <LlegendaForma
+          estado="EMPATADO"
+          texto="Empatat"
+        />
 
-        <LlegendaForma estado="PERDIDO" texto="Perdut" />
+        <LlegendaForma
+          estado="PERDIDO"
+          texto="Perdut"
+        />
 
-        <LlegendaForma estado="PENDIENTE" texto="Per jugar" />
+        <LlegendaForma
+          estado="PENDIENTE"
+          texto="Per jugar"
+        />
       </div>
     </footer>
   );
@@ -871,7 +1198,9 @@ function LlegendaAbreviatura({
         {abreviatura}
       </strong>
 
-      <span>{descripcion}</span>
+      <span>
+        {descripcion}
+      </span>
     </span>
   );
 }
@@ -899,7 +1228,11 @@ function LlegendaForma({
       "
     >
       <img
-        src={ICONOS_FORMA[estado]}
+        src={
+          ICONOS_FORMA[
+            estado
+          ]
+        }
         alt=""
         aria-hidden="true"
         className="
@@ -910,7 +1243,9 @@ function LlegendaForma({
         "
       />
 
-      <span>{texto}</span>
+      <span>
+        {texto}
+      </span>
     </span>
   );
 }
@@ -956,7 +1291,11 @@ function Posicio({
 // EQUIPO
 // ============================================================
 
-function Equip({ equip }: { equip: Equip }) {
+function Equip({
+  equip,
+}: {
+  equip: Equip;
+}) {
   return (
     <div
       className="
@@ -984,7 +1323,9 @@ function Equip({ equip }: { equip: Equip }) {
           "
         >
           <img
-            src={equip.escudo}
+            src={
+              equip.escudo
+            }
             alt=""
             className="
               h-full
@@ -1009,7 +1350,9 @@ function Equip({ equip }: { equip: Equip }) {
             text-primary
           "
         >
-          {equip.nombre.charAt(0).toUpperCase()}
+          {equip.nombre
+            .charAt(0)
+            .toUpperCase()}
         </div>
       )}
 
@@ -1030,7 +1373,11 @@ function Equip({ equip }: { equip: Equip }) {
 // CELDA
 // ============================================================
 
-function Celda({ valor: numero }: { valor: number | null }) {
+function Celda({
+  valor: numero,
+}: {
+  valor: number | null;
+}) {
   return (
     <td
       className="
@@ -1041,7 +1388,9 @@ function Celda({ valor: numero }: { valor: number | null }) {
         text-neutral-titulos
       "
     >
-      {valor(numero)}
+      {valor(
+        numero,
+      )}
     </td>
   );
 }
@@ -1091,7 +1440,11 @@ function DadaMobil({
           text-neutral-titulos
         "
       >
-        {valorTexto ?? valor(numero ?? null)}
+        {valorTexto ??
+          valor(
+            numero ??
+              null,
+          )}
       </p>
     </div>
   );

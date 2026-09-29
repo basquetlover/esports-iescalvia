@@ -1,8 +1,7 @@
 ---
 import Layout from "@layouts/Layout.astro";
 
-import PartitDetallClient from "@components/tornejos/partits/PartitDetallClient";
-import ClassificacioPartitClient from "@components/tornejos/partits/ClassificacioPartitClient";
+import EquipDetallClient from "@components/tornejos/equips/EquipDetallClient";
 
 import { supabaseAdmin } from "@utils/supabase";
 
@@ -15,12 +14,12 @@ export const prerender = false;
 const torneoID =
   Astro.params.id;
 
-const partidoID =
-  Astro.params.partidoID;
+const equipoID =
+  Astro.params.equipoID;
 
 if (
   !torneoID ||
-  !partidoID
+  !equipoID
 ) {
   return new Response(
     null,
@@ -31,42 +30,53 @@ if (
 }
 
 // ============================================================
-// PARTIDO
+// EQUIPO
 // ============================================================
 
 const {
-  data: partidoData,
-  error: errorPartido,
+  data:
+    equipoData,
+  error:
+    equipoError,
 } =
   await supabaseAdmin
     .from(
-      "competicion_partidos",
+      "equipos",
     )
     .select(`
       id,
-      edicion_id,
-      grupo_id,
+      formulario_id,
       nombre,
-      jornada
+      escudo,
+      validacion_estado,
+      plaza_estado
     `)
     .eq(
       "id",
-      partidoID,
+      equipoID,
+    )
+    .eq(
+      "validacion_estado",
+      "APROBADO",
+    )
+    .eq(
+      "plaza_estado",
+      "CONFIRMADA",
     )
     .maybeSingle();
 
 if (
-  errorPartido
+  equipoError
 ) {
   console.error(
-    "Error carregant el partit públic:",
-    errorPartido,
+    "Error carregant l'equip públic:",
+    equipoError,
   );
 }
 
 if (
-  errorPartido ||
-  !partidoData
+  equipoError ||
+  !equipoData
 ) {
   return new Response(
     null,
@@ -77,14 +87,91 @@ if (
 }
 
 // ============================================================
-// TORNEO + EDICIÓN
+// FORMULARIO
+// ============================================================
+
+const {
+  data:
+    formularioData,
+  error:
+    formularioError,
+} =
+  await supabaseAdmin
+    .from(
+      "formularios",
+    )
+    .select(`
+      id,
+      edicion_id,
+      tipo,
+      estado
+    `)
+    .eq(
+      "id",
+      equipoData.formulario_id,
+    )
+    .eq(
+      "tipo",
+      "EQUIPO",
+    )
+    .eq(
+      "estado",
+      "APROBADO",
+    )
+    .maybeSingle();
+
+if (
+  formularioError
+) {
+  console.error(
+    "Error comprovant el formulari de l'equip:",
+    formularioError,
+  );
+}
+
+if (
+  formularioError ||
+  !formularioData
+) {
+  return new Response(
+    null,
+    {
+      status: 404,
+    },
+  );
+}
+
+const edicionID =
+  formularioData.edicion_id;
+
+// ============================================================
+// EDICIÓN + TORNEO
 // ============================================================
 
 const [
-  torneoRespuesta,
   edicionRespuesta,
+  torneoRespuesta,
 ] =
   await Promise.all([
+    supabaseAdmin
+      .from(
+        "ediciones",
+      )
+      .select(`
+        id,
+        torneo_id,
+        nombre
+      `)
+      .eq(
+        "id",
+        edicionID,
+      )
+      .eq(
+        "torneo_id",
+        torneoID,
+      )
+      .maybeSingle(),
+
     supabaseAdmin
       .from(
         "torneos",
@@ -106,50 +193,31 @@ const [
         true,
       )
       .maybeSingle(),
-
-    supabaseAdmin
-      .from(
-        "ediciones",
-      )
-      .select(`
-        id,
-        torneo_id,
-        nombre
-      `)
-      .eq(
-        "id",
-        partidoData.edicion_id,
-      )
-      .eq(
-        "torneo_id",
-        torneoID,
-      )
-      .maybeSingle(),
   ]);
-
-if (
-  torneoRespuesta.error
-) {
-  console.error(
-    "Error carregant el torneig del partit:",
-    torneoRespuesta.error,
-  );
-}
 
 if (
   edicionRespuesta.error
 ) {
   console.error(
-    "Error comprovant l'edició del partit:",
+    "Error carregant l'edició de l'equip:",
     edicionRespuesta.error,
   );
 }
 
 if (
-  torneoRespuesta.error ||
+  torneoRespuesta.error
+) {
+  console.error(
+    "Error carregant el torneig de l'equip:",
+    torneoRespuesta.error,
+  );
+}
+
+if (
   edicionRespuesta.error ||
-  !torneoRespuesta.data ||
-  !edicionRespuesta.data
+  torneoRespuesta.error ||
+  !edicionRespuesta.data ||
+  !torneoRespuesta.data
 ) {
   return new Response(
     null,
@@ -159,14 +227,7 @@ if (
   );
 }
 
-// ============================================================
-// DATOS
-// ============================================================
-
 const torneo = {
-  id:
-    torneoRespuesta.data.id,
-
   nombre:
     torneoRespuesta.data.nombre ??
     "Torneig",
@@ -178,140 +239,40 @@ const torneo = {
   deporte:
     torneoRespuesta.data.deporte ??
     "",
-
-  descripcion:
-    torneoRespuesta.data.descripcion ??
-    "",
 };
 
 const edicion = {
-  id:
-    edicionRespuesta.data.id,
-
   nombre:
     edicionRespuesta.data.nombre ??
-    "",
+    "Edició",
 };
 
-const edicionID =
-  edicion.id;
+const nombreEquip =
+  equipoData.nombre ??
+  "Equip";
 
 // ============================================================
-// EQUIPOS DEL PARTIDO
+// URL VOLVER
 // ============================================================
 
-const {
-  data: plazasData,
-  error: errorPlazas,
-} =
-  await supabaseAdmin
-    .from(
-      "competicion_plazas",
-    )
-    .select(`
-      lado,
-      equipo_origen_id,
-      equipo_resuelto_id
-    `)
-    .eq(
-      "edicion_id",
-      edicionID,
-    )
-    .eq(
-      "destino_tipo",
-      "PARTIDO",
-    )
-    .eq(
-      "partido_id",
-      partidoID,
-    );
-
-if (
-  errorPlazas
-) {
-  console.error(
-    "Error carregant les places del partit:",
-    errorPlazas,
-  );
-}
-
-const plazas =
-  plazasData ??
-  [];
-
-const plazaLocal =
-  plazas.find(
-    plaza =>
-      plaza.lado ===
-      "LOCAL",
-  ) ??
-  null;
-
-const plazaVisitante =
-  plazas.find(
-    plaza =>
-      plaza.lado ===
-      "VISITANTE",
-  ) ??
-  null;
-
-const localID =
-  plazaLocal
-    ?.equipo_resuelto_id ??
-  plazaLocal
-    ?.equipo_origen_id ??
-  null;
-
-const visitanteID =
-  plazaVisitante
-    ?.equipo_resuelto_id ??
-  plazaVisitante
-    ?.equipo_origen_id ??
-  null;
-
-const equipsDestacats =
-  [
-    localID,
-    visitanteID,
-  ].filter(
-    (
-      equipoID,
-    ): equipoID is string =>
-      Boolean(
-        equipoID,
-      ),
-  );
-
-// ============================================================
-// HERO
-// ============================================================
-
-const nombrePartido =
-  partidoData.nombre
-    ?.trim() ||
-  (
-    partidoData.jornada !==
-    null
-      ? `Jornada ${partidoData.jornada}`
-      : "Partit"
-  );
-
-const urlTorneo =
+const urlEquips =
   `/tornejos/${encodeURIComponent(
     torneoID,
-  )}?edicionID=${encodeURIComponent(
+  )}` +
+  `?edicionID=${encodeURIComponent(
     edicionID,
-  )}&seccio=competicio`;
+  )}` +
+  `&seccio=equips`;
 
 // ============================================================
 // SEO
 // ============================================================
 
 const titulo =
-  `${nombrePartido} · ${torneo.nombre}`;
+  `${nombreEquip} · ${torneo.nombre}`;
 
 const descripcion =
-  `Consulta el resultat i el desenvolupament del partit de ${edicion.nombre} del torneig ${torneo.nombre}.`;
+  `Consulta la plantilla, els partits i la classificació de ${nombreEquip} a ${edicion.nombre}.`;
 ---
 
 <Layout
@@ -328,7 +289,7 @@ const descripcion =
     <section
       class="
         relative
-        min-h-[62vh]
+        min-h-[58vh]
         w-full
         overflow-hidden
         bg-card
@@ -390,12 +351,14 @@ const descripcion =
         "
       ></div>
 
+      <!-- CONTENIDO -->
+
       <div
         class="
           relative
           mx-auto
           flex
-          min-h-[62vh]
+          min-h-[58vh]
           w-full
           max-w-6xl
           flex-col
@@ -413,6 +376,8 @@ const descripcion =
             max-w-4xl
           "
         >
+          <!-- DEPORTE -->
+
           {
             torneo.deporte && (
               <p
@@ -430,6 +395,8 @@ const descripcion =
             )
           }
 
+          <!-- TORNEO -->
+
           <h1
             class="
               text-4xl
@@ -444,21 +411,21 @@ const descripcion =
             {torneo.nombre}
           </h1>
 
-          {
-            edicion.nombre && (
-              <p
-                class="
-                  mt-3
-                  text-lg
-                  font-medium
-                  text-white/90
-                  sm:text-xl
-                "
-              >
-                {edicion.nombre}
-              </p>
-            )
-          }
+          <!-- EDICIÓN -->
+
+          <p
+            class="
+              mt-3
+              text-lg
+              font-medium
+              text-white/90
+              sm:text-xl
+            "
+          >
+            {edicion.nombre}
+          </p>
+
+          <!-- EQUIPO -->
 
           <div
             class="
@@ -487,34 +454,8 @@ const descripcion =
                 backdrop-blur-sm
               "
             >
-              Partit
+              Equip
             </span>
-
-            {
-              partidoData.jornada !==
-                null && (
-                <span
-                  class="
-                    inline-flex
-                    items-center
-                    rounded-full
-                    border
-                    border-white/20
-                    bg-black/20
-                    px-3
-                    py-1.5
-                    text-xs
-                    font-semibold
-                    text-white/90
-                    backdrop-blur-sm
-                  "
-                >
-                  Jornada {
-                    partidoData.jornada
-                  }
-                </span>
-              )
-            }
 
             <span
               class="
@@ -523,9 +464,11 @@ const descripcion =
                 text-white/90
               "
             >
-              {nombrePartido}
+              {nombreEquip}
             </span>
           </div>
+
+          <!-- VOLVER -->
 
           <div
             class="
@@ -533,7 +476,7 @@ const descripcion =
             "
           >
             <a
-              href={urlTorneo}
+              href={urlEquips}
               class="
                 inline-flex
                 items-center
@@ -563,7 +506,7 @@ const descripcion =
                 ></path>
               </svg>
 
-              Tornar a la competició
+              Tornar als equips
             </a>
           </div>
         </div>
@@ -571,30 +514,14 @@ const descripcion =
     </section>
 
     <!-- =================================================
-        PARTIDO + ACTA
+        EQUIPO
     ================================================== -->
 
-    <PartitDetallClient
+    <EquipDetallClient
       client:load
       torneoID={torneoID}
       edicionID={edicionID}
-      partidoID={partidoID}
+      equipoID={equipoID}
     />
-
-    <!-- =================================================
-        CLASIFICACIÓN DEL GRUPO
-    ================================================== -->
-
-    {
-      partidoData.grupo_id && (
-        <ClassificacioPartitClient
-          client:load
-          torneoID={torneoID}
-          edicionID={edicionID}
-          grupoID={partidoData.grupo_id}
-          equipsDestacats={equipsDestacats}
-        />
-      )
-    }
   </main>
 </Layout>
