@@ -136,6 +136,10 @@ export default function ClassificacioCompleta({
         bg-card
       "
     >
+      {/* =============================================
+          CABECERA
+      ============================================= */}
+
       <div
         className="
           flex
@@ -210,9 +214,9 @@ export default function ClassificacioCompleta({
         </span>
       </div>
 
-      {/* =================================================
+      {/* =============================================
           DESKTOP
-      ================================================= */}
+      ============================================= */}
 
       <div
         className="
@@ -244,9 +248,26 @@ export default function ClassificacioCompleta({
                 text-neutral
               "
             >
-              <th className="w-16 px-4 py-3 text-center">#</th>
+              <th
+                className="
+                  w-16
+                  px-4
+                  py-3
+                  text-center
+                "
+              >
+                #
+              </th>
 
-              <th className="px-4 py-3 text-left">Equip</th>
+              <th
+                className="
+                  px-4
+                  py-3
+                  text-left
+                "
+              >
+                Equip
+              </th>
 
               <th className="px-3 py-3 text-center">PJ</th>
 
@@ -270,9 +291,25 @@ export default function ClassificacioCompleta({
                 </>
               )}
 
-              <th className="px-4 py-3 text-center">Forma</th>
+              <th
+                className="
+                  px-4
+                  py-3
+                  text-center
+                "
+              >
+                Forma
+              </th>
 
-              <th className="px-5 py-3 text-center">PTS</th>
+              <th
+                className="
+                  px-5
+                  py-3
+                  text-center
+                "
+              >
+                PTS
+              </th>
             </tr>
           </thead>
 
@@ -294,9 +331,9 @@ export default function ClassificacioCompleta({
         </table>
       </div>
 
-      {/* =================================================
+      {/* =============================================
           MOBILE
-      ================================================= */}
+      ============================================= */}
 
       <div
         className="
@@ -317,6 +354,10 @@ export default function ClassificacioCompleta({
         ))}
       </div>
 
+      {/* =============================================
+          SIN EQUIPOS
+      ============================================= */}
+
       {files.length === 0 && (
         <div
           className="
@@ -334,6 +375,18 @@ export default function ClassificacioCompleta({
             No hi ha equips en aquest grup.
           </p>
         </div>
+      )}
+
+      {/* =============================================
+          LEYENDA
+      ============================================= */}
+
+      {files.length > 0 && (
+        <Llegenda
+          esFutbol={esFutbol}
+          etiquetaFavor={etiquetaFavor}
+          etiquetaContra={etiquetaContra}
+        />
       )}
     </section>
   );
@@ -361,19 +414,35 @@ function FilaDesktop({
         hover:bg-background/40
       "
     >
-      <td className="px-4 py-3 text-center">
+      <td
+        className="
+          px-4
+          py-3
+          text-center
+        "
+      >
         <Posicio posicion={fila.posicion ?? index + 1} destacada={index < 2} />
       </td>
 
-      <td className="px-4 py-3">
+      <td
+        className="
+          px-4
+          py-3
+        "
+      >
         <Equip equip={fila.equipo} />
       </td>
 
       <Celda valor={fila.pj} />
+
       <Celda valor={fila.pg} />
+
       <Celda valor={fila.pe} />
+
       <Celda valor={fila.pp} />
+
       <Celda valor={fila.favor} />
+
       <Celda valor={fila.contra} />
 
       <td
@@ -592,7 +661,7 @@ function Forma({
 // ============================================================
 
 function IndicadorForma({ partido }: { partido: FormaPartido }) {
-  const configuracion = configuracionForma(partido.estado);
+  const nombre = nombreEstadoForma(partido.estado);
 
   const marcador =
     partido.marcadorFavor !== null && partido.marcadorContra !== null
@@ -602,18 +671,15 @@ function IndicadorForma({ partido }: { partido: FormaPartido }) {
   const jornada =
     partido.jornada !== null ? `Jornada ${partido.jornada} · ` : "";
 
-  const titulo = `${jornada}${configuracion.nombre}${marcador}`;
-
   return (
     <img
       src={ICONOS_FORMA[partido.estado]}
-      alt={configuracion.nombre}
-      title={titulo}
+      alt={nombre}
+      title={`${jornada}${nombre}${marcador}`}
       className="
         h-6
         w-6
         shrink-0
-        rounded-full
         object-contain
       "
     />
@@ -621,32 +687,232 @@ function IndicadorForma({ partido }: { partido: FormaPartido }) {
 }
 
 // ============================================================
-// CONFIGURACIÓN FORMA
+// NOMBRE ESTADO FORMA
 // ============================================================
 
-function configuracionForma(estado: EstadoForma) {
+function nombreEstadoForma(estado: EstadoForma) {
   switch (estado) {
     case "GANADO":
-      return {
-        nombre: "Guanyat",
-      };
+      return "Guanyat";
 
     case "EMPATADO":
-      return {
-        nombre: "Empatat",
-      };
+      return "Empatat";
 
     case "PERDIDO":
-      return {
-        nombre: "Perdut",
-      };
+      return "Perdut";
 
     case "PENDIENTE":
     default:
-      return {
-        nombre: "Per jugar",
-      };
+      return "Per jugar";
   }
+}
+
+// ============================================================
+// LEYENDA
+// ============================================================
+
+function Llegenda({
+  esFutbol,
+  etiquetaFavor,
+  etiquetaContra,
+}: {
+  esFutbol: boolean;
+
+  etiquetaFavor: string;
+
+  etiquetaContra: string;
+}) {
+  return (
+    <footer
+      className="
+        border-t
+        border-border/60
+        bg-background/35
+        px-5
+        py-5
+        sm:px-6
+      "
+    >
+      <p
+        className="
+          mb-3
+          text-[10px]
+          font-bold
+          uppercase
+          tracking-[0.14em]
+          text-neutral
+        "
+      >
+        Llegenda
+      </p>
+
+      {/* =============================================
+          ABREVIATURAS
+      ============================================= */}
+
+      <div
+        className="
+          flex
+          flex-wrap
+          gap-x-5
+          gap-y-2
+          text-xs
+          text-neutral
+        "
+      >
+        <LlegendaAbreviatura abreviatura="PJ" descripcion="Partits jugats" />
+
+        <LlegendaAbreviatura abreviatura="PG" descripcion="Partits guanyats" />
+
+        <LlegendaAbreviatura abreviatura="PE" descripcion="Partits empatats" />
+
+        <LlegendaAbreviatura abreviatura="PP" descripcion="Partits perduts" />
+
+        <LlegendaAbreviatura
+          abreviatura={etiquetaFavor}
+          descripcion={esFutbol ? "Gols marcats" : "Punts a favor"}
+        />
+
+        <LlegendaAbreviatura
+          abreviatura={etiquetaContra}
+          descripcion={esFutbol ? "Gols rebuts" : "Punts en contra"}
+        />
+
+        <LlegendaAbreviatura
+          abreviatura="DIF"
+          descripcion={esFutbol ? "Diferència de gols" : "Diferència de punts"}
+        />
+
+        {esFutbol && (
+          <>
+            <LlegendaAbreviatura
+              abreviatura="TA"
+              descripcion="Targetes grogues"
+            />
+
+            <LlegendaAbreviatura
+              abreviatura="TR"
+              descripcion="Targetes vermelles"
+            />
+          </>
+        )}
+
+        <LlegendaAbreviatura
+          abreviatura="PTS"
+          descripcion="Punts de classificació"
+        />
+      </div>
+
+      {/* =============================================
+          FORMA
+      ============================================= */}
+
+      <div
+        className="
+          mt-4
+          flex
+          flex-wrap
+          items-center
+          gap-x-5
+          gap-y-2
+          border-t
+          border-border/50
+          pt-4
+        "
+      >
+        <span
+          className="
+            text-xs
+            font-semibold
+            text-neutral-titulos
+          "
+        >
+          Forma:
+        </span>
+
+        <LlegendaForma estado="GANADO" texto="Guanyat" />
+
+        <LlegendaForma estado="EMPATADO" texto="Empatat" />
+
+        <LlegendaForma estado="PERDIDO" texto="Perdut" />
+
+        <LlegendaForma estado="PENDIENTE" texto="Per jugar" />
+      </div>
+    </footer>
+  );
+}
+
+// ============================================================
+// LEYENDA ABREVIATURA
+// ============================================================
+
+function LlegendaAbreviatura({
+  abreviatura,
+  descripcion,
+}: {
+  abreviatura: string;
+
+  descripcion: string;
+}) {
+  return (
+    <span
+      className="
+        inline-flex
+        items-baseline
+        gap-1.5
+      "
+    >
+      <strong
+        className="
+          font-bold
+          text-neutral-titulos
+        "
+      >
+        {abreviatura}
+      </strong>
+
+      <span>{descripcion}</span>
+    </span>
+  );
+}
+
+// ============================================================
+// LEYENDA FORMA
+// ============================================================
+
+function LlegendaForma({
+  estado,
+  texto,
+}: {
+  estado: EstadoForma;
+
+  texto: string;
+}) {
+  return (
+    <span
+      className="
+        inline-flex
+        items-center
+        gap-1.5
+        text-xs
+        text-neutral
+      "
+    >
+      <img
+        src={ICONOS_FORMA[estado]}
+        alt=""
+        aria-hidden="true"
+        className="
+          h-5
+          w-5
+          shrink-0
+          object-contain
+        "
+      />
+
+      <span>{texto}</span>
+    </span>
+  );
 }
 
 // ============================================================
