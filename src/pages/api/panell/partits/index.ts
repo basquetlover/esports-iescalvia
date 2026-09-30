@@ -37,8 +37,6 @@ type EstadoEditable = "BORRADOR" | "PROGRAMADO" | "SUSPENDIDO" | "CANCELADO";
 
 type Usuario = Awaited<ReturnType<typeof exigirUsuario>>;
 
-type Registro = Record<string, unknown>;
-
 type FaseDB = {
   id: string;
   edicion_id: string;
@@ -67,7 +65,9 @@ type RondaDB = {
 
 type PartidoDB = {
   id: string;
+
   edicion_id: string;
+
   fase_id: string;
 
   fase_tipo: TipoFase;
@@ -90,6 +90,17 @@ type PartidoDB = {
 
   fecha_hora: string | null;
 
+  /*
+   * Fuente de verdad.
+   */
+  pista_id: string | null;
+
+  /*
+   * Campo antiguo.
+   *
+   * Se mantiene únicamente por compatibilidad.
+   * Nunca acepta texto introducido por el usuario.
+   */
   pista: string | null;
 
   duracion_estimada_min: number | null;
@@ -137,18 +148,31 @@ type PlazaDB = {
   resuelta_at: string | null;
 };
 
-type OrigenEntrada = {
-  tipo: TipoOrigen;
+type PistaDB = {
+  id: string;
+  torneo_id: string;
+  nombre: string;
+  descripcion: string;
+  ubicacion: string;
+  activa: boolean;
+};
 
-  equipoID?: string;
+type AvisoConflicto = {
+  tipo: "PISTA" | "EQUIPO";
 
-  grupoID?: string;
+  mensaje: string;
 
-  faseID?: string;
+  partido: {
+    id: string;
+    codigo: string;
+    nombre: string | null;
 
-  posicion?: number;
+    fecha_hora: string | null;
 
-  partidoID?: string;
+    duracion_estimada_min: number | null;
+  };
+
+  equipo_id?: string;
 };
 
 // ============================================================
@@ -156,15 +180,6 @@ type OrigenEntrada = {
 // ============================================================
 
 const TIPOS_FASE: readonly TipoFase[] = ["GRUPOS", "ELIMINATORIA"];
-
-const TIPOS_ORIGEN: readonly TipoOrigen[] = [
-  "EQUIPO",
-  "POSICION_GRUPO",
-  "POSICION_FASE",
-  "GANADOR_PARTIDO",
-  "PERDEDOR_PARTIDO",
-  "LIBRE",
-];
 
 const ESTADOS_EDITABLES: readonly EstadoEditable[] = [
   "BORRADOR",
@@ -174,13 +189,15 @@ const ESTADOS_EDITABLES: readonly EstadoEditable[] = [
 ];
 
 const SELECT_PARTIDO =
-  "id,edicion_id,fase_id,fase_tipo,tipo,grupo_id,ronda_id,codigo,nombre,orden,jornada,estado,fecha_hora,pista,duracion_estimada_min,publicado,finalizado_at,created_at,updated_at";
+  "id,edicion_id,fase_id,fase_tipo,tipo,grupo_id,ronda_id,codigo,nombre,orden,jornada,estado,fecha_hora,pista_id,pista,duracion_estimada_min,publicado,finalizado_at,created_at,updated_at";
 
 const SELECT_PLAZA =
   "id,edicion_id,destino_fase_id,destino_tipo,grupo_id,partido_id,lado,orden,origen_tipo,equipo_origen_id,origen_grupo_id,origen_fase_id,origen_posicion,origen_partido_id,equipo_resuelto_id,resuelta_at";
 
+const SELECT_PISTA = "id,torneo_id,nombre,descripcion,ubicacion,activa";
+
 // ============================================================
-// ERRORES
+// ERROR
 // ============================================================
 
 function errorRespuesta(error: unknown): Response {
@@ -253,7 +270,7 @@ function errorRespuesta(error: unknown): Response {
         success: false,
 
         mensaje:
-          "La configuració del partit no compleix les regles de la competició. Revisa la fase, el grup o ronda i els equips seleccionats.",
+          "La configuració del partit no compleix les regles de la competició.",
       },
       400,
     );
@@ -273,10 +290,6 @@ function errorRespuesta(error: unknown): Response {
 // VALIDACIÓN
 // ============================================================
 
-function esRegistro(valor: unknown): valor is Registro {
-  return valor !== null && typeof valor === "object" && !Array.isArray(valor);
-}
-
 function identificador(valor: unknown, nombre: string): string {
   if (typeof valor !== "string") {
     throw new ErrorAPI(400, `L'identificador de ${nombre} no és vàlid.`);
@@ -289,6 +302,21 @@ function identificador(valor: unknown, nombre: string): string {
   }
 
   return limpio;
+}
+
+function identificadorOpcional(
+  valor: unknown,
+  nombre: string,
+): string | null | undefined {
+  if (valor === undefined) {
+    return undefined;
+  }
+
+  if (valor === null || valor === "") {
+    return null;
+  }
+
+  return identificador(valor, nombre);
 }
 
 function texto(
@@ -519,30 +547,6 @@ async function exigirGrupo(grupoID: string, edicionID: string) {
   };
 }
 
-async function exigirRonda(rondaID: string, edicionID: string) {
-  const { data, error } = await supabaseAdmin
-    .from("competicion_rondas")
-    .select("id,fase_id,tipo,nombre,orden")
-    .eq("id", rondaID)
-    .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  if (!data) {
-    throw new ErrorAPI(404, "No s'ha trobat la ronda.");
-  }
-
-  const fase = await exigirFase(data.fase_id, edicionID, "ELIMINATORIA");
-
-  return {
-    ronda: data as RondaDB,
-
-    fase,
-  };
-}
-
 async function exigirPartido(
   partidoID: string,
   edicionID: string,
@@ -566,15 +570,64 @@ async function exigirPartido(
 }
 
 // ============================================================
+// PISTAS
+// ============================================================
+
+async function exigirPista(
+  pistaID: string,
+  torneoID: string,
+  permitirInactiva = false,
+): Promise<PistaDB> {
+  const { data, error } = await supabaseAdmin
+    .from("competicion_pistas")
+    .select(SELECT_PISTA)
+    .eq("id", pistaID)
+    .eq("torneo_id", torneoID)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    throw new ErrorAPI(
+      404,
+      "La pista seleccionada no pertany a aquest torneig.",
+    );
+  }
+
+  if (!permitirInactiva && !data.activa) {
+    throw new ErrorAPI(409, "La pista seleccionada està inactiva.");
+  }
+
+  return data as PistaDB;
+}
+
+async function obtenerPistas(torneoID: string) {
+  const { data, error } = await supabaseAdmin
+    .from("competicion_pistas")
+    .select(SELECT_PISTA)
+    .eq("torneo_id", torneoID)
+    .order("activa", {
+      ascending: false,
+    })
+    .order("nombre", {
+      ascending: true,
+    });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as PistaDB[];
+}
+
+// ============================================================
 // EQUIPOS
 // ============================================================
 
 async function obtenerEquiposActivos(edicionID: string) {
-  const {
-    data: registros,
-
-    error,
-  } = await supabaseAdmin
+  const { data: registros, error } = await supabaseAdmin
     .from("competicion_equipos")
     .select("equipo_id,estado,seed")
     .eq("edicion_id", edicionID)
@@ -592,11 +645,7 @@ async function obtenerEquiposActivos(edicionID: string) {
     return [];
   }
 
-  const {
-    data: equipos,
-
-    error: errorEquipos,
-  } = await supabaseAdmin
+  const { data: equipos, error: errorEquipos } = await supabaseAdmin
     .from("equipos")
     .select("id,nombre,escudo")
     .in("id", ids);
@@ -697,15 +746,11 @@ async function validarPartidoGrupo(
 // ORDEN
 // ============================================================
 
-async function siguienteOrden(
-  columna: "grupo_id" | "ronda_id",
-
-  id: string,
-) {
+async function siguienteOrdenGrupo(grupoID: string) {
   const { data, error } = await supabaseAdmin
     .from("competicion_partidos")
     .select("orden")
-    .eq(columna, id)
+    .eq("grupo_id", grupoID)
     .order("orden", {
       ascending: false,
     })
@@ -835,279 +880,34 @@ async function crearPlazasGrupo(
 }
 
 // ============================================================
-// ORIGEN ELIMINATORIA
+// PROGRAMACIÓN
 // ============================================================
 
-function leerOrigen(valor: unknown, nombre: string): OrigenEntrada {
-  if (!esRegistro(valor)) {
-    throw new ErrorAPI(400, `Configura l'origen ${nombre}.`);
-  }
-
-  const tipo = texto(valor.tipo, "origen", 40, true).toUpperCase();
-
-  if (!TIPOS_ORIGEN.includes(tipo as TipoOrigen)) {
-    throw new ErrorAPI(400, "L'origen seleccionat no és vàlid.");
-  }
-
-  return {
-    tipo: tipo as TipoOrigen,
-
-    equipoID: typeof valor.equipoID === "string" ? valor.equipoID : undefined,
-
-    grupoID: typeof valor.grupoID === "string" ? valor.grupoID : undefined,
-
-    faseID: typeof valor.faseID === "string" ? valor.faseID : undefined,
-
-    posicion:
-      typeof valor.posicion === "number" || typeof valor.posicion === "string"
-        ? Number(valor.posicion)
-        : undefined,
-
-    partidoID:
-      typeof valor.partidoID === "string" ? valor.partidoID : undefined,
-  };
-}
-
-async function crearPayloadOrigen({
-  edicionID,
-  partidoID,
-  faseDestino,
-  rondaDestino,
-  lado,
-  origen,
-}: {
-  edicionID: string;
-
-  partidoID: string;
-
-  faseDestino: FaseDB;
-
-  rondaDestino: RondaDB;
-
-  lado: LadoPartido;
-
-  origen: OrigenEntrada;
-}) {
-  const payload: Record<string, unknown> = {
-    edicion_id: edicionID,
-
-    destino_fase_id: faseDestino.id,
-
-    destino_tipo: "PARTIDO",
-
-    grupo_id: null,
-
-    partido_id: partidoID,
-
-    lado,
-
-    orden: lado === "LOCAL" ? 1 : 2,
-
-    origen_tipo: origen.tipo,
-
-    equipo_origen_id: null,
-
-    origen_grupo_id: null,
-
-    origen_fase_id: null,
-
-    origen_posicion: null,
-
-    origen_partido_id: null,
-
-    equipo_resuelto_id: null,
-
-    resuelta_at: null,
-  };
-
-  if (origen.tipo === "EQUIPO") {
-    const equipoID = identificador(origen.equipoID, "equip");
-
-    await exigirEquipoActivo(edicionID, equipoID);
-
-    payload.equipo_origen_id = equipoID;
-
-    payload.equipo_resuelto_id = equipoID;
-
-    payload.resuelta_at = new Date().toISOString();
-
-    return payload;
-  }
-
-  if (origen.tipo === "POSICION_GRUPO") {
-    const grupoID = identificador(origen.grupoID, "grup");
-
-    const posicion = enteroPositivo(origen.posicion, "posició");
-
-    const { grupo, fase } = await exigirGrupo(grupoID, edicionID);
-
-    if (fase.orden >= faseDestino.orden) {
-      throw new ErrorAPI(
-        409,
-        "El grup d'origen ha de pertànyer a una fase anterior.",
-      );
-    }
-
-    payload.origen_grupo_id = grupo.id;
-
-    payload.origen_fase_id = fase.id;
-
-    payload.origen_posicion = posicion;
-
-    return payload;
-  }
-
-  if (origen.tipo === "POSICION_FASE") {
-    const faseID = identificador(origen.faseID, "fase");
-
-    const posicion = enteroPositivo(origen.posicion, "posició");
-
-    const faseOrigen = await exigirFase(faseID, edicionID);
-
-    if (faseOrigen.orden >= faseDestino.orden) {
-      throw new ErrorAPI(409, "La fase d'origen ha de ser anterior.");
-    }
-
-    payload.origen_fase_id = faseOrigen.id;
-
-    payload.origen_posicion = posicion;
-
-    return payload;
-  }
-
-  if (origen.tipo === "GANADOR_PARTIDO" || origen.tipo === "PERDEDOR_PARTIDO") {
-    const origenID = identificador(origen.partidoID, "partit d'origen");
-
-    if (origenID === partidoID) {
-      throw new ErrorAPI(409, "Un partit no pot dependre de si mateix.");
-    }
-
-    const partidoOrigen = await exigirPartido(origenID, edicionID);
-
-    if (partidoOrigen.tipo !== "ELIMINATORIA") {
-      throw new ErrorAPI(409, "El partit d'origen ha de ser eliminatori.");
-    }
-
-    const faseOrigen = await exigirFase(
-      partidoOrigen.fase_id,
-      edicionID,
-      "ELIMINATORIA",
-    );
-
-    if (faseOrigen.orden > faseDestino.orden) {
-      throw new ErrorAPI(
-        409,
-        "El partit d'origen no pot pertànyer a una fase posterior.",
-      );
-    }
-
-    if (faseOrigen.id === faseDestino.id) {
-      if (!partidoOrigen.ronda_id) {
-        throw new ErrorAPI(409, "El partit d'origen no té ronda.");
-      }
-
-      const { ronda: rondaOrigen } = await exigirRonda(
-        partidoOrigen.ronda_id,
-        edicionID,
-      );
-
-      if (rondaOrigen.orden >= rondaDestino.orden) {
-        throw new ErrorAPI(
-          409,
-          "El partit d'origen ha de pertànyer a una ronda anterior.",
-        );
-      }
-    }
-
-    payload.origen_partido_id = partidoOrigen.id;
-
-    return payload;
-  }
-
-  return payload;
-}
-
-async function crearPlazasEliminatoria({
-  partido,
-  fase,
-  ronda,
-  local,
-  visitante,
-}: {
-  partido: PartidoDB;
-
-  fase: FaseDB;
-
-  ronda: RondaDB;
-
-  local: OrigenEntrada;
-
-  visitante: OrigenEntrada;
-}) {
-  const [localPayload, visitantePayload] = await Promise.all([
-    crearPayloadOrigen({
-      edicionID: partido.edicion_id,
-
-      partidoID: partido.id,
-
-      faseDestino: fase,
-
-      rondaDestino: ronda,
-
-      lado: "LOCAL",
-
-      origen: local,
-    }),
-
-    crearPayloadOrigen({
-      edicionID: partido.edicion_id,
-
-      partidoID: partido.id,
-
-      faseDestino: fase,
-
-      rondaDestino: ronda,
-
-      lado: "VISITANTE",
-
-      origen: visitante,
-    }),
-  ]);
-
-  if (
-    localPayload.equipo_resuelto_id &&
-    visitantePayload.equipo_resuelto_id &&
-    localPayload.equipo_resuelto_id === visitantePayload.equipo_resuelto_id
-  ) {
-    throw new ErrorAPI(
-      409,
-      "Un equip no pot ocupar les dues places del partit.",
-    );
-  }
-
-  const { data, error } = await supabaseAdmin
-    .from("competicion_plazas")
-    .insert([localPayload, visitantePayload])
-    .select(SELECT_PLAZA);
-
-  if (error) {
-    throw error;
-  }
-
-  return data ?? [];
-}
-
-// ============================================================
-// PUBLICACIÓN
-// ============================================================
-
-async function validarPublicable(partidoID: string, fechaHora: string | null) {
+async function validarProgramable(
+  partidoID: string,
+  fechaHora: string | null,
+  pistaID: string | null,
+  torneoID: string,
+) {
   if (!fechaHora) {
     throw new ErrorAPI(
       409,
-      "Indica la data i l'hora abans de publicar el partit.",
+      "Indica la data i l'hora abans de programar o publicar el partit.",
     );
   }
+
+  if (!pistaID) {
+    throw new ErrorAPI(409, "Selecciona una pista configurada per al torneig.");
+  }
+
+  /*
+   * Aquí permitimos una pista actualmente inactiva
+   * si ya estaba vinculada históricamente.
+   *
+   * Una pista nueva/recién seleccionada se valida
+   * como activa en exigirPista() durante el PATCH/POST.
+   */
+  await exigirPista(pistaID, torneoID, true);
 
   const plazas = await obtenerPlazasPartido(partidoID);
 
@@ -1117,9 +917,235 @@ async function validarPublicable(partidoID: string, fechaHora: string | null) {
   ) {
     throw new ErrorAPI(
       409,
-      "Configura el local i el visitant abans de publicar.",
+      "Configura el local i el visitant abans de programar el partit.",
     );
   }
+}
+
+// ============================================================
+// CONFLICTOS
+// ============================================================
+
+function intervalosSolapan(
+  inicioA: Date,
+  duracionA: number | null,
+  inicioB: Date,
+  duracionB: number | null,
+) {
+  const minutosA = Math.max(duracionA ?? 1, 1);
+
+  const minutosB = Math.max(duracionB ?? 1, 1);
+
+  const finA = new Date(inicioA.getTime() + minutosA * 60_000);
+
+  const finB = new Date(inicioB.getTime() + minutosB * 60_000);
+
+  return inicioA < finB && inicioB < finA;
+}
+
+async function equiposResueltosPartido(partidoID: string) {
+  const { data, error } = await supabaseAdmin
+    .from("competicion_plazas")
+    .select("equipo_resuelto_id")
+    .eq("destino_tipo", "PARTIDO")
+    .eq("partido_id", partidoID)
+    .not("equipo_resuelto_id", "is", null);
+
+  if (error) {
+    throw error;
+  }
+
+  return new Set(
+    (data ?? [])
+      .map((plaza) => plaza.equipo_resuelto_id)
+      .filter((id): id is string => typeof id === "string" && Boolean(id)),
+  );
+}
+
+async function detectarConflictos(
+  partido: PartidoDB,
+): Promise<AvisoConflicto[]> {
+  if (
+    !partido.fecha_hora ||
+    partido.estado === "CANCELADO" ||
+    partido.estado === "SUSPENDIDO"
+  ) {
+    return [];
+  }
+
+  const inicioActual = new Date(partido.fecha_hora);
+
+  if (Number.isNaN(inicioActual.getTime())) {
+    return [];
+  }
+
+  const { data: candidatos, error } = await supabaseAdmin
+    .from("competicion_partidos")
+    .select(SELECT_PARTIDO)
+    .eq("edicion_id", partido.edicion_id)
+    .neq("id", partido.id)
+    .not("fecha_hora", "is", null)
+    .not("estado", "in", '("CANCELADO","SUSPENDIDO")');
+
+  if (error) {
+    throw error;
+  }
+
+  const solapados = (candidatos ?? [])
+    .map((candidato) => candidato as PartidoDB)
+    .filter((otro) => {
+      if (!otro.fecha_hora) {
+        return false;
+      }
+
+      const inicioOtro = new Date(otro.fecha_hora);
+
+      if (Number.isNaN(inicioOtro.getTime())) {
+        return false;
+      }
+
+      return intervalosSolapan(
+        inicioActual,
+        partido.duracion_estimada_min,
+        inicioOtro,
+        otro.duracion_estimada_min,
+      );
+    });
+
+  if (solapados.length === 0) {
+    return [];
+  }
+
+  const avisos: AvisoConflicto[] = [];
+
+  // ========================================================
+  // MISMA PISTA
+  // ========================================================
+
+  if (partido.pista_id) {
+    for (const otro of solapados) {
+      if (otro.pista_id === partido.pista_id) {
+        avisos.push({
+          tipo: "PISTA",
+
+          mensaje: `La pista ja està ocupada pel partit "${otro.nombre ?? otro.codigo}" en un horari que se solapa.`,
+
+          partido: {
+            id: otro.id,
+
+            codigo: otro.codigo,
+
+            nombre: otro.nombre,
+
+            fecha_hora: otro.fecha_hora,
+
+            duracion_estimada_min: otro.duracion_estimada_min,
+          },
+        });
+      }
+    }
+  }
+
+  // ========================================================
+  // MISMO EQUIPO
+  // ========================================================
+
+  const equiposActual = await equiposResueltosPartido(partido.id);
+
+  if (equiposActual.size === 0) {
+    return avisos;
+  }
+
+  const idsPartidos = solapados.map((otro) => otro.id);
+
+  const { data: plazasOtros, error: errorPlazas } = await supabaseAdmin
+    .from("competicion_plazas")
+    .select("partido_id,equipo_resuelto_id")
+    .in("partido_id", idsPartidos)
+    .not("equipo_resuelto_id", "is", null);
+
+  if (errorPlazas) {
+    throw errorPlazas;
+  }
+
+  const equiposPorPartido = new Map<string, Set<string>>();
+
+  for (const plaza of plazasOtros ?? []) {
+    if (!plaza.partido_id || !plaza.equipo_resuelto_id) {
+      continue;
+    }
+
+    if (!equiposPorPartido.has(plaza.partido_id)) {
+      equiposPorPartido.set(plaza.partido_id, new Set());
+    }
+
+    equiposPorPartido.get(plaza.partido_id)?.add(plaza.equipo_resuelto_id);
+  }
+
+  const equiposConConflicto = new Set<string>();
+
+  for (const otro of solapados) {
+    const equiposOtro = equiposPorPartido.get(otro.id);
+
+    if (!equiposOtro) {
+      continue;
+    }
+
+    for (const equipoID of equiposActual) {
+      if (!equiposOtro.has(equipoID)) {
+        continue;
+      }
+
+      equiposConConflicto.add(equipoID);
+
+      avisos.push({
+        tipo: "EQUIPO",
+
+        equipo_id: equipoID,
+
+        mensaje: `Un equip té el partit "${otro.nombre ?? otro.codigo}" en un horari que se solapa.`,
+
+        partido: {
+          id: otro.id,
+
+          codigo: otro.codigo,
+
+          nombre: otro.nombre,
+
+          fecha_hora: otro.fecha_hora,
+
+          duracion_estimada_min: otro.duracion_estimada_min,
+        },
+      });
+    }
+  }
+
+  if (equiposConConflicto.size > 0) {
+    const { data: equipos, error: errorEquipos } = await supabaseAdmin
+      .from("equipos")
+      .select("id,nombre")
+      .in("id", Array.from(equiposConConflicto));
+
+    if (errorEquipos) {
+      throw errorEquipos;
+    }
+
+    const nombres = new Map(
+      (equipos ?? []).map((equipo) => [equipo.id, equipo.nombre ?? "Equip"]),
+    );
+
+    for (const aviso of avisos) {
+      if (aviso.tipo !== "EQUIPO" || !aviso.equipo_id) {
+        continue;
+      }
+
+      aviso.mensaje =
+        `${nombres.get(aviso.equipo_id) ?? "L'equip"} té el partit ` +
+        `"${aviso.partido.nombre ?? aviso.partido.codigo}" en un horari que se solapa.`;
+    }
+  }
+
+  return avisos;
 }
 
 // ============================================================
@@ -1145,6 +1171,7 @@ export const GET: APIRoute = async ({ cookies, url }) => {
       plazasPartidoRespuesta,
       plazasGrupoRespuesta,
       equipos,
+      pistas,
     ] = await Promise.all([
       supabaseAdmin
         .from("competicion_fases")
@@ -1175,6 +1202,8 @@ export const GET: APIRoute = async ({ cookies, url }) => {
         }),
 
       obtenerEquiposActivos(edicionID),
+
+      obtenerPistas(torneoID),
     ]);
 
     if (fasesRespuesta.error) {
@@ -1233,21 +1262,23 @@ export const GET: APIRoute = async ({ cookies, url }) => {
       rondas = (rondasRespuesta.data ?? []) as RondaDB[];
     }
 
-    const partidos = (partidosRespuesta.data ?? []).sort((a, b) => {
-      const aFecha = a.fecha_hora
-        ? new Date(a.fecha_hora).getTime()
-        : Number.MAX_SAFE_INTEGER;
+    const partidos = (partidosRespuesta.data ?? [])
+      .map((partido) => partido as PartidoDB)
+      .sort((a, b) => {
+        const fechaA = a.fecha_hora
+          ? new Date(a.fecha_hora).getTime()
+          : Number.MAX_SAFE_INTEGER;
 
-      const bFecha = b.fecha_hora
-        ? new Date(b.fecha_hora).getTime()
-        : Number.MAX_SAFE_INTEGER;
+        const fechaB = b.fecha_hora
+          ? new Date(b.fecha_hora).getTime()
+          : Number.MAX_SAFE_INTEGER;
 
-      if (aFecha !== bFecha) {
-        return aFecha - bFecha;
-      }
+        if (fechaA !== fechaB) {
+          return fechaA - fechaB;
+        }
 
-      return a.orden - b.orden;
-    }) as PartidoDB[];
+        return a.orden - b.orden;
+      });
 
     return responder({
       success: true,
@@ -1257,6 +1288,10 @@ export const GET: APIRoute = async ({ cookies, url }) => {
       edicion: contexto.edicion,
 
       capacidades: {
+        /*
+         * Crear desde calendario solo afecta
+         * a partidos de grupo.
+         */
         crear: tienePermiso(usuario, "partits", "crear", torneoID),
 
         editar: tienePermiso(usuario, "partits", "editar", torneoID),
@@ -1284,6 +1319,11 @@ export const GET: APIRoute = async ({ cookies, url }) => {
 
       equipos,
 
+      /*
+       * Selector de pista del calendario.
+       */
+      pistas,
+
       fases: fases.map((fase) => ({
         ...fase,
 
@@ -1306,6 +1346,17 @@ export const GET: APIRoute = async ({ cookies, url }) => {
 // ============================================================
 // POST
 // ============================================================
+//
+// IMPORTANTE:
+//
+// Desde Calendari i resultats solamente se crean partidos
+// de GRUPO.
+//
+// Los partidos eliminatorios se crean desde:
+//   Format de competició -> Eliminatòria
+//
+// Así no se puede romper accidentalmente un bracket generado.
+// ============================================================
 
 export const POST: APIRoute = async ({ cookies, request, url }) => {
   try {
@@ -1327,160 +1378,52 @@ export const POST: APIRoute = async ({ cookies, request, url }) => {
 
     const tipo = tipoFase(entrada.tipo);
 
+    if (tipo !== "GRUPOS") {
+      throw new ErrorAPI(
+        409,
+        "Els partits eliminatoris s'han de crear des de Format de competició.",
+      );
+    }
+
     const nombre = texto(entrada.nombre, "nom", 120);
 
     const fechaHora = fechaISO(entrada.fechaHora) ?? null;
 
-    const pistaTexto = texto(entrada.pista, "pista", 120);
-
-    const pista = pistaTexto || null;
-
     const duracion = enteroOpcional(entrada.duracion, "duració") ?? null;
+
+    const jornada = enteroPositivo(entrada.jornada, "jornada");
+
+    const grupoID = identificador(entrada.grupoID, "grup");
+
+    const localID = identificador(entrada.localID, "equip local");
+
+    const visitanteID = identificador(entrada.visitanteID, "equip visitant");
+
+    const pistaID = identificadorOpcional(entrada.pistaID, "pista") ?? null;
+
+    /*
+     * Si se selecciona una pista para un nuevo partido,
+     * debe existir, pertenecer al torneo y estar activa.
+     */
+    let pista: PistaDB | null = null;
+
+    if (pistaID) {
+      pista = await exigirPista(pistaID, torneoID);
+    }
 
     const publicar = entrada.publicado === true;
 
-    // ======================================================
-    // GRUPO
-    // ======================================================
+    const { grupo, fase } = await exigirGrupo(grupoID, edicionID);
 
-    if (tipo === "GRUPOS") {
-      const grupoID = identificador(entrada.grupoID, "grup");
+    await validarPartidoGrupo(edicionID, grupo.id, localID, visitanteID);
 
-      const localID = identificador(entrada.localID, "equip local");
+    const orden = await siguienteOrdenGrupo(grupo.id);
 
-      const visitanteID = identificador(entrada.visitanteID, "equip visitant");
-
-      const jornada = enteroPositivo(entrada.jornada, "jornada");
-
-      const { grupo, fase } = await exigirGrupo(grupoID, edicionID);
-
-      await validarPartidoGrupo(edicionID, grupo.id, localID, visitanteID);
-
-      const orden = await siguienteOrden("grupo_id", grupo.id);
-
-      const codigo = `F${fase.orden + 1}-G${grupo.orden + 1}-J${jornada}-P${orden + 1}`;
-
-      // IMPORTANTE:
-      // fase_tipo = GRUPOS
-      // tipo       = GRUPO
-      const { data, error } = await supabaseAdmin
-        .from("competicion_partidos")
-        .insert({
-          edicion_id: edicionID,
-
-          fase_id: fase.id,
-
-          fase_tipo: "GRUPOS",
-
-          tipo: "GRUPO",
-
-          grupo_id: grupo.id,
-
-          ronda_id: null,
-
-          codigo,
-
-          nombre:
-            nombre ||
-            `${grupo.nombre} · Jornada ${jornada} · Partit ${orden + 1}`,
-
-          orden,
-
-          jornada,
-
-          estado: "BORRADOR",
-
-          fecha_hora: fechaHora,
-
-          pista,
-
-          duracion_estimada_min: duracion,
-
-          publicado: false,
-        })
-        .select(SELECT_PARTIDO)
-        .single();
-
-      if (error) {
-        throw error;
-      }
-
-      const partido = data as PartidoDB;
-
-      try {
-        const plazas = await crearPlazasGrupo(partido, localID, visitanteID);
-
-        if (publicar) {
-          await validarPublicable(partido.id, fechaHora);
-
-          const {
-            data: actualizado,
-
-            error: errorActualizar,
-          } = await supabaseAdmin
-            .from("competicion_partidos")
-            .update({
-              publicado: true,
-
-              estado: "PROGRAMADO",
-            })
-            .eq("id", partido.id)
-            .select(SELECT_PARTIDO)
-            .single();
-
-          if (errorActualizar) {
-            throw errorActualizar;
-          }
-
-          return responder(
-            {
-              success: true,
-
-              partido: actualizado,
-
-              plazas,
-            },
-            201,
-          );
-        }
-
-        return responder(
-          {
-            success: true,
-
-            partido,
-
-            plazas,
-          },
-          201,
-        );
-      } catch (error) {
-        await eliminarPlazasPartido(partido.id);
-
-        await supabaseAdmin
-          .from("competicion_partidos")
-          .delete()
-          .eq("id", partido.id);
-
-        throw error;
-      }
-    }
-
-    // ======================================================
-    // ELIMINATORIA
-    // ======================================================
-
-    const rondaID = identificador(entrada.rondaID, "ronda");
-
-    const { ronda, fase } = await exigirRonda(rondaID, edicionID);
-
-    const local = leerOrigen(entrada.local, "local");
-
-    const visitante = leerOrigen(entrada.visitante, "visitant");
-
-    const orden = await siguienteOrden("ronda_id", ronda.id);
-
-    const codigo = `F${fase.orden + 1}-R${ronda.orden + 1}-P${orden + 1}`;
+    const codigo =
+      `F${fase.orden + 1}` +
+      `-G${grupo.orden + 1}` +
+      `-J${jornada}` +
+      `-P${orden + 1}`;
 
     const { data, error } = await supabaseAdmin
       .from("competicion_partidos")
@@ -1489,27 +1432,39 @@ export const POST: APIRoute = async ({ cookies, request, url }) => {
 
         fase_id: fase.id,
 
-        fase_tipo: "ELIMINATORIA",
+        fase_tipo: "GRUPOS",
 
-        tipo: "ELIMINATORIA",
+        tipo: "GRUPO",
 
-        grupo_id: null,
+        grupo_id: grupo.id,
 
-        ronda_id: ronda.id,
+        ronda_id: null,
 
         codigo,
 
-        nombre: nombre || `${ronda.nombre} ${orden + 1}`,
+        nombre:
+          nombre ||
+          `${grupo.nombre} · Jornada ${jornada} · Partit ${orden + 1}`,
 
         orden,
 
-        jornada: null,
+        jornada,
 
         estado: "BORRADOR",
 
         fecha_hora: fechaHora,
 
-        pista,
+        /*
+         * Fuente de verdad.
+         */
+        pista_id: pista?.id ?? null,
+
+        /*
+         * Compatibilidad con código antiguo.
+         *
+         * Nunca viene directamente del usuario.
+         */
+        pista: pista?.nombre ?? null,
 
         duracion_estimada_min: duracion,
 
@@ -1525,55 +1480,51 @@ export const POST: APIRoute = async ({ cookies, request, url }) => {
     const partido = data as PartidoDB;
 
     try {
-      const plazas = await crearPlazasEliminatoria({
-        partido,
-        fase,
-        ronda,
-        local,
-        visitante,
-      });
+      const plazas = await crearPlazasGrupo(partido, localID, visitanteID);
+
+      let partidoFinal = partido;
 
       if (publicar) {
-        await validarPublicable(partido.id, fechaHora);
+        await validarProgramable(
+          partido.id,
+          fechaHora,
+          pista?.id ?? null,
+          torneoID,
+        );
 
-        const {
-          data: actualizado,
+        const { data: actualizado, error: errorActualizar } =
+          await supabaseAdmin
+            .from("competicion_partidos")
+            .update({
+              publicado: true,
 
-          error: errorActualizar,
-        } = await supabaseAdmin
-          .from("competicion_partidos")
-          .update({
-            publicado: true,
-
-            estado: "PROGRAMADO",
-          })
-          .eq("id", partido.id)
-          .select(SELECT_PARTIDO)
-          .single();
+              estado: "PROGRAMADO",
+            })
+            .eq("id", partido.id)
+            .select(SELECT_PARTIDO)
+            .single();
 
         if (errorActualizar) {
           throw errorActualizar;
         }
 
-        return responder(
-          {
-            success: true,
-
-            partido: actualizado,
-
-            plazas,
-          },
-          201,
-        );
+        partidoFinal = actualizado as PartidoDB;
       }
+
+      const avisos = await detectarConflictos(partidoFinal);
 
       return responder(
         {
           success: true,
 
-          partido,
+          partido: partidoFinal,
 
           plazas,
+
+          /*
+           * Los conflictos no bloquean.
+           */
+          avisos,
         },
         201,
       );
@@ -1595,6 +1546,16 @@ export const POST: APIRoute = async ({ cookies, request, url }) => {
 // ============================================================
 // PATCH
 // ============================================================
+//
+// Permite programar:
+// - partidos de grupo
+// - partidos de bracket
+// - tercer puesto
+// - partidos de consolación
+//
+// NO permite cambiar la estructura del bracket.
+// Eso se hace desde Format de competició.
+// ============================================================
 
 export const PATCH: APIRoute = async ({ cookies, request, url }) => {
   try {
@@ -1615,21 +1576,25 @@ export const PATCH: APIRoute = async ({ cookies, request, url }) => {
     const partido = await exigirPartido(partidoID, edicionID);
 
     // ======================================================
-    // ESTADO
+    // BLOQUEADOS POR RESULTADO / ACTA
+    // ======================================================
+
+    if (
+      partido.estado === "FINALIZADO" ||
+      partido.estado === "EN_CURSO" ||
+      partido.finalizado_at
+    ) {
+      throw new ErrorAPI(
+        409,
+        "Aquest partit ja no es pot modificar des del calendari.",
+      );
+    }
+
+    // ======================================================
+    // CAMBIAR ESTADO
     // ======================================================
 
     if (entrada.accion === "cambiar_estado") {
-      if (
-        partido.estado === "FINALIZADO" ||
-        partido.estado === "EN_CURSO" ||
-        partido.finalizado_at
-      ) {
-        throw new ErrorAPI(
-          409,
-          "Aquest partit ja no es pot modificar des del calendari.",
-        );
-      }
-
       const estado = estadoEditable(entrada.estado);
 
       const cambios: Record<string, unknown> = {
@@ -1637,7 +1602,12 @@ export const PATCH: APIRoute = async ({ cookies, request, url }) => {
       };
 
       if (estado === "PROGRAMADO") {
-        await validarPublicable(partido.id, partido.fecha_hora);
+        await validarProgramable(
+          partido.id,
+          partido.fecha_hora,
+          partido.pista_id,
+          torneoID,
+        );
 
         cambios.publicado = true;
       }
@@ -1657,10 +1627,16 @@ export const PATCH: APIRoute = async ({ cookies, request, url }) => {
         throw error;
       }
 
+      const actualizado = data as PartidoDB;
+
+      const avisos = await detectarConflictos(actualizado);
+
       return responder({
         success: true,
 
-        partido: data,
+        partido: actualizado,
+
+        avisos,
       });
     }
 
@@ -1668,15 +1644,11 @@ export const PATCH: APIRoute = async ({ cookies, request, url }) => {
       throw new ErrorAPI(400, "L'acció no és vàlida.");
     }
 
-    if (
-      partido.estado === "FINALIZADO" ||
-      partido.estado === "EN_CURSO" ||
-      partido.finalizado_at
-    ) {
-      throw new ErrorAPI(409, "Aquest partit ja no es pot editar.");
-    }
-
     const cambios: Record<string, unknown> = {};
+
+    // ======================================================
+    // NOMBRE
+    // ======================================================
 
     if (entrada.nombre !== undefined) {
       const nombre = texto(entrada.nombre, "nom", 120);
@@ -1684,17 +1656,58 @@ export const PATCH: APIRoute = async ({ cookies, request, url }) => {
       cambios.nombre = nombre || null;
     }
 
+    // ======================================================
+    // FECHA / HORA
+    // ======================================================
+
     const nuevaFecha = fechaISO(entrada.fechaHora);
 
     if (nuevaFecha !== undefined) {
       cambios.fecha_hora = nuevaFecha;
     }
 
-    if (entrada.pista !== undefined) {
-      const pista = texto(entrada.pista, "pista", 120);
+    // ======================================================
+    // PISTA
+    // ======================================================
+    //
+    // No existe entrada.pista.
+    //
+    // Solo aceptamos pistaID.
+    // ======================================================
 
-      cambios.pista = pista || null;
+    let nuevaPistaID: string | null | undefined = undefined;
+
+    if (entrada.pistaID !== undefined) {
+      nuevaPistaID = identificadorOpcional(entrada.pistaID, "pista");
+
+      if (nuevaPistaID === null) {
+        cambios.pista_id = null;
+
+        cambios.pista = null;
+      } else if (nuevaPistaID) {
+        /*
+         * Si el usuario cambia realmente de pista,
+         * la nueva debe estar activa.
+         *
+         * Si simplemente conserva una pista antigua
+         * actualmente desactivada, permitimos conservarla.
+         */
+        const esLaMisma = nuevaPistaID === partido.pista_id;
+
+        const pista = await exigirPista(nuevaPistaID, torneoID, esLaMisma);
+
+        cambios.pista_id = pista.id;
+
+        /*
+         * Solo espejo de compatibilidad.
+         */
+        cambios.pista = pista.nombre;
+      }
     }
+
+    // ======================================================
+    // DURACIÓN
+    // ======================================================
 
     const duracion = enteroOpcional(entrada.duracion, "duració");
 
@@ -1702,22 +1715,29 @@ export const PATCH: APIRoute = async ({ cookies, request, url }) => {
       cambios.duracion_estimada_min = duracion;
     }
 
-    if (entrada.jornada !== undefined) {
-      if (partido.tipo !== "GRUPO") {
-        throw new ErrorAPI(409, "Aquest partit no és de fase de grups.");
-      }
+    // ======================================================
+    // JORNADA
+    // ======================================================
+    //
+    // TODOS los partidos tienen jornada.
+    // ======================================================
 
+    if (entrada.jornada !== undefined) {
       cambios.jornada = enteroPositivo(entrada.jornada, "jornada");
     }
 
     // ======================================================
-    // CAMBIO EQUIPOS DE GRUPO
+    // CAMBIO EQUIPOS PARTIDO DE GRUPO
     // ======================================================
 
-    if (
-      partido.tipo === "GRUPO" &&
-      (entrada.localID !== undefined || entrada.visitanteID !== undefined)
-    ) {
+    if (entrada.localID !== undefined || entrada.visitanteID !== undefined) {
+      if (partido.tipo !== "GRUPO") {
+        throw new ErrorAPI(
+          409,
+          "Els participants dels partits eliminatoris es configuren des de Format de competició.",
+        );
+      }
+
       if (partido.publicado || partido.estado !== "BORRADOR") {
         throw new ErrorAPI(
           409,
@@ -1746,77 +1766,14 @@ export const PATCH: APIRoute = async ({ cookies, request, url }) => {
     }
 
     // ======================================================
-    // CAMBIO ORIGEN ELIMINATORIA
+    // BLOQUEAR EDICIÓN DEL BRACKET DESDE CALENDARIO
     // ======================================================
 
-    if (
-      partido.tipo === "ELIMINATORIA" &&
-      (entrada.local !== undefined || entrada.visitante !== undefined)
-    ) {
-      if (partido.publicado || partido.estado !== "BORRADOR") {
-        throw new ErrorAPI(
-          409,
-          "Despublica el partit abans de modificar l'encreuament.",
-        );
-      }
-
-      if (!partido.ronda_id) {
-        throw new ErrorAPI(409, "El partit no té ronda.");
-      }
-
-      const { ronda, fase } = await exigirRonda(partido.ronda_id, edicionID);
-
-      const local = leerOrigen(entrada.local, "local");
-
-      const visitante = leerOrigen(entrada.visitante, "visitant");
-
-      const [localPayload, visitantePayload] = await Promise.all([
-        crearPayloadOrigen({
-          edicionID,
-
-          partidoID: partido.id,
-
-          faseDestino: fase,
-
-          rondaDestino: ronda,
-
-          lado: "LOCAL",
-
-          origen: local,
-        }),
-
-        crearPayloadOrigen({
-          edicionID,
-
-          partidoID: partido.id,
-
-          faseDestino: fase,
-
-          rondaDestino: ronda,
-
-          lado: "VISITANTE",
-
-          origen: visitante,
-        }),
-      ]);
-
-      if (
-        localPayload.equipo_resuelto_id &&
-        visitantePayload.equipo_resuelto_id &&
-        localPayload.equipo_resuelto_id === visitantePayload.equipo_resuelto_id
-      ) {
-        throw new ErrorAPI(409, "Un equip no pot ocupar les dues places.");
-      }
-
-      await eliminarPlazasPartido(partido.id);
-
-      const { error } = await supabaseAdmin
-        .from("competicion_plazas")
-        .insert([localPayload, visitantePayload]);
-
-      if (error) {
-        throw error;
-      }
+    if (entrada.local !== undefined || entrada.visitante !== undefined) {
+      throw new ErrorAPI(
+        409,
+        "Els encreuaments eliminatoris s'han de modificar des de Format de competició.",
+      );
     }
 
     // ======================================================
@@ -1826,35 +1783,70 @@ export const PATCH: APIRoute = async ({ cookies, request, url }) => {
     if (entrada.publicado !== undefined) {
       const publicar = booleano(entrada.publicado, "publicat");
 
-      if (publicar) {
-        const fechaFinal =
-          nuevaFecha !== undefined ? nuevaFecha : partido.fecha_hora;
+      cambios.publicado = publicar;
 
-        await validarPublicable(partido.id, fechaFinal);
+      if (publicar && partido.estado === "BORRADOR") {
+        cambios.estado = "PROGRAMADO";
+      }
 
-        cambios.publicado = true;
-
-        if (partido.estado === "BORRADOR") {
-          cambios.estado = "PROGRAMADO";
-        }
-      } else {
-        cambios.publicado = false;
-
-        if (partido.estado === "PROGRAMADO") {
-          cambios.estado = "BORRADOR";
-        }
+      if (!publicar && partido.estado === "PROGRAMADO") {
+        cambios.estado = "BORRADOR";
       }
     }
 
+    // ======================================================
+    // CALCULAR ESTADO FINAL ANTES DE GUARDAR
+    // ======================================================
+
+    const fechaFinal =
+      "fecha_hora" in cambios
+        ? (cambios.fecha_hora as string | null)
+        : partido.fecha_hora;
+
+    const pistaFinal =
+      "pista_id" in cambios
+        ? (cambios.pista_id as string | null)
+        : partido.pista_id;
+
+    const publicadoFinal =
+      "publicado" in cambios ? Boolean(cambios.publicado) : partido.publicado;
+
+    const estadoFinal =
+      "estado" in cambios ? String(cambios.estado) : partido.estado;
+
+    /*
+     * Un partido PROGRAMADO o PUBLICADO siempre
+     * necesita:
+     *
+     * - fecha/hora
+     * - pista configurada
+     * - local y visitante
+     */
+    if (estadoFinal === "PROGRAMADO" || publicadoFinal) {
+      await validarProgramable(partido.id, fechaFinal, pistaFinal, torneoID);
+    }
+
+    // ======================================================
+    // SIN CAMBIOS
+    // ======================================================
+
     if (Object.keys(cambios).length === 0) {
+      const actual = await exigirPartido(partido.id, edicionID);
+
       return responder({
         success: true,
 
-        partido: await exigirPartido(partido.id, edicionID),
+        partido: actual,
 
         plazas: await obtenerPlazasPartido(partido.id),
+
+        avisos: await detectarConflictos(actual),
       });
     }
+
+    // ======================================================
+    // ACTUALIZAR
+    // ======================================================
 
     const { data, error } = await supabaseAdmin
       .from("competicion_partidos")
@@ -1867,12 +1859,22 @@ export const PATCH: APIRoute = async ({ cookies, request, url }) => {
       throw error;
     }
 
+    const actualizado = data as PartidoDB;
+
+    const avisos = await detectarConflictos(actualizado);
+
     return responder({
       success: true,
 
-      partido: data,
+      partido: actualizado,
 
       plazas: await obtenerPlazasPartido(partido.id),
+
+      /*
+       * Solo advertencias.
+       * Nunca bloquean el guardado.
+       */
+      avisos,
     });
   } catch (error) {
     return errorRespuesta(error);
@@ -1881,6 +1883,13 @@ export const PATCH: APIRoute = async ({ cookies, request, url }) => {
 
 // ============================================================
 // DELETE
+// ============================================================
+//
+// Desde calendario solamente permitimos eliminar partidos
+// manuales de grupo.
+//
+// Los eliminatorios pertenecen a la estructura del bracket
+// y deben gestionarse desde Format de competició.
 // ============================================================
 
 export const DELETE: APIRoute = async ({ cookies, request, url }) => {
@@ -1904,6 +1913,13 @@ export const DELETE: APIRoute = async ({ cookies, request, url }) => {
     const partidoID = identificador(entrada.partidoID, "partit");
 
     const partido = await exigirPartido(partidoID, edicionID);
+
+    if (partido.tipo === "ELIMINATORIA") {
+      throw new ErrorAPI(
+        409,
+        "Els partits eliminatoris s'han de gestionar des de Format de competició.",
+      );
+    }
 
     if (partido.estado !== "BORRADOR" || partido.publicado) {
       throw new ErrorAPI(
