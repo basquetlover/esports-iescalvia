@@ -1,16 +1,21 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+import type { FormEvent } from "react";
 
 import Cargando from "@components/Cargando";
+
+// ============================================================
+// PROPS
+// ============================================================
 
 type Props = {
   torneoID: string;
   edicionID: string;
 };
+
+// ============================================================
+// TIPOS
+// ============================================================
 
 type Equipo = {
   id: string;
@@ -20,47 +25,81 @@ type Equipo = {
 
 type Resultado = {
   id: string;
+
   partido_id: string;
+
   edicion_id: string;
+
   marcador_local: number | null;
+
   marcador_visitante: number | null;
+
   ganador_equipo_id: string | null;
+
   resultado_tipo: string;
+
   confirmado: boolean;
+
   confirmado_at: string | null;
+
   observaciones: string | null;
+
   created_at: string;
+
   updated_at: string;
 };
 
 type Acta = {
   id: string;
+
   partido_id: string;
+
   estado: string;
+
   operador_id: string | null;
+
   controlador_id: string | null;
+
   iniciada_at: string | null;
+
   bloqueada_at: string | null;
+
   finalizada_at: string | null;
+
   version: number;
+
   updated_at: string;
 };
 
 type Partido = {
   id: string;
+
   fase_id: string;
+
   fase_tipo: "GRUPOS" | "ELIMINATORIA";
+
   tipo: "GRUPO" | "ELIMINATORIA";
+
   grupo_id: string | null;
+
   ronda_id: string | null;
+
   codigo: string;
+
   nombre: string | null;
+
   orden: number;
+
   jornada: number | null;
+
   estado: string;
+
   fecha_hora: string | null;
+
   pista: string | null;
+
   publicado: boolean;
+
   finalizado_at: string | null;
 
   local: {
@@ -81,132 +120,260 @@ type Datos = {
 
   torneo: {
     id: string;
+
     nombre: string | null;
+
     deporte: string | null;
   };
 
   edicion: {
     id: string;
+
     torneo_id: string | null;
+
     nombre: string | null;
+  };
+
+  capacidades: {
+    editar: boolean;
   };
 
   partidos: Partido[];
 };
 
-export default function Resultats({
-  torneoID,
-  edicionID,
-}: Props) {
-  const [datos, setDatos] =
-    useState<Datos | null>(null);
+// ============================================================
+// COMPONENTE
+// ============================================================
 
-  const [cargando, setCargando] =
-    useState(true);
+export default function Resultats({ torneoID, edicionID }: Props) {
+  const [datos, setDatos] = useState<Datos | null>(null);
 
-  const [error, setError] =
-    useState("");
+  const [cargando, setCargando] = useState(true);
 
-  const [filtroEstado, setFiltroEstado] =
-    useState("");
+  const [error, setError] = useState("");
+
+  const [mensaje, setMensaje] = useState("");
+
+  const [filtroEstado, setFiltroEstado] = useState("");
+
+  const [partidoEliminar, setPartidoEliminar] = useState<Partido | null>(null);
+
+  const [contrasena, setContrasena] = useState("");
+
+  const [eliminando, setEliminando] = useState(false);
+
+  const [errorEliminar, setErrorEliminar] = useState("");
+
+  // ========================================================
+  // CARGAR
+  // ========================================================
 
   const cargar = useCallback(async () => {
     setCargando(true);
+
     setError("");
 
     try {
-      const parametros =
-        new URLSearchParams({
-          torneoID,
-          edicionID,
-        });
+      const parametros = new URLSearchParams({
+        torneoID,
+        edicionID,
+      });
 
-      const respuesta =
-        await fetch(
-          `/api/panell/partits/resultats?${parametros.toString()}`,
-          {
-            credentials: "same-origin",
-            cache: "no-store",
-          },
-        );
+      const respuesta = await fetch(
+        `/api/panell/partits/resultats?${parametros.toString()}`,
+        {
+          credentials: "same-origin",
 
-      const contenido: unknown =
-        await respuesta
-          .json()
-          .catch(() => null);
+          cache: "no-store",
+        },
+      );
+
+      const contenido: unknown = await respuesta.json().catch(() => null);
 
       if (
         !contenido ||
         typeof contenido !== "object" ||
         Array.isArray(contenido)
       ) {
-        throw new Error(
-          "La resposta del servidor no és vàlida.",
-        );
+        throw new Error("La resposta del servidor no és vàlida.");
       }
 
-      const registro =
-        contenido as Record<
-          string,
-          unknown
-        >;
+      const registro = contenido as Record<string, unknown>;
 
-      if (
-        !respuesta.ok ||
-        registro.success !== true
-      ) {
+      if (!respuesta.ok || registro.success !== true) {
         throw new Error(
-          typeof registro.mensaje ===
-            "string"
+          typeof registro.mensaje === "string"
             ? registro.mensaje
             : "No s'han pogut carregar els resultats.",
         );
       }
 
-      setDatos(
-        contenido as Datos,
-      );
-    } catch (error) {
+      setDatos(contenido as Datos);
+    } catch (err) {
       setDatos(null);
 
       setError(
-        error instanceof Error
-          ? error.message
+        err instanceof Error
+          ? err.message
           : "No s'han pogut carregar els resultats.",
       );
     } finally {
       setCargando(false);
     }
-  }, [
-    torneoID,
-    edicionID,
-  ]);
+  }, [torneoID, edicionID]);
 
   useEffect(() => {
     void cargar();
   }, [cargar]);
 
-  const partidos =
-    useMemo(() => {
-      if (!datos) {
-        return [];
+  // ========================================================
+  // CERRAR MENSAJE AUTOMÁTICAMENTE
+  // ========================================================
+
+  useEffect(() => {
+    if (!mensaje) {
+      return;
+    }
+
+    const temporizador = window.setTimeout(() => {
+      setMensaje("");
+    }, 4500);
+
+    return () => window.clearTimeout(temporizador);
+  }, [mensaje]);
+
+  // ========================================================
+  // BLOQUEAR SCROLL MODAL
+  // ========================================================
+
+  useEffect(() => {
+    if (!partidoEliminar) {
+      return;
+    }
+
+    const anterior = document.body.style.overflow;
+
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = anterior;
+    };
+  }, [partidoEliminar]);
+
+  // ========================================================
+  // FILTRO
+  // ========================================================
+
+  const partidos = useMemo(() => {
+    if (!datos) {
+      return [];
+    }
+
+    return datos.partidos.filter(
+      (partido) => !filtroEstado || partido.estado === filtroEstado,
+    );
+  }, [datos, filtroEstado]);
+
+  // ========================================================
+  // MODAL BORRAR
+  // ========================================================
+
+  function abrirEliminar(partido: Partido) {
+    setPartidoEliminar(partido);
+
+    setContrasena("");
+
+    setErrorEliminar("");
+  }
+
+  function cerrarEliminar() {
+    if (eliminando) {
+      return;
+    }
+
+    setPartidoEliminar(null);
+
+    setContrasena("");
+
+    setErrorEliminar("");
+  }
+
+  // ========================================================
+  // ELIMINAR ACTA
+  // ========================================================
+
+  async function eliminarActa(evento: FormEvent) {
+    evento.preventDefault();
+
+    if (!partidoEliminar) {
+      return;
+    }
+
+    if (!contrasena) {
+      setErrorEliminar("Introdueix la teva contrasenya.");
+
+      return;
+    }
+
+    setEliminando(true);
+
+    setErrorEliminar("");
+
+    try {
+      const parametros = new URLSearchParams({
+        torneoID,
+
+        edicionID,
+
+        partidoID: partidoEliminar.id,
+      });
+
+      const respuesta = await fetch(
+        `/api/panell/acta?${parametros.toString()}`,
+        {
+          method: "DELETE",
+
+          credentials: "same-origin",
+
+          cache: "no-store",
+
+          headers: {
+            "Content-Type": "application/json",
+          },
+
+          body: JSON.stringify({
+            contrasena,
+          }),
+        },
+      );
+
+      const json = await respuesta.json().catch(() => null);
+
+      if (!respuesta.ok || json?.success !== true) {
+        throw new Error(json?.mensaje ?? "No s'ha pogut eliminar l'acta.");
       }
 
-      return datos.partidos.filter(
-        partido =>
-          !filtroEstado ||
-          partido.estado ===
-            filtroEstado,
-      );
-    }, [
-      datos,
-      filtroEstado,
-    ]);
+      setPartidoEliminar(null);
 
-  if (
-    cargando &&
-    !datos
-  ) {
+      setContrasena("");
+
+      setMensaje("L'acta s'ha eliminat correctament.");
+
+      await cargar();
+    } catch (err) {
+      setErrorEliminar(
+        err instanceof Error ? err.message : "No s'ha pogut eliminar l'acta.",
+      );
+    } finally {
+      setEliminando(false);
+    }
+  }
+
+  // ========================================================
+  // CARGANDO
+  // ========================================================
+
+  if (cargando && !datos) {
     return (
       <div className="flex min-h-80 items-center justify-center rounded-2xl border border-border/50 bg-card">
         <Cargando />
@@ -214,10 +381,11 @@ export default function Resultats({
     );
   }
 
-  if (
-    error &&
-    !datos
-  ) {
+  // ========================================================
+  // ERROR
+  // ========================================================
+
+  if (error && !datos) {
     return (
       <div className="rounded-2xl border border-error/30 bg-card p-6">
         <div className="flex items-start gap-3">
@@ -228,15 +396,11 @@ export default function Resultats({
               No s'han pogut carregar els resultats
             </h2>
 
-            <p className="mt-1 text-sm text-error">
-              {error}
-            </p>
+            <p className="mt-1 text-sm text-error">{error}</p>
 
             <button
               type="button"
-              onClick={() =>
-                void cargar()
-              }
+              onClick={() => void cargar()}
               className="mt-4 rounded-lg border border-border px-3 py-2 text-sm font-semibold"
             >
               Tornar a provar
@@ -251,11 +415,11 @@ export default function Resultats({
     return null;
   }
 
-  if (
-    normalizarDeporte(
-      datos.torneo.deporte,
-    ) !== "FUTBOL"
-  ) {
+  // ========================================================
+  // DEPORTE
+  // ========================================================
+
+  if (normalizarDeporte(datos.torneo.deporte) !== "FUTBOL") {
     return (
       <section className="rounded-2xl border border-border/50 bg-card p-8 text-center">
         <IconoConstruccion className="mx-auto h-12 w-12 text-neutral" />
@@ -271,238 +435,353 @@ export default function Resultats({
     );
   }
 
+  // ========================================================
+  // UI
+  // ========================================================
+
   return (
-    <div className="flex flex-col gap-4">
-      <section className="flex flex-col gap-4 rounded-2xl border border-border/50 bg-card p-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h2 className="text-lg font-bold text-neutral-titulos">
-            Resultats dels partits
-          </h2>
+    <>
+      <div className="flex flex-col gap-4">
+        {/* =================================================
+            MENSAJE
+        ================================================= */}
 
-          <p className="mt-1 text-sm text-neutral">
-            Consulta el resultat, l'estat del partit i accedeix directament a l'acta.
-          </p>
-        </div>
+        {mensaje && (
+          <div className="flex items-start justify-between gap-3 rounded-xl border border-secondary/30 bg-secondary/10 p-4 text-sm font-semibold text-secondary">
+            <p>{mensaje}</p>
 
-        <select
-          value={
-            filtroEstado
-          }
-          onChange={
-            evento =>
-              setFiltroEstado(
-                evento.target.value,
-              )
-          }
-          className="rounded-xl border border-border bg-background px-3 py-2.5 text-sm"
-        >
-          <option value="">
-            Tots els estats
-          </option>
-
-          <option value="BORRADOR">
-            Esborrany
-          </option>
-
-          <option value="PROGRAMADO">
-            Programat
-          </option>
-
-          <option value="EN_CURSO">
-            En curs
-          </option>
-
-          <option value="FINALIZADO">
-            Finalitzat
-          </option>
-
-          <option value="SUSPENDIDO">
-            Suspès
-          </option>
-
-          <option value="CANCELADO">
-            Cancel·lat
-          </option>
-        </select>
-      </section>
-
-      {partidos.length === 0 ? (
-        <EstadoVacio />
-      ) : (
-        <section className="overflow-hidden rounded-2xl border border-border/50 bg-card">
-          <div className="divide-y divide-border">
-            {partidos.map(
-              partido => (
-                <PartidoResultado
-                  key={
-                    partido.id
-                  }
-                  partido={
-                    partido
-                  }
-                  torneoID={
-                    torneoID
-                  }
-                  edicionID={
-                    edicionID
-                  }
-                />
-              ),
-            )}
+            <button
+              type="button"
+              onClick={() => setMensaje("")}
+              className="shrink-0"
+            >
+              ×
+            </button>
           </div>
+        )}
+
+        {/* =================================================
+            CABECERA
+        ================================================= */}
+
+        <section className="flex flex-col gap-4 rounded-2xl border border-border/50 bg-card p-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-neutral-titulos">
+              Resultats dels partits
+            </h2>
+
+            <p className="mt-1 text-sm text-neutral">
+              Consulta el resultat, l'estat del partit i accedeix directament a
+              l'acta.
+            </p>
+          </div>
+
+          <select
+            value={filtroEstado}
+            onChange={(evento) => setFiltroEstado(evento.target.value)}
+            className="rounded-xl border border-border bg-background px-3 py-2.5 text-sm"
+          >
+            <option value="">Tots els estats</option>
+
+            <option value="BORRADOR">Esborrany</option>
+
+            <option value="PROGRAMADO">Programat</option>
+
+            <option value="EN_CURSO">En curs</option>
+
+            <option value="FINALIZADO">Finalitzat</option>
+
+            <option value="SUSPENDIDO">Suspès</option>
+
+            <option value="CANCELADO">Cancel·lat</option>
+          </select>
         </section>
+
+        {/* =================================================
+            LISTADO
+        ================================================= */}
+
+        {partidos.length === 0 ? (
+          <EstadoVacio />
+        ) : (
+          <section className="overflow-hidden rounded-2xl border border-border/50 bg-card">
+            <div className="divide-y divide-border">
+              {partidos.map((partido) => (
+                <PartidoResultado
+                  key={partido.id}
+                  partido={partido}
+                  torneoID={torneoID}
+                  edicionID={edicionID}
+                  puedeEditar={datos.capacidades.editar}
+                  onEliminarActa={() => abrirEliminar(partido)}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
+
+      {/* =================================================
+          MODAL ELIMINAR ACTA
+      ================================================= */}
+
+      {partidoEliminar && (
+        <div
+          className="fixed inset-0 z-[160] flex items-center justify-center bg-black/60 p-4"
+          onMouseDown={cerrarEliminar}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="eliminar-acta-titulo"
+            className="w-full max-w-md rounded-2xl border border-border bg-background shadow-2xl"
+            onMouseDown={(evento) => evento.stopPropagation()}
+          >
+            {/* HEADER */}
+
+            <div className="flex items-start justify-between gap-4 border-b border-border p-5">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-error">
+                  Acció sensible
+                </p>
+
+                <h2
+                  id="eliminar-acta-titulo"
+                  className="mt-1 text-xl font-bold text-neutral-titulos"
+                >
+                  Eliminar acta
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                disabled={eliminando}
+                onClick={cerrarEliminar}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border text-lg text-neutral"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* FORM */}
+
+            <form onSubmit={eliminarActa} className="p-5">
+              <p className="text-sm leading-6 text-neutral">
+                S'eliminaran l'acta, els seus esdeveniments, el resultat
+                confirmat i les estadístiques generades.
+              </p>
+
+              {/* PARTIDO */}
+
+              <div className="mt-4 rounded-xl border border-error/20 bg-error/5 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-error">
+                  Partit
+                </p>
+
+                <p className="mt-1 text-sm font-semibold text-neutral-titulos">
+                  {partidoEliminar.nombre ?? partidoEliminar.codigo}
+                </p>
+              </div>
+
+              {/* PASSWORD */}
+
+              <label className="mt-5 block">
+                <span className="mb-2 block text-sm font-semibold text-neutral-titulos">
+                  Contrasenya
+                </span>
+
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  autoFocus
+                  value={contrasena}
+                  disabled={eliminando}
+                  onChange={(evento) => setContrasena(evento.target.value)}
+                  placeholder="Introdueix la teva contrasenya"
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2.5 outline-none transition focus:border-error"
+                />
+
+                <p className="mt-2 text-xs text-neutral">
+                  Per seguretat, confirma la contrasenya del teu usuari.
+                </p>
+              </label>
+
+              {/* ERROR */}
+
+              {errorEliminar && (
+                <div className="mt-4 rounded-xl border border-error/30 bg-error/5 p-3">
+                  <p className="text-sm font-medium text-error">
+                    {errorEliminar}
+                  </p>
+                </div>
+              )}
+
+              {/* BOTONES */}
+
+              <div className="mt-6 flex justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={eliminando}
+                  onClick={cerrarEliminar}
+                  className="rounded-xl border border-border px-4 py-2.5 text-sm font-semibold disabled:opacity-40"
+                >
+                  Cancel·lar
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={eliminando || !contrasena}
+                  className="rounded-xl bg-error px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-40"
+                >
+                  {eliminando ? "Eliminant..." : "Eliminar acta"}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
       )}
-    </div>
+    </>
   );
 }
+
+// ============================================================
+// PARTIDO
+// ============================================================
 
 function PartidoResultado({
   partido,
   torneoID,
   edicionID,
+  puedeEditar,
+  onEliminarActa,
 }: {
   partido: Partido;
+
   torneoID: string;
+
   edicionID: string;
+
+  puedeEditar: boolean;
+
+  onEliminarActa: () => void;
 }) {
-  const local =
-    partido.local.equipo;
+  const local = partido.local.equipo;
 
-  const visitante =
-    partido.visitante.equipo;
+  const visitante = partido.visitante.equipo;
 
-  const resultado =
-    partido.resultado;
+  const resultado = partido.resultado;
 
   const enlaceActa =
-    `/panell/partits/${encodeURIComponent(
-      partido.id,
-    )}/acta` +
-    `?torneoID=${encodeURIComponent(
-      torneoID,
-    )}` +
-    `&edicionID=${encodeURIComponent(
-      edicionID,
-    )}`;
+    `/panell/partits/${encodeURIComponent(partido.id)}/acta` +
+    `?torneoID=${encodeURIComponent(torneoID)}` +
+    `&edicionID=${encodeURIComponent(edicionID)}`;
 
   return (
     <article className="p-4 md:p-5">
-      <div className="grid items-center gap-5 xl:grid-cols-[150px_minmax(0,1fr)_230px_150px]">
+      <div className="grid items-center gap-5 xl:grid-cols-[150px_minmax(0,1fr)_230px_230px]">
+        {/* ===============================================
+            FECHA
+        =============================================== */}
+
         <div>
           <p className="text-sm font-bold text-neutral-titulos">
-            {formatearFecha(
-              partido.fecha_hora,
-            )}
+            {formatearFecha(partido.fecha_hora)}
           </p>
 
           <p className="mt-1 text-2xl font-bold text-neutral-titulos">
-            {formatearHora(
-              partido.fecha_hora,
-            )}
+            {formatearHora(partido.fecha_hora)}
           </p>
 
           <p className="mt-1 text-xs text-neutral">
-            {partido.pista ||
-              "Sense pista"}
+            {partido.pista || "Sense pista"}
           </p>
         </div>
 
+        {/* ===============================================
+            EQUIPOS / RESULTADO
+        =============================================== */}
+
         <div className="grid grid-cols-[minmax(0,1fr)_110px_minmax(0,1fr)] items-center gap-3">
-          <EquipoPartido
-            equipo={
-              local
-            }
-            derecha
-          />
+          <EquipoPartido equipo={local} derecha />
 
-          <Marcador
-            resultado={
-              resultado
-            }
-          />
+          <Marcador resultado={resultado} />
 
-          <EquipoPartido
-            equipo={
-              visitante
-            }
-          />
+          <EquipoPartido equipo={visitante} />
         </div>
+
+        {/* ===============================================
+            ESTADOS
+        =============================================== */}
 
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap gap-2">
-            <EstadoPartido
-              estado={
-                partido.estado
-              }
-            />
+            <EstadoPartido estado={partido.estado} />
 
-            <EstadoResultado
-              resultado={
-                resultado
-              }
-            />
+            <EstadoResultado resultado={resultado} />
           </div>
 
-          <EstadoActa
-            acta={
-              partido.acta
-            }
-          />
+          <EstadoActa acta={partido.acta} />
 
-          {resultado &&
-            resultado.resultado_tipo !==
-              "NORMAL" && (
-              <p className="text-xs font-semibold text-neutral">
-                {nombreTipoResultado(
-                  resultado.resultado_tipo,
-                )}
-              </p>
-            )}
+          {resultado && resultado.resultado_tipo !== "NORMAL" && (
+            <p className="text-xs font-semibold text-neutral">
+              {nombreTipoResultado(resultado.resultado_tipo)}
+            </p>
+          )}
 
           <p className="text-[11px] text-neutral">
             {partido.codigo}
 
-            {partido.jornada !==
-              null
-              ? ` · Jornada ${partido.jornada}`
-              : ""}
+            {partido.jornada !== null ? ` · Jornada ${partido.jornada}` : ""}
           </p>
         </div>
 
-        <div className="flex justify-start xl:justify-end">
+        {/* ===============================================
+            ACCIONES
+        =============================================== */}
+
+        <div className="flex flex-wrap justify-start gap-2 xl:justify-end">
           <a
-            href={
-              enlaceActa
-            }
+            href={enlaceActa}
             className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-white transition hover:opacity-90"
           >
             <IconoDocumento className="h-4 w-4" />
-
             Obrir acta
           </a>
+
+          {puedeEditar && partido.acta && (
+            <button
+              type="button"
+              onClick={onEliminarActa}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-error/30 px-4 text-sm font-semibold text-error transition hover:bg-error/5"
+            >
+              <IconoPapelera className="h-4 w-4" />
+              Eliminar acta
+            </button>
+          )}
         </div>
       </div>
     </article>
   );
 }
 
+// ============================================================
+// EQUIPO
+// ============================================================
+
 function EquipoPartido({
   equipo,
   derecha = false,
 }: {
   equipo: Equipo | null;
+
   derecha?: boolean;
 }) {
-  const nombre =
-    equipo?.nombre ??
-    "Per determinar";
+  const nombre = equipo?.nombre ?? "Per determinar";
 
   return (
     <div
       className={`flex min-w-0 items-center gap-3 ${
-        derecha
-          ? "justify-end text-right"
-          : ""
+        derecha ? "justify-end text-right" : ""
       }`}
     >
       {derecha && (
@@ -511,11 +790,7 @@ function EquipoPartido({
         </p>
       )}
 
-      <Escudo
-        equipo={
-          equipo
-        }
-      />
+      <Escudo equipo={equipo} />
 
       {!derecha && (
         <p className="min-w-0 truncate text-sm font-bold text-neutral-titulos">
@@ -526,20 +801,16 @@ function EquipoPartido({
   );
 }
 
-function Escudo({
-  equipo,
-}: {
-  equipo: Equipo | null;
-}) {
-  if (
-    equipo?.escudo
-  ) {
+// ============================================================
+// ESCUDO
+// ============================================================
+
+function Escudo({ equipo }: { equipo: Equipo | null }) {
+  if (equipo?.escudo) {
     return (
       <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-white p-1">
         <img
-          src={
-            equipo.escudo
-          }
+          src={equipo.escudo}
           alt=""
           className="h-full w-full object-contain"
         />
@@ -549,31 +820,24 @@ function Escudo({
 
   return (
     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
-      {iniciales(
-        equipo?.nombre ??
-          "?",
-      )}
+      {iniciales(equipo?.nombre ?? "?")}
     </div>
   );
 }
 
-function Marcador({
-  resultado,
-}: {
-  resultado: Resultado | null;
-}) {
+// ============================================================
+// MARCADOR
+// ============================================================
+
+function Marcador({ resultado }: { resultado: Resultado | null }) {
   if (
     !resultado ||
-    resultado.marcador_local ===
-      null ||
-    resultado.marcador_visitante ===
-      null
+    resultado.marcador_local === null ||
+    resultado.marcador_visitante === null
   ) {
     return (
       <div className="text-center">
-        <p className="text-2xl font-bold text-neutral">
-          -
-        </p>
+        <p className="text-2xl font-bold text-neutral">-</p>
 
         <p className="mt-1 text-[10px] uppercase tracking-wide text-neutral">
           Sense resultat
@@ -585,47 +849,39 @@ function Marcador({
   return (
     <div className="flex items-center justify-center gap-2 text-center">
       <span className="text-3xl font-black text-neutral-titulos">
-        {
-          resultado.marcador_local
-        }
+        {resultado.marcador_local}
       </span>
 
-      <span className="text-lg font-bold text-neutral">
-        -
-      </span>
+      <span className="text-lg font-bold text-neutral">-</span>
 
       <span className="text-3xl font-black text-neutral-titulos">
-        {
-          resultado.marcador_visitante
-        }
+        {resultado.marcador_visitante}
       </span>
     </div>
   );
 }
 
-function EstadoPartido({
-  estado,
-}: {
-  estado: string;
-}) {
+// ============================================================
+// ESTADO PARTIDO
+// ============================================================
+
+function EstadoPartido({ estado }: { estado: string }) {
   return (
     <span
       className={`inline-flex rounded-lg border px-2.5 py-1 text-[11px] font-bold ${clasesEstadoPartido(
         estado,
       )}`}
     >
-      {nombreEstadoPartido(
-        estado,
-      )}
+      {nombreEstadoPartido(estado)}
     </span>
   );
 }
 
-function EstadoResultado({
-  resultado,
-}: {
-  resultado: Resultado | null;
-}) {
+// ============================================================
+// ESTADO RESULTADO
+// ============================================================
+
+function EstadoResultado({ resultado }: { resultado: Resultado | null }) {
   if (!resultado) {
     return (
       <span className="inline-flex rounded-lg border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-neutral">
@@ -634,40 +890,42 @@ function EstadoResultado({
     );
   }
 
-  return resultado.confirmado ? (
-    <span className="inline-flex rounded-lg border border-secondary/30 bg-secondary/10 px-2.5 py-1 text-[11px] font-semibold text-secondary">
-      Resultat confirmat
-    </span>
-  ) : (
+  if (resultado.confirmado) {
+    return (
+      <span className="inline-flex rounded-lg border border-secondary/30 bg-secondary/10 px-2.5 py-1 text-[11px] font-semibold text-secondary">
+        Resultat confirmat
+      </span>
+    );
+  }
+
+  return (
     <span className="inline-flex rounded-lg border border-orange-500/20 bg-orange-500/10 px-2.5 py-1 text-[11px] font-semibold text-orange-600">
       Resultat provisional
     </span>
   );
 }
 
-function EstadoActa({
-  acta,
-}: {
-  acta: Acta | null;
-}) {
+// ============================================================
+// ESTADO ACTA
+// ============================================================
+
+function EstadoActa({ acta }: { acta: Acta | null }) {
   if (!acta) {
-    return (
-      <p className="text-xs text-neutral">
-        Acta no iniciada
-      </p>
-    );
+    return <p className="text-xs text-neutral">Acta no iniciada</p>;
   }
 
   return (
     <p className="flex items-center gap-1.5 text-xs text-neutral">
       <IconoDocumento className="h-4 w-4" />
 
-      {nombreEstadoActa(
-        acta.estado,
-      )}
+      {nombreEstadoActa(acta.estado)}
     </p>
   );
 }
+
+// ============================================================
+// VACÍO
+// ============================================================
 
 function EstadoVacio() {
   return (
@@ -686,14 +944,10 @@ function EstadoVacio() {
 }
 
 // ============================================================
-// SVG
+// ICONOS
 // ============================================================
 
-function IconoDocumento({
-  className = "",
-}: {
-  className?: string;
-}) {
+function IconoDocumento({ className = "" }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -706,18 +960,17 @@ function IconoDocumento({
       aria-hidden="true"
     >
       <path d="M6 3h8l4 4v14H6z" />
+
       <path d="M14 3v5h5" />
+
       <path d="M9 13h6" />
+
       <path d="M9 17h6" />
     </svg>
   );
 }
 
-function IconoError({
-  className = "",
-}: {
-  className?: string;
-}) {
+function IconoPapelera({ className = "" }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -729,22 +982,41 @@ function IconoError({
       className={className}
       aria-hidden="true"
     >
-      <circle
-        cx="12"
-        cy="12"
-        r="9"
-      />
+      <path d="M3 6h18" />
+
+      <path d="M8 6V4h8v2" />
+
+      <path d="M19 6l-1 15H6L5 6" />
+
+      <path d="M10 11v5" />
+
+      <path d="M14 11v5" />
+    </svg>
+  );
+}
+
+function IconoError({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="9" />
+
       <path d="M12 7v6" />
+
       <path d="M12 17h.01" />
     </svg>
   );
 }
 
-function IconoConstruccion({
-  className = "",
-}: {
-  className?: string;
-}) {
+function IconoConstruccion({ className = "" }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -761,11 +1033,7 @@ function IconoConstruccion({
   );
 }
 
-function IconoMarcador({
-  className = "",
-}: {
-  className?: string;
-}) {
+function IconoMarcador({ className = "" }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -777,14 +1045,10 @@ function IconoMarcador({
       className={className}
       aria-hidden="true"
     >
-      <rect
-        x="3"
-        y="5"
-        width="18"
-        height="14"
-        rx="2"
-      />
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+
       <path d="M8 9h2v6H8z" />
+
       <path d="M14 9h2v6h-2z" />
     </svg>
   );
@@ -794,25 +1058,17 @@ function IconoMarcador({
 // HELPERS
 // ============================================================
 
-function normalizarDeporte(
-  valor: string | null,
-) {
+function normalizarDeporte(valor: string | null) {
   return (
     valor
       ?.trim()
       .normalize("NFD")
-      .replace(
-        /[\u0300-\u036f]/g,
-        "",
-      )
-      .toUpperCase() ??
-    ""
+      .replace(/[\u0300-\u036f]/g, "")
+      .toUpperCase() ?? ""
   );
 }
 
-function nombreEstadoPartido(
-  estado: string,
-) {
+function nombreEstadoPartido(estado: string) {
   switch (estado) {
     case "BORRADOR":
       return "Esborrany";
@@ -837,9 +1093,7 @@ function nombreEstadoPartido(
   }
 }
 
-function clasesEstadoPartido(
-  estado: string,
-) {
+function clasesEstadoPartido(estado: string) {
   switch (estado) {
     case "PROGRAMADO":
       return "border-primary/20 bg-primary/10 text-primary";
@@ -861,9 +1115,7 @@ function clasesEstadoPartido(
   }
 }
 
-function nombreEstadoActa(
-  estado: string,
-) {
+function nombreEstadoActa(estado: string) {
   switch (estado) {
     case "NO_INICIADA":
       return "Acta no iniciada";
@@ -882,9 +1134,7 @@ function nombreEstadoActa(
   }
 }
 
-function nombreTipoResultado(
-  tipo: string,
-) {
+function nombreTipoResultado(tipo: string) {
   switch (tipo) {
     case "NORMAL":
       return "Normal";
@@ -898,6 +1148,9 @@ function nombreTipoResultado(
     case "INCOMPARECENCIA":
       return "Incompareixença";
 
+    case "FORFEIT":
+      return "Incompareixença";
+
     case "ANULADO":
       return "Anul·lat";
 
@@ -906,69 +1159,44 @@ function nombreTipoResultado(
   }
 }
 
-function iniciales(
-  nombre: string,
-) {
-  return (
-    nombre
-      .trim()
-      .slice(0, 2)
-      .toUpperCase() ||
-    "?"
-  );
+function iniciales(nombre: string) {
+  return nombre.trim().slice(0, 2).toUpperCase() || "?";
 }
 
-function formatearHora(
-  valor: string | null,
-) {
+function formatearHora(valor: string | null) {
   if (!valor) {
     return "--:--";
   }
 
-  const fecha =
-    new Date(valor);
+  const fecha = new Date(valor);
 
-  if (
-    Number.isNaN(
-      fecha.getTime(),
-    )
-  ) {
+  if (Number.isNaN(fecha.getTime())) {
     return "--:--";
   }
 
-  return new Intl.DateTimeFormat(
-    "ca-ES",
-    {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    },
-  ).format(fecha);
+  return new Intl.DateTimeFormat("ca-ES", {
+    hour: "2-digit",
+
+    minute: "2-digit",
+
+    hour12: false,
+  }).format(fecha);
 }
 
-function formatearFecha(
-  valor: string | null,
-) {
+function formatearFecha(valor: string | null) {
   if (!valor) {
     return "Sense data";
   }
 
-  const fecha =
-    new Date(valor);
+  const fecha = new Date(valor);
 
-  if (
-    Number.isNaN(
-      fecha.getTime(),
-    )
-  ) {
+  if (Number.isNaN(fecha.getTime())) {
     return "Sense data";
   }
 
-  return new Intl.DateTimeFormat(
-    "ca-ES",
-    {
-      day: "numeric",
-      month: "short",
-    },
-  ).format(fecha);
+  return new Intl.DateTimeFormat("ca-ES", {
+    day: "numeric",
+
+    month: "short",
+  }).format(fecha);
 }

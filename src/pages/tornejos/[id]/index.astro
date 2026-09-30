@@ -11,6 +11,7 @@ import Voluntariat from "@components/tornejos/seccions/Voluntariat.astro";
 import Normativa from "@components/tornejos/seccions/Normativa.astro";
 
 import { supabaseAdmin } from "@utils/supabase";
+import AltresEdicions from "@components/tornejos/seccions/AltresEdicions.astro";
 
 export const prerender = false;
 
@@ -1736,5 +1737,14 @@ const descripcionPagina =
                 ) : null
             }
         </section>
+        {
+            edicion && (
+                <AltresEdicions
+                    torneoID={torneo.id}
+                    edicionActualID={edicion.id}
+                    ediciones={edicionesActivas}
+                />
+            )
+        }
     </main>
 </Layout>
