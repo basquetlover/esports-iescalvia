@@ -86,6 +86,18 @@ type PlazaDB = {
   equipo_resuelto_id: string | null;
 };
 
+type PlazaDependienteDB = {
+  id: string;
+
+  origen_tipo: "GANADOR_PARTIDO" | "PERDEDOR_PARTIDO";
+
+  origen_partido_id: string | null;
+
+  equipo_resuelto_id: string | null;
+
+  resuelta_at: string | null;
+};
+
 type EstadisticaDB = {
   id: string;
 
@@ -127,6 +139,9 @@ const SELECT_EVENTOS =
   "id,cliente_evento_id,tipo_evento,equipo_id,jugador_id,estado";
 
 const SELECT_PLAZAS = "lado,equipo_resuelto_id";
+
+const SELECT_PLAZAS_DEPENDIENTES =
+  "id,origen_tipo,origen_partido_id,equipo_resuelto_id,resuelta_at";
 
 const SELECT_ESTADISTICAS = "id,codigo,ambito,activa";
 
@@ -353,6 +368,7 @@ function exigirControl(
    * sea idempotente si el primer intento se cortó después
    * de finalizar el acta pero antes de recibir respuesta.
    */
+
   if (acta.estado !== "EN_CURSO" && acta.estado !== "FINALIZADA") {
     throw new ErrorAPI(
       423,
@@ -533,6 +549,7 @@ async function guardarEstadisticas(
      * Las estadísticas que no correspondan a eventos
      * gestionados por esta acta no se inventan.
      */
+
     if (!reconocida) {
       continue;
     }
@@ -592,6 +609,7 @@ async function guardarEstadisticas(
      * Esto evita dejar una tarjeta/gol antiguo si después
      * la jugada fue anulada.
      */
+
     const { error: errorDelete } = await supabaseAdmin
       .from("competicion_estadisticas_individuales")
       .delete()
@@ -774,6 +792,154 @@ async function confirmarResultado(
 }
 
 // ============================================================
+// RESOLVER SIGUIENTE PARTIDO
+// ============================================================
+//
+// Busca plazas cuyo origen sea este partido.
+//
+// GANADOR_PARTIDO:
+// coloca al ganador.
+//
+// PERDEDOR_PARTIDO:
+// coloca al perdedor.
+//
+// No modifica:
+// - fecha
+// - pista
+// - publicado
+// - estado del siguiente partido
+//
+// ============================================================
+
+async function resolverSiguientePartido(
+  partidoID: string,
+
+  resultado: ResultadoDB,
+
+  equipos: {
+    local: string;
+
+    visitante: string;
+  },
+) {
+  const { data, error } = await supabaseAdmin
+    .from("competicion_plazas")
+    .select(SELECT_PLAZAS_DEPENDIENTES)
+    .eq("origen_partido_id", partidoID)
+    .in("origen_tipo", ["GANADOR_PARTIDO", "PERDEDOR_PARTIDO"]);
+
+  if (error) {
+    throw error;
+  }
+
+  const plazas = (data ?? []) as PlazaDependienteDB[];
+
+  /*
+   * Si el partido no alimenta ningún otro partido,
+   * no hay nada que resolver.
+   *
+   * Ejemplo: una final.
+   */
+
+  if (plazas.length === 0) {
+    return {
+      plazasActualizadas: 0,
+
+      ganadorEquipoID: resultado.ganador_equipo_id,
+
+      perdedorEquipoID: null,
+    };
+  }
+
+  /*
+   * Si existe una dependencia GANADOR/PERDEDOR
+   * necesitamos conocer el ganador.
+   */
+
+  if (!resultado.ganador_equipo_id) {
+    throw new ErrorAPI(
+      409,
+      "El partit alimenta un altre partit però no té cap guanyador resolt.",
+    );
+  }
+
+  const ganadorEquipoID = resultado.ganador_equipo_id;
+
+  let perdedorEquipoID: string | null = null;
+
+  if (ganadorEquipoID === equipos.local) {
+    perdedorEquipoID = equipos.visitante;
+  } else if (ganadorEquipoID === equipos.visitante) {
+    perdedorEquipoID = equipos.local;
+  } else {
+    throw new ErrorAPI(
+      409,
+      "El guanyador del partit no correspon a cap dels equips del partit.",
+    );
+  }
+
+  const ahora = new Date().toISOString();
+
+  // ==========================================================
+  // GANADOR
+  // ==========================================================
+
+  const plazasGanador = plazas.filter(
+    (plaza) => plaza.origen_tipo === "GANADOR_PARTIDO",
+  );
+
+  if (plazasGanador.length > 0) {
+    const ids = plazasGanador.map((plaza) => plaza.id);
+
+    const { error: errorGanador } = await supabaseAdmin
+      .from("competicion_plazas")
+      .update({
+        equipo_resuelto_id: ganadorEquipoID,
+
+        resuelta_at: ahora,
+      })
+      .in("id", ids);
+
+    if (errorGanador) {
+      throw errorGanador;
+    }
+  }
+
+  // ==========================================================
+  // PERDEDOR
+  // ==========================================================
+
+  const plazasPerdedor = plazas.filter(
+    (plaza) => plaza.origen_tipo === "PERDEDOR_PARTIDO",
+  );
+
+  if (plazasPerdedor.length > 0) {
+    const ids = plazasPerdedor.map((plaza) => plaza.id);
+
+    const { error: errorPerdedor } = await supabaseAdmin
+      .from("competicion_plazas")
+      .update({
+        equipo_resuelto_id: perdedorEquipoID,
+
+        resuelta_at: ahora,
+      })
+      .in("id", ids);
+
+    if (errorPerdedor) {
+      throw errorPerdedor;
+    }
+  }
+
+  return {
+    plazasActualizadas: plazas.length,
+
+    ganadorEquipoID,
+
+    perdedorEquipoID,
+  };
+}
+
+// ============================================================
 // FINALIZAR ACTA
 // ============================================================
 
@@ -931,6 +1097,16 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
     );
 
     // =================================================
+    // RESOLVER SIGUIENTE PARTIDO
+    // =================================================
+
+    const propagacion = await resolverSiguientePartido(
+      partidoID,
+      resultado,
+      equipos,
+    );
+
+    // =================================================
     // ACTA
     // =================================================
 
@@ -980,6 +1156,14 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
         visitante: marcadorVisitante,
 
         ganadorEquipoID: resultado.ganador_equipo_id,
+      },
+
+      propagacion: {
+        plazasActualizadas: propagacion.plazasActualizadas,
+
+        ganadorEquipoID: propagacion.ganadorEquipoID,
+
+        perdedorEquipoID: propagacion.perdedorEquipoID,
       },
     });
   } catch (error) {

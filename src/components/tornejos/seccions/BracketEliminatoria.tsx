@@ -1148,7 +1148,7 @@ function PartidoCard({
           FOOTER
       ============================================= */}
 
-      {(fecha || pista || tipoResultado) && (
+      {/* {(fecha || pista || tipoResultado) && (
         <div className="flex min-w-0 items-center gap-1.5 border-t border-border/40 px-3 py-1.5 text-[9px] text-neutral">
           {fecha && <span className="truncate">{fecha}</span>}
 
@@ -1164,7 +1164,7 @@ function PartidoCard({
             </>
           )}
         </div>
-      )}
+      )} */}
     </article>
   );
 }
