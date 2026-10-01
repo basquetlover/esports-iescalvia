@@ -124,6 +124,20 @@ export const MENU_PANEL_TORNEO: GrupoMenuPanel[] = [
       },
 
       {
+        id: "alumnes",
+
+        nombre: "Alumnat participant",
+
+        enlace: "/panell/alumnes",
+
+        seccion: "equips",
+
+        estado: "Activa",
+
+        contexto: "edicion",
+      },
+
+      {
         id: "competicio",
 
         nombre: "Format de competició",

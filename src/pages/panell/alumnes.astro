@@ -1,0 +1,138 @@
+---
+import LayoutPanel from "@layouts/LayoutPanel.astro";
+import Lista from "@components/panel/alumnes/Lista";
+
+export const prerender = false;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+
+const torneoID = Astro.url.searchParams.get("torneoID")?.trim() ?? "";
+
+const edicionID = Astro.url.searchParams.get("edicionID")?.trim() ?? "";
+
+if (!torneoID || !edicionID) {
+  return Astro.redirect("/panell", 303);
+}
+---
+
+<LayoutPanel title="Alumnat participant" seccion="equips" accion="ver">
+  <div class="min-h-full w-full bg-background">
+    <header class="border-b border-border/50 bg-card/40">
+      <div
+        class="mx-auto flex w-full max-w-[1600px] flex-wrap items-center justify-between gap-3 px-4 py-3 md:px-6"
+      >
+        <nav aria-label="Fil d’Ariadna">
+          <ol class="flex flex-wrap items-center gap-2 text-xs text-neutral">
+            <li>
+              <a
+                href={`/panell?${new URLSearchParams({
+                  torneoID,
+                  edicionID,
+                }).toString()}`}
+                class="rounded transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                Panell
+              </a>
+            </li>
+
+            <li aria-hidden="true" class="text-neutral/40">/</li>
+
+            <li aria-current="page" class="font-semibold text-neutral-titulos">
+              Alumnat participant
+            </li>
+          </ol>
+        </nav>
+
+        <a
+          href={`/panell?${new URLSearchParams({
+            torneoID,
+            edicionID,
+          }).toString()}`}
+          class="inline-flex items-center gap-2 rounded-lg border border-border/50 bg-card px-3 py-2 text-xs font-semibold text-neutral-titulos transition hover:border-primary/25 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-3.5 w-3.5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m12 19-7-7 7-7M5 12h14"></path>
+          </svg>
+
+          Tornar a l’edició
+        </a>
+      </div>
+    </header>
+
+    <section
+      class="mx-auto flex w-full max-w-[1600px] flex-col gap-5 px-4 py-5 md:px-6 md:py-6"
+      aria-labelledby="alumnat-participant-titol"
+    >
+      <div
+        class="relative overflow-hidden rounded-2xl border border-border/40 bg-white p-5 shadow-[0_2px_12px_rgba(15,23,42,0.025)] md:p-6 in-[.oscuro_&]:bg-card"
+      >
+        <div
+          class="pointer-events-none absolute inset-0 bg-linear-to-r from-transparent via-transparent to-primary/10"
+          aria-hidden="true"
+        >
+        </div>
+
+        <div class="relative flex items-start gap-4">
+          <span
+            class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-6 w-6"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="9" cy="8" r="3"></circle>
+
+              <path d="M3 21v-3a6 6 0 0 1 12 0v3"></path>
+
+              <path d="M16 5a3 3 0 0 1 0 6"></path>
+
+              <path d="M17 15a5 5 0 0 1 4 5v1"></path>
+            </svg>
+          </span>
+
+          <div class="min-w-0">
+            <p
+              class="text-xs font-semibold uppercase tracking-[0.14em] text-primary"
+            >
+              Edició seleccionada
+            </p>
+
+            <h1
+              id="alumnat-participant-titol"
+              class="mt-1 text-xl font-bold tracking-tight text-neutral-titulos md:text-2xl"
+            >
+              Alumnat participant
+            </h1>
+
+            <p
+              class="mt-2 max-w-3xl text-xs leading-relaxed text-neutral md:text-sm"
+            >
+              Consulta l’alumnat que participa en aquesta edició, tant com a
+              jugador d’un equip com en tasques de voluntariat. Cada alumne
+              apareix una única vegada, encara que participi en més d’un àmbit.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <Lista torneoID={torneoID} edicionID={edicionID} client:load />
+    </section>
+  </div>
+</LayoutPanel>
