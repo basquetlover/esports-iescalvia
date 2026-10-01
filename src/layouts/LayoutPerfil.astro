@@ -4,6 +4,7 @@ import Cargando from "@components/Cargando.astro";
 import "../global.css";
 import Footer from "@components/Footer.astro";
 import Hero from "@components/perfil/Hero.astro";
+import Analytics from "@vercel/analytics/astro";
 import { obtenerUsuarioPorToken } from "@pages/api/sesiones/sesiones";
 
 const {title} = Astro.props;
@@ -32,6 +33,7 @@ if(token){
 <link href="https://fonts.googleapis.com/css2?family=Geist:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
 	</head>
 	<body class="bg-background text-neutral text-sm">
+    <Analytics />
     <Cargando />
 
     {

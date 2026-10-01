@@ -1,0 +1,300 @@
+---
+import LayoutPanel from "@layouts/LayoutPanel.astro";
+
+import EliminarDades from "@components/panel/edicions/EliminarDades";
+
+import { esDesarrollador } from "@const/Permisos";
+
+import { obtenerUsuarioPorToken } from "@pages/api/sesiones/sesiones";
+
+export const prerender = false;
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+
+// ============================================================
+// SESIÓN
+// ============================================================
+
+const token = Astro.cookies.get("token_sesion")?.value;
+
+const usuario = token ? await obtenerUsuarioPorToken(token) : null;
+
+// ============================================================
+// SIN SESIÓN
+// ============================================================
+
+if (!usuario) {
+  Astro.cookies.delete("token_sesion", {
+    path: "/",
+  });
+
+  const retorno = Astro.url.pathname + Astro.url.search;
+
+  return Astro.redirect(
+    `/iniciar-sessio?redirect=${encodeURIComponent(retorno)}`,
+    303,
+  );
+}
+
+// ============================================================
+// SOLO DESARROLLADOR
+// ============================================================
+//
+// IMPORTANTE:
+//
+// Esta página NO utiliza:
+//
+// - edicions.eliminar
+// - partits.eliminar
+// - equips.eliminar
+// - ningún otro permiso destructivo
+//
+// La condición específica es únicamente:
+// rol === desarrollador
+//
+// La API vuelve a comprobarlo independientemente.
+// ============================================================
+
+if (!esDesarrollador(usuario.rol)) {
+  return Astro.rewrite("/acces-denegat");
+}
+
+// ============================================================
+// CONTEXTO
+// ============================================================
+
+const torneoID =
+  Astro.url.searchParams.get("torneoID")?.trim().toLowerCase() ?? "";
+
+const edicionID =
+  Astro.url.searchParams.get("edicionID")?.trim().toLowerCase() ?? "";
+---
+
+<LayoutPanel title="Eliminar dades de l’edició" seccion="panell" accion="ver">
+  <section
+    class="mx-auto flex w-full max-w-[1600px] flex-col gap-6 px-4 py-6 md:px-6"
+    aria-labelledby="eliminar-dades-titol"
+  >
+    <!-- ===============================================
+            CABECERA
+        ================================================ -->
+
+    <header
+      class="relative overflow-hidden rounded-2xl border border-error/30 bg-white p-5 shadow-[0_2px_12px_rgba(15,23,42,0.025)] md:p-6 in-[.oscuro_&]:bg-card"
+    >
+      <div
+        class="pointer-events-none absolute inset-0 bg-linear-to-r from-error/[0.02] via-transparent to-error/[0.08]"
+        aria-hidden="true"
+      >
+      </div>
+
+      <div
+        class="relative flex flex-col gap-5 md:flex-row md:items-start md:justify-between"
+      >
+        <div class="flex min-w-0 items-start gap-4">
+          <span
+            class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-error/10 text-error"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-6 w-6"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M12 9v4"></path>
+
+              <path d="M12 17h.01"></path>
+
+              <path
+                d="M10.3 2.9 1.8 17a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 2.9a2 2 0 0 0-3.4 0Z"
+              ></path>
+            </svg>
+          </span>
+
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <span
+                class="inline-flex rounded-full bg-error/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-error"
+              >
+                Desenvolupador
+              </span>
+
+              <span
+                class="inline-flex rounded-full bg-background px-2.5 py-1 text-[10px] font-semibold text-neutral"
+              >
+                Accés restringit
+              </span>
+            </div>
+
+            <h1
+              id="eliminar-dades-titol"
+              class="mt-3 text-xl font-bold tracking-tight text-neutral-titulos md:text-2xl"
+            >
+              Eliminar dades de l’edició
+            </h1>
+
+            <p class="mt-2 max-w-3xl text-sm leading-relaxed text-neutral">
+              Aquesta secció permet eliminar de manera definitiva blocs complets
+              de dades de l’edició seleccionada.
+            </p>
+
+            <p
+              class="mt-2 max-w-3xl text-sm font-semibold leading-relaxed text-error"
+            >
+              Les operacions no es poden desfer.
+            </p>
+          </div>
+        </div>
+
+        <a
+          href={`/panell?${new URLSearchParams({
+            torneoID,
+            edicionID,
+          }).toString()}`}
+          class="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-border bg-background px-3 py-2.5 text-xs font-semibold text-neutral-titulos transition hover:border-primary/30 hover:bg-primary/5"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-4 w-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m12 19-7-7 7-7"></path>
+
+            <path d="M5 12h14"></path>
+          </svg>
+
+          Tornar a l’edició
+        </a>
+      </div>
+    </header>
+
+    <!-- ===============================================
+            INFORMACIÓN DE SEGURIDAD
+        ================================================ -->
+
+    <div class="grid gap-3 md:grid-cols-3">
+      <div class="rounded-xl border border-border/50 bg-card p-4">
+        <div class="flex items-center gap-3">
+          <span
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-4.5 w-4.5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <rect width="16" height="11" x="4" y="11" rx="2"></rect>
+
+              <path d="M8 11V7a4 4 0 0 1 8 0v4"></path>
+            </svg>
+          </span>
+
+          <div>
+            <p class="text-sm font-bold text-neutral-titulos">Contrasenya</p>
+
+            <p class="mt-0.5 text-xs text-neutral">
+              Es comprova abans de cada operació.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-xl border border-border/50 bg-card p-4">
+        <div class="flex items-center gap-3">
+          <span
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-4.5 w-4.5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <rect width="20" height="16" x="2" y="4" rx="2"></rect>
+
+              <path d="m22 7-10 6L2 7"></path>
+            </svg>
+          </span>
+
+          <div>
+            <p class="text-sm font-bold text-neutral-titulos">
+              Verificació per correu
+            </p>
+
+            <p class="mt-0.5 text-xs text-neutral">
+              Cada acció genera un nou codi.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-xl border border-border/50 bg-card p-4">
+        <div class="flex items-center gap-3">
+          <span
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-error/10 text-error"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-4.5 w-4.5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M3 6h18"></path>
+
+              <path d="M8 6V4h8v2"></path>
+
+              <path d="m19 6-1 14H6L5 6"></path>
+            </svg>
+          </span>
+
+          <div>
+            <p class="text-sm font-bold text-neutral-titulos">
+              Eliminació definitiva
+            </p>
+
+            <p class="mt-0.5 text-xs text-neutral">
+              No existeix recuperació automàtica.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===============================================
+            GESTOR
+        ================================================ -->
+
+    {
+      torneoID && edicionID && (
+        <EliminarDades torneoID={torneoID} edicionID={edicionID} client:load />
+      )
+    }
+  </section>
+</LayoutPanel>

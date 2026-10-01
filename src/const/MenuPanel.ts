@@ -1,20 +1,41 @@
 import { MENU_ADMIN } from "./Menu";
 
+// ============================================================
+// TIPOS
+// ============================================================
+
 export type OpcionMenuPanel = {
   id: string;
+
   nombre: string;
+
   enlace: string;
+
   seccion: string;
+
   accion?: string;
+
   estado: "Activa" | "Pròximament";
+
   contexto: "general" | "torneo" | "edicion";
+
   parametros?: Record<string, string>;
+
+  /**
+   * Opciones exclusivas del rol desarrollador.
+   *
+   * No utilizan el sistema normal de permisos.
+   */
+  soloDesarrollador?: boolean;
 };
 
 export type GrupoMenuPanel = {
   id: string;
+
   nombre: string;
+
   requiereEdicion?: boolean;
+
   opciones: OpcionMenuPanel[];
 };
 
@@ -25,6 +46,7 @@ export type GrupoMenuPanel = {
 export const MENU_PANEL_GENERAL: GrupoMenuPanel[] = [
   {
     id: "general",
+
     nombre: "Administració",
 
     opciones: MENU_ADMIN.map(
@@ -50,9 +72,9 @@ export const MENU_PANEL_GENERAL: GrupoMenuPanel[] = [
 // ============================================================
 
 export const MENU_PANEL_TORNEO: GrupoMenuPanel[] = [
-  // ========================================================
+  // ====================================================
   // INICIO
-  // ========================================================
+  // ====================================================
 
   {
     id: "resumen",
@@ -76,16 +98,9 @@ export const MENU_PANEL_TORNEO: GrupoMenuPanel[] = [
     ],
   },
 
-  // ========================================================
+  // ====================================================
   // EDICIÓN SELECCIONADA
-  // ========================================================
-  //
-  // Cuando existe una edición seleccionada, sus herramientas
-  // aparecen inmediatamente después de Inicio.
-  //
-  // Si no existe edicionID, NavBar oculta automáticamente
-  // este grupo mediante requiereEdicion.
-  // ========================================================
+  // ====================================================
 
   {
     id: "edicion",
@@ -95,6 +110,10 @@ export const MENU_PANEL_TORNEO: GrupoMenuPanel[] = [
     requiereEdicion: true,
 
     opciones: [
+      // ============================================
+      // VOLUNTARIOS
+      // ============================================
+
       {
         id: "voluntaris",
 
@@ -108,6 +127,10 @@ export const MENU_PANEL_TORNEO: GrupoMenuPanel[] = [
 
         contexto: "edicion",
       },
+
+      // ============================================
+      // EQUIPOS
+      // ============================================
 
       {
         id: "equips",
@@ -123,6 +146,14 @@ export const MENU_PANEL_TORNEO: GrupoMenuPanel[] = [
         contexto: "edicion",
       },
 
+      // ============================================
+      // ALUMNADO PARTICIPANTE
+      // ============================================
+      //
+      // Utiliza exactamente el mismo permiso que
+      // la consulta de equipos.
+      // ============================================
+
       {
         id: "alumnes",
 
@@ -132,10 +163,16 @@ export const MENU_PANEL_TORNEO: GrupoMenuPanel[] = [
 
         seccion: "equips",
 
+        accion: "ver",
+
         estado: "Activa",
 
         contexto: "edicion",
       },
+
+      // ============================================
+      // COMPETICIÓN
+      // ============================================
 
       {
         id: "competicio",
@@ -151,6 +188,10 @@ export const MENU_PANEL_TORNEO: GrupoMenuPanel[] = [
         contexto: "edicion",
       },
 
+      // ============================================
+      // PARTIDOS
+      // ============================================
+
       {
         id: "partits",
 
@@ -165,6 +206,10 @@ export const MENU_PANEL_TORNEO: GrupoMenuPanel[] = [
         contexto: "edicion",
       },
 
+      // ============================================
+      // CLASIFICACIONES
+      // ============================================
+
       {
         id: "classificacions",
 
@@ -178,6 +223,10 @@ export const MENU_PANEL_TORNEO: GrupoMenuPanel[] = [
 
         contexto: "edicion",
       },
+
+      // ============================================
+      // CONFIGURACIÓN EDICIÓN
+      // ============================================
 
       {
         id: "configuracio-edicio",
@@ -195,13 +244,9 @@ export const MENU_PANEL_TORNEO: GrupoMenuPanel[] = [
     ],
   },
 
-  // ========================================================
+  // ====================================================
   // TORNEO
-  // ========================================================
-  //
-  // Las opciones generales del torneo quedan debajo de las
-  // herramientas de la edición cuando hay una seleccionada.
-  // ========================================================
+  // ====================================================
 
   {
     id: "torneo",
@@ -209,6 +254,10 @@ export const MENU_PANEL_TORNEO: GrupoMenuPanel[] = [
     nombre: "Torneig",
 
     opciones: [
+      // ============================================
+      // INFORMACIÓN TORNEO
+      // ============================================
+
       {
         id: "informacio-torneig",
 
@@ -227,6 +276,10 @@ export const MENU_PANEL_TORNEO: GrupoMenuPanel[] = [
         },
       },
 
+      // ============================================
+      // EDICIONES
+      // ============================================
+
       {
         id: "edicions",
 
@@ -241,6 +294,10 @@ export const MENU_PANEL_TORNEO: GrupoMenuPanel[] = [
         contexto: "torneo",
       },
 
+      // ============================================
+      // ORGANIZACIÓN
+      // ============================================
+
       {
         id: "organitzacio",
 
@@ -253,6 +310,59 @@ export const MENU_PANEL_TORNEO: GrupoMenuPanel[] = [
         estado: "Pròximament",
 
         contexto: "torneo",
+      },
+    ],
+  },
+
+  // ====================================================
+  // DESARROLLADOR
+  // ====================================================
+  //
+  // Este grupo únicamente aparecerá cuando exista
+  // una edición seleccionada.
+  //
+  // Además, NavBar comprobará que:
+  //
+  // usuario.rol === "desarrollador"
+  //
+  // No depende de ningún permiso configurable.
+  // ====================================================
+
+  {
+    id: "desenvolupador",
+
+    nombre: "Desenvolupador",
+
+    requiereEdicion: true,
+
+    opciones: [
+      {
+        id: "eliminar-dades-edicio",
+
+        nombre: "Eliminar dades de l’edició",
+
+        enlace: "/panell/edicio/eliminar-dades",
+
+        /*
+         * La sección se mantiene como "panell"
+         * por coherencia estructural, pero esta
+         * opción NO se autoriza mediante permisos.
+         *
+         * NavBar comprueba primero:
+         *
+         * soloDesarrollador === true
+         *
+         * y después:
+         *
+         * esDesarrollador(usuario.rol)
+         */
+        seccion: "panell",
+
+        estado: "Activa",
+
+        contexto: "edicion",
+
+        soloDesarrollador: true,
       },
     ],
   },

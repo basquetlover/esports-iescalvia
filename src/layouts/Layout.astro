@@ -3,7 +3,7 @@ import NavBar from "@components/NavBar.astro";
 import Cargando from "@components/Cargando.astro";
 import Footer from "@components/Footer.astro";
 import SEO from "@components/SEO.astro";
-
+import Analytics from "@vercel/analytics/astro";
 import "../global.css";
 
 // ============================================================
@@ -96,6 +96,7 @@ const {
   </head>
 
   <body class="bg-background text-neutral">
+    <Analytics />
     <Cargando />
 
     <div class="grid min-h-screen w-full grid-rows-[auto_1fr_auto]">

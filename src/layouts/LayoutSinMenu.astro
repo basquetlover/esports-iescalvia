@@ -2,68 +2,70 @@
 import NavBar from "@components/NavBar.astro";
 import Cargando from "@components/Cargando.astro";
 import "../global.css";
+import Analytics from "@vercel/analytics/astro";
 import Footer from "@components/Footer.astro";
 
-const {title} = Astro.props;
+const { title } = Astro.props;
 let tituloCompleto = title ? `${title} | ` : "";
 ---
+
 <!doctype html>
 <html lang="ca">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width" />
-		<!-- <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <!-- <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<link rel="icon" href="/favicon.ico" /> -->
-        <link rel="icon" type="image/png" sizes="any" href="/logo-temporal.png" />
-		<meta name="generator" content={Astro.generator} />
-		<title>{tituloCompleto}Esports IES Calvià</title>
+    <link rel="icon" type="image/png" sizes="any" href="/logo-temporal.png" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{tituloCompleto}</title></head
+  >Esports IES Calvià
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Geist:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
-	</head>
-	<body class="bg-background text-neutral">
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Geist:ital,wght@0,100..900;1,100..900&display=swap"
+    rel="stylesheet"
+  />
+
+  <body class="bg-background text-neutral">
+    <Analytics />
     <Cargando />
 
     <div class="w-full min-h-screen grid grid-rows-[1fr_auto]">
-      
-
       <slot />
 
       <Footer />
     </div>
-    
-	</body>
-</html>
+  </body>
 
-<style>
-	html,
-	body {
-		margin: 0;
-		width: 100%;
-		height: 100%;
-	}
-</style>
-
-<script is:inline>
-  (() => {
-    const savedTheme = localStorage.getItem("theme");
-
-    if (savedTheme) {
-      document.documentElement.classList.toggle(
-        "oscuro",
-        savedTheme === "dark"
-      );
-      return;
+  <style>
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
     }
+  </style>
 
-    const prefersDark = window.matchMedia(
-      "(prefers-color-scheme: dark)"
-    ).matches;
+  <script is:inline>
+    (() => {
+      const savedTheme = localStorage.getItem("theme");
 
-    document.documentElement.classList.toggle(
-      "oscuro",
-      prefersDark
-    );
-  })();
-</script>
+      if (savedTheme) {
+        document.documentElement.classList.toggle(
+          "oscuro",
+          savedTheme === "dark",
+        );
+        return;
+      }
+
+      const prefersDark = window.matchMedia(
+        "(prefers-color-scheme: dark)",
+      ).matches;
+
+      document.documentElement.classList.toggle("oscuro", prefersDark);
+    })();
+  </script>
+
+</html>
