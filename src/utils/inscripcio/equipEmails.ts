@@ -5,135 +5,120 @@ import { supabaseAdmin } from "@utils/supabase";
 // CONFIGURACIÓN
 // ============================================================
 
-const ORIGEN_EMAIL =
-    "esports_iescalvia";
+const ORIGEN_EMAIL = "esports_iescalvia";
 
-const ESTADO_ENVIO =
-    "EN_REVISION";
+const ESTADO_ENVIO = "EN_REVISION";
 
 // ============================================================
 // TIPOS
 // ============================================================
 
-type TipoNotificacion =
-    | "PRIMER_ENVIO"
-    | "REENVIO";
+type TipoNotificacion = "PRIMER_ENVIO" | "REENVIO";
 
-type TipoDestinatario =
-    | "RESPONSABLE"
-    | "CAPITAN"
-    | "SISTEMA";
+type TipoDestinatario = "RESPONSABLE" | "CAPITAN" | "SISTEMA";
 
 type FormularioEmailDB = {
-    id: string;
-    edicion_id: string;
-    usuario_id: string | null;
-    email_contacto: string | null;
-    acceso_capitan: boolean | null;
-    estado: string | null;
-    enviado_at: string | null;
+  id: string;
+  edicion_id: string;
+  usuario_id: string | null;
+  email_contacto: string | null;
+  acceso_capitan: boolean | null;
+  estado: string | null;
+  enviado_at: string | null;
 };
 
 type EquipoEmailDB = {
-    id: string;
-    formulario_id: string;
-    nombre: string | null;
-    escudo: string | null;
-    capitan_id: string | null;
+  id: string;
+  formulario_id: string;
+  nombre: string | null;
+  escudo: string | null;
+  capitan_id: string | null;
 };
 
 type EdicionEmailDB = {
-    id: string;
-    torneo_id: string;
-    nombre: string | null;
-    sede: string | null;
-    fecha_inicio: string | null;
-    fecha_fin: string | null;
+  id: string;
+  torneo_id: string;
+  nombre: string | null;
+  sede: string | null;
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
 };
 
 type TorneoEmailDB = {
-    id: string;
-    nombre: string | null;
-    deporte: string | null;
-    logo: string | null;
-    banner: string | null;
+  id: string;
+  nombre: string | null;
+  deporte: string | null;
+  logo: string | null;
+  banner: string | null;
 };
 
 type UsuarioEmailDB = {
-    id: string;
-    nombre: string | null;
-    apellido1: string | null;
-    apellido2: string | null;
-    email: string | null;
+  id: string;
+  nombre: string | null;
+  apellido1: string | null;
+  apellido2: string | null;
+  email: string | null;
 };
 
 type ParticipanteEmailDB = {
-    id: string;
-    equipo_id: string;
-    tipo_participante: string | null;
-    nombre: string | null;
-    apellido1: string | null;
-    apellido2: string | null;
-    email: string | null;
-    curso: string | null;
-    grupo: string | null;
-    genero: string | null;
-    orden: number | null;
-    activo: boolean;
+  id: string;
+  equipo_id: string;
+  tipo_participante: string | null;
+  nombre: string | null;
+  apellido1: string | null;
+  apellido2: string | null;
+  email: string | null;
+  curso: string | null;
+  grupo: string | null;
+  genero: string | null;
+  orden: number | null;
+  activo: boolean;
 };
 
 type ContactoSistemaDB = {
-    id: string;
-    nombre: string | null;
-    cargo: string | null;
-    email: string | null;
-    activo: boolean;
-    orden: number | null;
+  id: string;
+  nombre: string | null;
+  cargo: string | null;
+  email: string | null;
+  activo: boolean;
+  orden: number | null;
 };
 
 type ObservacionDB = {
-    id: string;
-    formulario_id: string | null;
-    estado: string | null;
+  id: string;
+  formulario_id: string | null;
+  estado: string | null;
 };
 
 type DestinatarioEmail = {
-    email: string;
-    nombre: string;
-    tipo: TipoDestinatario;
+  email: string;
+  nombre: string;
+  tipo: TipoDestinatario;
 };
 
 type DatosEmailInscripcion = {
-    formulario:
-        FormularioEmailDB;
+  formulario: FormularioEmailDB;
 
-    equipo:
-        EquipoEmailDB;
+  equipo: EquipoEmailDB;
 
-    edicion:
-        EdicionEmailDB;
+  edicion: EdicionEmailDB;
 
-    torneo:
-        TorneoEmailDB;
+  torneo: TorneoEmailDB;
 
-    responsable:
-        UsuarioEmailDB | null;
+  responsable: UsuarioEmailDB | null;
 
-    participantes:
-        ParticipanteEmailDB[];
+  participantes: ParticipanteEmailDB[];
 
-    contactos:
-        ContactoSistemaDB[];
+  contactos: ContactoSistemaDB[];
 
-    tipoNotificacion:
-        TipoNotificacion;
+  tipoNotificacion: TipoNotificacion;
 };
 
 export type ResultadoEmailInscripcion = {
-    destinatarios: number;
-    enviados: number;
-    fallidos: number;
-    tipo: TipoNotificacion;
+  destinatarios: number;
+  enviados: number;
+  fallidos: number;
+  tipo: TipoNotificacion;
 };
 
 // ============================================================
@@ -141,256 +126,131 @@ export type ResultadoEmailInscripcion = {
 // ============================================================
 
 function obtenerURLFrontend() {
-    const valor =
-        import.meta.env
-            .URL_FRONTEND;
+  const valor = import.meta.env.URL_FRONTEND;
 
-    if (
-        typeof valor !==
-            "string" ||
-        !valor.trim()
-    ) {
-        throw new Error(
-            "Falta la variable d'entorn URL_FRONTEND.",
-        );
+  if (typeof valor !== "string" || !valor.trim()) {
+    throw new Error("Falta la variable d'entorn URL_FRONTEND.");
+  }
+
+  const base = valor.trim().replace(/\/+$/, "");
+
+  try {
+    const url = new URL(base);
+
+    if (url.protocol !== "https:" && url.protocol !== "http:") {
+      throw new Error();
     }
+  } catch {
+    throw new Error("URL_FRONTEND no conté una URL vàlida.");
+  }
 
-    const base =
-        valor
-            .trim()
-            .replace(
-                /\/+$/,
-                "",
-            );
-
-    try {
-        const url =
-            new URL(
-                base,
-            );
-
-        if (
-            url.protocol !==
-                "https:" &&
-            url.protocol !==
-                "http:"
-        ) {
-            throw new Error();
-        }
-    } catch {
-        throw new Error(
-            "URL_FRONTEND no conté una URL vàlida.",
-        );
-    }
-
-    return base;
+  return base;
 }
 
 // ============================================================
 // URL ABSOLUTA
 // ============================================================
 
-function urlAbsoluta(
-    valor: string | null,
-    base: string,
-) {
-    if (
-        !valor ||
-        !valor.trim()
-    ) {
-        return null;
-    }
+function urlAbsoluta(valor: string | null, base: string) {
+  if (!valor || !valor.trim()) {
+    return null;
+  }
 
-    const recurso =
-        valor.trim();
+  const recurso = valor.trim();
 
-    if (
-        /^https?:\/\//i.test(
-            recurso,
-        ) ||
-        /^data:image\//i.test(
-            recurso,
-        )
-    ) {
-        return recurso;
-    }
+  if (/^https?:\/\//i.test(recurso) || /^data:image\//i.test(recurso)) {
+    return recurso;
+  }
 
-    if (
-        recurso.startsWith(
-            "/",
-        )
-    ) {
-        return `${base}${recurso}`;
-    }
+  if (recurso.startsWith("/")) {
+    return `${base}${recurso}`;
+  }
 
-    return `${base}/${recurso}`;
+  return `${base}/${recurso}`;
 }
 
 // ============================================================
 // EMAIL
 // ============================================================
 
-function normalizarEmail(
-    valor: string | null,
-) {
-    return (
-        valor ??
-        ""
-    )
-        .trim()
-        .toLowerCase();
+function normalizarEmail(valor: string | null) {
+  return (valor ?? "").trim().toLowerCase();
 }
 
-function emailValido(
-    valor: string,
-) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-        valor,
-    );
+function emailValido(valor: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor);
 }
 
 // ============================================================
 // HTML
 // ============================================================
 
-function escaparHTML(
-    valor:
-        | string
-        | null
-        | undefined,
-) {
-    return (
-        valor ??
-        ""
-    )
-        .replaceAll(
-            "&",
-            "&amp;",
-        )
-        .replaceAll(
-            "<",
-            "&lt;",
-        )
-        .replaceAll(
-            ">",
-            "&gt;",
-        )
-        .replaceAll(
-            "\"",
-            "&quot;",
-        )
-        .replaceAll(
-            "'",
-            "&#039;",
-        );
+function escaparHTML(valor: string | null | undefined) {
+  return (valor ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 // ============================================================
 // NOMBRE
 // ============================================================
 
-function nombreCompleto(
-    persona: {
-        nombre:
-            string | null;
+function nombreCompleto(persona: {
+  nombre: string | null;
 
-        apellido1:
-            string | null;
+  apellido1: string | null;
 
-        apellido2:
-            string | null;
-    },
-) {
-    return [
-        persona.nombre,
-        persona.apellido1,
-        persona.apellido2,
-    ]
-        .filter(
-            (
-                valor,
-            ): valor is string =>
-                typeof valor ===
-                    "string" &&
-                Boolean(
-                    valor.trim(),
-                ),
-        )
-        .map(
-            valor =>
-                valor.trim(),
-        )
-        .join(
-            " ",
-        );
+  apellido2: string | null;
+}) {
+  return [persona.nombre, persona.apellido1, persona.apellido2]
+    .filter(
+      (valor): valor is string =>
+        typeof valor === "string" && Boolean(valor.trim()),
+    )
+    .map((valor) => valor.trim())
+    .join(" ");
 }
 
 // ============================================================
 // TIPO PARTICIPANTE
 // ============================================================
 
-function textoTipoParticipante(
-    tipo:
-        string | null,
-) {
-    switch (
-        tipo
-            ?.trim()
-            .toUpperCase()
-    ) {
-        case "PROFESOR":
-            return "Professor/a";
+function textoTipoParticipante(tipo: string | null) {
+  switch (tipo?.trim().toUpperCase()) {
+    case "PROFESOR":
+      return "Professor/a";
 
-        case "ENTRENADOR":
-            return "Entrenador/a";
+    case "ENTRENADOR":
+      return "Entrenador/a";
 
-        case "STAFF":
-            return "Staff";
+    case "STAFF":
+      return "Staff";
 
-        default:
-            return "Jugador/a";
-    }
+    default:
+      return "Jugador/a";
+  }
 }
 
 // ============================================================
 // CURSO
 // ============================================================
 
-function textoCurso(
-    participante:
-        ParticipanteEmailDB,
-) {
-    const datos = [
-        participante.curso,
-        participante.grupo,
-    ]
-        .filter(
-            (
-                valor,
-            ): valor is string =>
-                typeof valor ===
-                    "string" &&
-                Boolean(
-                    valor.trim(),
-                ),
-        )
-        .map(
-            valor =>
-                valor.trim(),
-        );
+function textoCurso(participante: ParticipanteEmailDB) {
+  const datos = [participante.curso, participante.grupo]
+    .filter(
+      (valor): valor is string =>
+        typeof valor === "string" && Boolean(valor.trim()),
+    )
+    .map((valor) => valor.trim());
 
-    if (
-        datos.length >
-        0
-    ) {
-        return datos.join(
-            " · ",
-        );
-    }
+  if (datos.length > 0) {
+    return datos.join(" · ");
+  }
 
-    return textoTipoParticipante(
-        participante.tipo_participante,
-    );
+  return textoTipoParticipante(participante.tipo_participante);
 }
 
 // ============================================================
@@ -398,24 +258,14 @@ function textoCurso(
 // ============================================================
 
 function determinarTipoNotificacion(
-    observaciones:
-        ObservacionDB[],
+  observaciones: ObservacionDB[],
 ): TipoNotificacion {
-    const hayCorreccionesActivas =
-        observaciones.some(
-            observacion =>
-                (
-                    observacion.estado ??
-                    ""
-                )
-                    .trim()
-                    .toUpperCase() !==
-                "RESUELTA",
-        );
+  const hayCorreccionesActivas = observaciones.some(
+    (observacion) =>
+      (observacion.estado ?? "").trim().toUpperCase() !== "RESUELTA",
+  );
 
-    return hayCorreccionesActivas
-        ? "REENVIO"
-        : "PRIMER_ENVIO";
+  return hayCorreccionesActivas ? "REENVIO" : "PRIMER_ENVIO";
 }
 
 // ============================================================
@@ -423,459 +273,257 @@ function determinarTipoNotificacion(
 // ============================================================
 
 async function cargarDatosEmail(
-    formularioID: string,
+  formularioID: string,
 ): Promise<DatosEmailInscripcion> {
-    // ========================================================
-    // FORMULARIO
-    // ========================================================
+  // ========================================================
+  // FORMULARIO
+  // ========================================================
 
-    const {
-        data:
-            formulario,
+  const {
+    data: formulario,
 
-        error:
-            errorFormulario,
-    } =
-        await supabaseAdmin
-            .from(
-                "formularios",
-            )
-            .select(
-                "id,edicion_id,usuario_id,email_contacto,acceso_capitan,estado,enviado_at",
-            )
-            .eq(
-                "id",
-                formularioID,
-            )
-            .eq(
-                "tipo",
-                "EQUIPO",
-            )
-            .maybeSingle();
+    error: errorFormulario,
+  } = await supabaseAdmin
+    .from("formularios")
+    .select(
+      "id,edicion_id,usuario_id,email_contacto,acceso_capitan,estado,enviado_at",
+    )
+    .eq("id", formularioID)
+    .eq("tipo", "EQUIPO")
+    .maybeSingle();
 
-    if (
-        errorFormulario
-    ) {
-        throw errorFormulario;
-    }
+  if (errorFormulario) {
+    throw errorFormulario;
+  }
 
-    if (
-        !formulario
-    ) {
-        throw new Error(
-            "No s'ha trobat el formulari de la inscripció.",
-        );
-    }
+  if (!formulario) {
+    throw new Error("No s'ha trobat el formulari de la inscripció.");
+  }
 
-    const formularioDB =
-        formulario as
-            FormularioEmailDB;
+  const formularioDB = formulario as FormularioEmailDB;
 
-    // ========================================================
-    // EQUIPO + EDICIÓN + OBSERVACIONES
-    // ========================================================
+  // ========================================================
+  // EQUIPO + EDICIÓN + OBSERVACIONES
+  // ========================================================
 
-    const [
-        resultadoEquipo,
-        resultadoEdicion,
-        resultadoObservaciones,
-    ] =
-        await Promise.all([
-            supabaseAdmin
-                .from(
-                    "equipos",
-                )
-                .select(
-                    "id,formulario_id,nombre,escudo,capitan_id",
-                )
-                .eq(
-                    "formulario_id",
-                    formularioDB.id,
-                )
-                .maybeSingle(),
+  const [resultadoEquipo, resultadoEdicion, resultadoObservaciones] =
+    await Promise.all([
+      supabaseAdmin
+        .from("equipos")
+        .select("id,formulario_id,nombre,escudo,capitan_id")
+        .eq("formulario_id", formularioDB.id)
+        .maybeSingle(),
 
-            supabaseAdmin
-                .from(
-                    "ediciones",
-                )
-                .select(
-                    "id,torneo_id,nombre,sede,fecha_inicio,fecha_fin",
-                )
-                .eq(
-                    "id",
-                    formularioDB.edicion_id,
-                )
-                .maybeSingle(),
+      supabaseAdmin
+        .from("ediciones")
+        .select("id,torneo_id,nombre,sede,fecha_inicio,fecha_fin")
+        .eq("id", formularioDB.edicion_id)
+        .maybeSingle(),
 
-            supabaseAdmin
-                .from(
-                    "observaciones_campos",
-                )
-                .select(
-                    "id,formulario_id,estado",
-                )
-                .eq(
-                    "formulario_id",
-                    formularioDB.id,
-                ),
-        ]);
+      supabaseAdmin
+        .from("observaciones_campos")
+        .select("id,formulario_id,estado")
+        .eq("formulario_id", formularioDB.id),
+    ]);
 
-    if (
-        resultadoEquipo.error
-    ) {
-        throw resultadoEquipo.error;
-    }
+  if (resultadoEquipo.error) {
+    throw resultadoEquipo.error;
+  }
 
-    if (
-        resultadoEdicion.error
-    ) {
-        throw resultadoEdicion.error;
-    }
+  if (resultadoEdicion.error) {
+    throw resultadoEdicion.error;
+  }
 
-    if (
-        resultadoObservaciones.error
-    ) {
-        throw resultadoObservaciones.error;
-    }
+  if (resultadoObservaciones.error) {
+    throw resultadoObservaciones.error;
+  }
 
-    if (
-        !resultadoEquipo.data ||
-        !resultadoEdicion.data
-    ) {
-        throw new Error(
-            "No s'han pogut carregar les dades de la inscripció.",
-        );
-    }
+  if (!resultadoEquipo.data || !resultadoEdicion.data) {
+    throw new Error("No s'han pogut carregar les dades de la inscripció.");
+  }
 
-    const equipo =
-        resultadoEquipo.data as
-            EquipoEmailDB;
+  const equipo = resultadoEquipo.data as EquipoEmailDB;
 
-    const edicion =
-        resultadoEdicion.data as
-            EdicionEmailDB;
+  const edicion = resultadoEdicion.data as EdicionEmailDB;
 
-    const observaciones =
-        (
-            resultadoObservaciones.data ??
-            []
-        ) as ObservacionDB[];
+  const observaciones = (resultadoObservaciones.data ?? []) as ObservacionDB[];
 
-    // ========================================================
-    // TORNEO + PARTICIPANTES + CONTACTOS + RESPONSABLE
-    // ========================================================
+  // ========================================================
+  // TORNEO + PARTICIPANTES + CONTACTOS + RESPONSABLE
+  // ========================================================
 
-    const [
-        resultadoTorneo,
-        resultadoParticipantes,
-        resultadoContactos,
-        resultadoResponsable,
-    ] =
-        await Promise.all([
-            supabaseAdmin
-                .from(
-                    "torneos",
-                )
-                .select(
-                    "id,nombre,deporte,logo,banner",
-                )
-                .eq(
-                    "id",
-                    edicion.torneo_id,
-                )
-                .maybeSingle(),
+  const [
+    resultadoTorneo,
+    resultadoParticipantes,
+    resultadoContactos,
+    resultadoResponsable,
+  ] = await Promise.all([
+    supabaseAdmin
+      .from("torneos")
+      .select("id,nombre,deporte,logo,banner")
+      .eq("id", edicion.torneo_id)
+      .maybeSingle(),
 
-            supabaseAdmin
-                .from(
-                    "participantes_equipo",
-                )
-                .select(
-                    "id,equipo_id,tipo_participante,nombre,apellido1,apellido2,email,curso,grupo,genero,orden,activo",
-                )
-                .eq(
-                    "equipo_id",
-                    equipo.id,
-                )
-                .eq(
-                    "activo",
-                    true,
-                )
-                .order(
-                    "orden",
-                    {
-                        ascending:
-                            true,
+    supabaseAdmin
+      .from("participantes_equipo")
+      .select(
+        "id,equipo_id,tipo_participante,nombre,apellido1,apellido2,email,curso,grupo,genero,orden,activo",
+      )
+      .eq("equipo_id", equipo.id)
+      .eq("activo", true)
+      .order("orden", {
+        ascending: true,
 
-                        nullsFirst:
-                            false,
-                    },
-                ),
+        nullsFirst: false,
+      }),
 
-            supabaseAdmin
-                .from(
-                    "contactos_soporte",
-                )
-                .select(
-                    "id,nombre,cargo,email,activo,orden",
-                )
-                .eq(
-                    "activo",
-                    true,
-                )
-                .order(
-                    "orden",
-                    {
-                        ascending:
-                            true,
+    supabaseAdmin
+      .from("contactos_soporte")
+      .select("id,nombre,cargo,email,activo,orden")
+      .eq("activo", true)
+      .order("orden", {
+        ascending: true,
 
-                        nullsFirst:
-                            false,
-                    },
-                ),
+        nullsFirst: false,
+      }),
 
-            formularioDB.usuario_id
-                ? supabaseAdmin
-                      .from(
-                          "users",
-                      )
-                      .select(
-                          "id,nombre,apellido1,apellido2,email",
-                      )
-                      .eq(
-                          "id",
-                          formularioDB.usuario_id,
-                      )
-                      .maybeSingle()
-                : Promise.resolve({
-                      data:
-                          null,
+    formularioDB.usuario_id
+      ? supabaseAdmin
+          .from("users")
+          .select("id,nombre,apellido1,apellido2,email")
+          .eq("id", formularioDB.usuario_id)
+          .maybeSingle()
+      : Promise.resolve({
+          data: null,
 
-                      error:
-                          null,
-                  }),
-        ]);
+          error: null,
+        }),
+  ]);
 
-    if (
-        resultadoTorneo.error
-    ) {
-        throw resultadoTorneo.error;
-    }
+  if (resultadoTorneo.error) {
+    throw resultadoTorneo.error;
+  }
 
-    if (
-        resultadoParticipantes.error
-    ) {
-        throw resultadoParticipantes.error;
-    }
+  if (resultadoParticipantes.error) {
+    throw resultadoParticipantes.error;
+  }
 
-    if (
-        resultadoContactos.error
-    ) {
-        throw resultadoContactos.error;
-    }
+  if (resultadoContactos.error) {
+    throw resultadoContactos.error;
+  }
 
-    if (
-        resultadoResponsable.error
-    ) {
-        throw resultadoResponsable.error;
-    }
+  if (resultadoResponsable.error) {
+    throw resultadoResponsable.error;
+  }
 
-    if (
-        !resultadoTorneo.data
-    ) {
-        throw new Error(
-            "No s'ha trobat el torneig de la inscripció.",
-        );
-    }
+  if (!resultadoTorneo.data) {
+    throw new Error("No s'ha trobat el torneig de la inscripció.");
+  }
 
-    return {
-        formulario:
-            formularioDB,
+  return {
+    formulario: formularioDB,
 
-        equipo,
+    equipo,
 
-        edicion,
+    edicion,
 
-        torneo:
-            resultadoTorneo.data as
-                TorneoEmailDB,
+    torneo: resultadoTorneo.data as TorneoEmailDB,
 
-        responsable:
-            resultadoResponsable.data
-                ? resultadoResponsable.data as
-                      UsuarioEmailDB
-                : null,
+    responsable: resultadoResponsable.data
+      ? (resultadoResponsable.data as UsuarioEmailDB)
+      : null,
 
-        participantes:
-            (
-                resultadoParticipantes.data ??
-                []
-            ) as ParticipanteEmailDB[],
+    participantes: (resultadoParticipantes.data ?? []) as ParticipanteEmailDB[],
 
-        contactos:
-            (
-                resultadoContactos.data ??
-                []
-            ) as ContactoSistemaDB[],
+    contactos: (resultadoContactos.data ?? []) as ContactoSistemaDB[],
 
-        tipoNotificacion:
-            determinarTipoNotificacion(
-                observaciones,
-            ),
-    };
+    tipoNotificacion: determinarTipoNotificacion(observaciones),
+  };
 }
 
 // ============================================================
 // DESTINATARIOS
 // ============================================================
 
-function obtenerDestinatarios(
-    datos:
-        DatosEmailInscripcion,
-) {
-    const destinatarios =
-        new Map<
-            string,
-            DestinatarioEmail
-        >();
+function obtenerDestinatarios(datos: DatosEmailInscripcion) {
+  const destinatarios = new Map<string, DestinatarioEmail>();
 
-    function añadir(
-        destinatario:
-            DestinatarioEmail,
-    ) {
-        const email =
-            normalizarEmail(
-                destinatario.email,
-            );
+  function añadir(destinatario: DestinatarioEmail) {
+    const email = normalizarEmail(destinatario.email);
 
-        if (
-            !email ||
-            !emailValido(
-                email,
-            ) ||
-            destinatarios.has(
-                email,
-            )
-        ) {
-            return;
-        }
-
-        destinatarios.set(
-            email,
-            {
-                ...destinatario,
-
-                email,
-            },
-        );
+    if (!email || !emailValido(email) || destinatarios.has(email)) {
+      return;
     }
 
-    // ========================================================
-    // RESPONSABLE
-    // ========================================================
+    destinatarios.set(email, {
+      ...destinatario,
 
-    const emailResponsable =
-        normalizarEmail(
-            datos.formulario
-                .email_contacto,
-        );
+      email,
+    });
+  }
 
-    if (
-        emailResponsable
-    ) {
-        añadir({
-            email:
-                emailResponsable,
+  // ========================================================
+  // RESPONSABLE
+  // ========================================================
 
-            nombre:
-                datos.responsable
-                    ? nombreCompleto(
-                          datos.responsable,
-                      ) ||
-                      "Responsable de l'equip"
-                    : "Responsable de l'equip",
+  const emailResponsable = normalizarEmail(datos.formulario.email_contacto);
 
-            tipo:
-                "RESPONSABLE",
-        });
+  if (emailResponsable) {
+    añadir({
+      email: emailResponsable,
+
+      nombre: datos.responsable
+        ? nombreCompleto(datos.responsable) || "Responsable de l'equip"
+        : "Responsable de l'equip",
+
+      tipo: "RESPONSABLE",
+    });
+  }
+
+  // ========================================================
+  // CAPITÁN
+  // ========================================================
+
+  if (datos.formulario.acceso_capitan === true && datos.equipo.capitan_id) {
+    const capitan = datos.participantes.find(
+      (participante) =>
+        participante.id === datos.equipo.capitan_id &&
+        participante.tipo_participante?.trim().toUpperCase() === "JUGADOR",
+    );
+
+    if (capitan && capitan.email) {
+      añadir({
+        email: capitan.email,
+
+        nombre: nombreCompleto(capitan) || "Capità de l'equip",
+
+        tipo: "CAPITAN",
+      });
+    }
+  }
+
+  // ========================================================
+  // CONTACTOS DEL SISTEMA
+  // ========================================================
+
+  for (const contacto of datos.contactos) {
+    if (!contacto.email) {
+      continue;
     }
 
-    // ========================================================
-    // CAPITÁN
-    // ========================================================
+    añadir({
+      email: contacto.email,
 
-    if (
-        datos.formulario
-            .acceso_capitan ===
-            true &&
-        datos.equipo
-            .capitan_id
-    ) {
-        const capitan =
-            datos.participantes.find(
-                participante =>
-                    participante.id ===
-                        datos.equipo
-                            .capitan_id &&
-                    participante
-                        .tipo_participante
-                        ?.trim()
-                        .toUpperCase() ===
-                        "JUGADOR",
-            );
+      nombre:
+        contacto.nombre?.trim() ||
+        contacto.cargo?.trim() ||
+        "Contacte del sistema",
 
-        if (
-            capitan &&
-            capitan.email
-        ) {
-            añadir({
-                email:
-                    capitan.email,
+      tipo: "SISTEMA",
+    });
+  }
 
-                nombre:
-                    nombreCompleto(
-                        capitan,
-                    ) ||
-                    "Capità de l'equip",
-
-                tipo:
-                    "CAPITAN",
-            });
-        }
-    }
-
-    // ========================================================
-    // CONTACTOS DEL SISTEMA
-    // ========================================================
-
-    for (
-        const contacto
-        of datos.contactos
-    ) {
-        if (
-            !contacto.email
-        ) {
-            continue;
-        }
-
-        añadir({
-            email:
-                contacto.email,
-
-            nombre:
-                contacto.nombre
-                    ?.trim() ||
-                contacto.cargo
-                    ?.trim() ||
-                "Contacte del sistema",
-
-            tipo:
-                "SISTEMA",
-        });
-    }
-
-    return [
-        ...destinatarios.values(),
-    ];
+  return [...destinatarios.values()];
 }
 
 // ============================================================
@@ -883,52 +531,30 @@ function obtenerDestinatarios(
 // ============================================================
 
 function filasParticipantes(
-    participantes:
-        ParticipanteEmailDB[],
-    capitanID:
-        string | null,
+  participantes: ParticipanteEmailDB[],
+  capitanID: string | null,
 ) {
-    if (
-        participantes.length ===
-        0
-    ) {
-        return `
+  if (participantes.length === 0) {
+    return `
             <tr>
                 <td colspan="2" style="padding:16px;Margin:0;color:#94a3b8;font-size:13px;font-style:italic;text-align:center">
                     No hi ha participants registrats
                 </td>
             </tr>
         `;
-    }
+  }
 
-    return participantes
-        .map(
-            participante => {
-                const esCapitan =
-                    participante.id ===
-                    capitanID;
+  return participantes
+    .map((participante) => {
+      const esCapitan = participante.id === capitanID;
 
-                const nombre =
-                    escaparHTML(
-                        nombreCompleto(
-                            participante,
-                        ) ||
-                        "Sense nom",
-                    );
+      const nombre = escaparHTML(nombreCompleto(participante) || "Sense nom");
 
-                const email =
-                    escaparHTML(
-                        participante.email,
-                    );
+      const email = escaparHTML(participante.email);
 
-                const curso =
-                    escaparHTML(
-                        textoCurso(
-                            participante,
-                        ),
-                    );
+      const curso = escaparHTML(textoCurso(participante));
 
-                return `
+      return `
                     <tr${esCapitan ? ' style="background-color:#14b8a61a"' : ""}>
                         <td style="padding:10px;Margin:0;border-bottom:1px solid #3e4947">
                             <span style="font-size:13px;color:${esCapitan ? "#71F8E4" : "#f8f9ff"};font-weight:${esCapitan ? "bold" : "normal"}">
@@ -936,23 +562,23 @@ function filasParticipantes(
                             </span>
 
                             ${
-                                esCapitan
-                                    ? `
+                              esCapitan
+                                ? `
                                         <span style="font-weight:bold;text-transform:uppercase;margin-left:6px;font-size:9px;background:#0f766e;color:#ffffff;padding:2px 6px;border-radius:20px">
                                             Capità
                                         </span>
                                     `
-                                    : ""
+                                : ""
                             }
 
                             ${
-                                email
-                                    ? `
+                              email
+                                ? `
                                         <div style="margin-top:2px;font-size:11px;color:#d3e4fe">
                                             ${email}
                                         </div>
                                     `
-                                    : ""
+                                : ""
                             }
                         </td>
 
@@ -961,11 +587,8 @@ function filasParticipantes(
                         </td>
                     </tr>
                 `;
-            },
-        )
-        .join(
-            "",
-        );
+    })
+    .join("");
 }
 
 // ============================================================
@@ -973,74 +596,54 @@ function filasParticipantes(
 // ============================================================
 
 function contenidoCardPersonas(
-    participantes:
-        ParticipanteEmailDB[],
-    textoVacio: string,
+  participantes: ParticipanteEmailDB[],
+  textoVacio: string,
 ) {
-    if (
-        participantes.length ===
-        0
-    ) {
-        return `
+  if (participantes.length === 0) {
+    return `
             <p style="Margin:6px 0 0 0;line-height:21px;color:#94a3b8;font-size:14px;font-style:italic;font-weight:bold">
                 ${escaparHTML(textoVacio)}
             </p>
         `;
-    }
+  }
 
-    return participantes
-        .map(
-            participante => `
+  return participantes
+    .map(
+      (participante) => `
                 <div style="margin-top:6px">
                     <p style="Margin:0;line-height:21px;color:#f8f9ff;font-size:14px;font-weight:bold">
                         ${escaparHTML(nombreCompleto(participante) || "Sense nom")}
                     </p>
 
                     ${
-                        participante.email
-                            ? `
+                      participante.email
+                        ? `
                                 <p style="Margin:2px 0 0 0;line-height:17px;color:#d3e4fe;font-size:11px">
                                     ${escaparHTML(participante.email)}
                                 </p>
                             `
-                            : ""
+                        : ""
                     }
                 </div>
             `,
-        )
-        .join(
-            "",
-        );
+    )
+    .join("");
 }
 
 // ============================================================
 // ASUNTO
 // ============================================================
 
-function crearAsunto(
-    datos:
-        DatosEmailInscripcion,
-) {
-    const equipo =
-        datos.equipo
-            .nombre
-            ?.trim() ||
-        "Equip";
+function crearAsunto(datos: DatosEmailInscripcion) {
+  const equipo = datos.equipo.nombre?.trim() || "Equip";
 
-    const torneo =
-        datos.torneo
-            .nombre
-            ?.trim() ||
-        "Esports IES Calvià";
+  const torneo = datos.torneo.nombre?.trim() || "Esports IES Calvià";
 
-    if (
-        datos.tipoNotificacion ===
-        "REENVIO"
-    ) {
-        return `Inscripció reenviada · ${equipo} | ${torneo}`;
-    }
+  if (datos.tipoNotificacion === "REENVIO") {
+    return `Inscripció reenviada · ${equipo} | ${torneo}`;
+  }
 
-    return `Confirmació d'inscripció · ${equipo} | ${torneo}`;
+  return `Confirmació d'inscripció · ${equipo} | ${torneo}`;
 }
 
 // ============================================================
@@ -1048,175 +651,95 @@ function crearAsunto(
 // ============================================================
 
 function crearHTMLInscripcion({
-    datos,
-    destinatario,
+  datos,
+  destinatario,
 }: {
-    datos:
-        DatosEmailInscripcion;
+  datos: DatosEmailInscripcion;
 
-    destinatario:
-        DestinatarioEmail;
+  destinatario: DestinatarioEmail;
 }) {
-    const base =
-        obtenerURLFrontend();
+  const base = obtenerURLFrontend();
 
-    const nombreTorneo =
-        escaparHTML(
-            datos.torneo.nombre ||
-            "Esports IES Calvià",
-        );
+  const nombreTorneo = escaparHTML(datos.torneo.nombre || "Esports IES Calvià");
 
-    const nombreEdicion =
-        escaparHTML(
-            datos.edicion.nombre ||
-            "Edició",
-        );
+  const nombreEdicion = escaparHTML(datos.edicion.nombre || "Edició");
 
-    const nombreEquipo =
-        escaparHTML(
-            datos.equipo.nombre ||
-            "Equip sense nom",
-        );
+  const nombreEquipo = escaparHTML(datos.equipo.nombre || "Equip sense nom");
 
-    const nombreResponsable =
-        datos.responsable
-            ? nombreCompleto(
-                  datos.responsable,
-              )
-            : "";
+  const nombreResponsable = datos.responsable
+    ? nombreCompleto(datos.responsable)
+    : "";
 
-    const registradoPor =
-        escaparHTML(
-            nombreResponsable ||
-            datos.formulario
-                .email_contacto ||
-            "Usuari",
-        );
+  const registradoPor = escaparHTML(
+    nombreResponsable || datos.formulario.email_contacto || "Usuari",
+  );
 
-    const emailResponsable =
-        escaparHTML(
-            datos.formulario
-                .email_contacto,
-        );
+  const emailResponsable = escaparHTML(datos.formulario.email_contacto);
 
-    const banner =
-        urlAbsoluta(
-            datos.torneo.banner,
-            base,
-        );
+  const banner = urlAbsoluta(datos.torneo.banner, base);
 
-    const logoEquipo =
-        urlAbsoluta(
-            datos.equipo.escudo,
-            base,
-        ) ??
-        urlAbsoluta(
-            datos.torneo.logo,
-            base,
-        );
+  const logoEquipo =
+    urlAbsoluta(datos.equipo.escudo, base) ??
+    urlAbsoluta(datos.torneo.logo, base);
 
-    const jugadores =
-        datos.participantes.filter(
-            participante =>
-                participante
-                    .tipo_participante
-                    ?.trim()
-                    .toUpperCase() ===
-                "JUGADOR",
-        );
+  const jugadores = datos.participantes.filter(
+    (participante) =>
+      participante.tipo_participante?.trim().toUpperCase() === "JUGADOR",
+  );
 
-    const entrenadores =
-        datos.participantes.filter(
-            participante =>
-                participante
-                    .tipo_participante
-                    ?.trim()
-                    .toUpperCase() ===
-                "ENTRENADOR",
-        );
+  const entrenadores = datos.participantes.filter(
+    (participante) =>
+      participante.tipo_participante?.trim().toUpperCase() === "ENTRENADOR",
+  );
 
-    const profesores =
-        datos.participantes.filter(
-            participante =>
-                participante
-                    .tipo_participante
-                    ?.trim()
-                    .toUpperCase() ===
-                "PROFESOR",
-        );
+  const profesores = datos.participantes.filter(
+    (participante) =>
+      participante.tipo_participante?.trim().toUpperCase() === "PROFESOR",
+  );
 
-    const cuerpoTecnico =
-        datos.participantes.filter(
-            participante => {
-                const tipo =
-                    participante
-                        .tipo_participante
-                        ?.trim()
-                        .toUpperCase();
+  const cuerpoTecnico = datos.participantes.filter((participante) => {
+    const tipo = participante.tipo_participante?.trim().toUpperCase();
 
-                return (
-                    tipo ===
-                        "ENTRENADOR" ||
-                    tipo ===
-                        "PROFESOR" ||
-                    tipo ===
-                        "STAFF"
-                );
-            },
-        );
+    return tipo === "ENTRENADOR" || tipo === "PROFESOR" || tipo === "STAFF";
+  });
 
-    const urlInscripcion =
-        `${base}/inscripcio?edicionID=${encodeURIComponent(datos.edicion.id)}`;
+  const urlInscripcion = `${base}/inscripcio?edicionID=${encodeURIComponent(datos.edicion.id)}`;
 
-    const urlPanel =
-        `${base}/panell/equips/${encodeURIComponent(datos.equipo.id)}?${new URLSearchParams({
-            torneoID:
-                datos.torneo.id,
+  const urlPanel = `${base}/panell/equips/${encodeURIComponent(datos.equipo.id)}?${new URLSearchParams(
+    {
+      torneoID: datos.torneo.id,
 
-            edicionID:
-                datos.edicion.id,
-        }).toString()}`;
+      edicionID: datos.edicion.id,
+    },
+  ).toString()}`;
 
-    const urlDestino =
-        destinatario.tipo ===
-            "SISTEMA"
-            ? urlPanel
-            : urlInscripcion;
+  const urlDestino =
+    destinatario.tipo === "SISTEMA" ? urlPanel : urlInscripcion;
 
-    const urlLegal =
-        `${base}/aviso-legal`;
+  const urlLegal = `${base}/aviso-legal`;
 
-    const urlPrivacidad =
-        `${base}/politica-de-privacitat`;
+  const urlPrivacidad = `${base}/politica-de-privacitat`;
 
-    const urlCookies =
-        `${base}/politica-de-cookies`;
+  const urlCookies = `${base}/politica-de-cookies`;
 
-    const esReenvio =
-        datos.tipoNotificacion ===
-        "REENVIO";
+  const esReenvio = datos.tipoNotificacion === "REENVIO";
 
-    const tituloConfirmacion =
-        esReenvio
-            ? "Inscripció reenviada correctament"
-            : "Inscripció completada correctament";
+  const tituloConfirmacion = esReenvio
+    ? "Inscripció reenviada correctament"
+    : "Inscripció completada correctament";
 
-    const textoConfirmacion =
-        esReenvio
-            ? "Hem rebut de nou la informació de l'equip després de les correccions realitzades. La inscripció torna a estar pendent de revisió per part de l'organització."
-            : "Hem rebut la inscripció del vostre equip correctament. La informació enviada està actualment pendent de revisió per part de l'organització.";
+  const textoConfirmacion = esReenvio
+    ? "Hem rebut de nou la informació de l'equip després de les correccions realitzades. La inscripció torna a estar pendent de revisió per part de l'organització."
+    : "Hem rebut la inscripció del vostre equip correctament. La informació enviada està actualment pendent de revisió per part de l'organització.";
 
-    const textoFooter =
-        destinatario.tipo ===
-            "SISTEMA"
-            ? "Heu rebut aquest correu perquè esteu configurat com a contacte actiu del sistema Esports IES Calvià."
-            : "Heu rebut aquest correu perquè sou responsable de la inscripció o teniu accés autoritzat al formulari de l'equip.";
+  const textoFooter =
+    destinatario.tipo === "SISTEMA"
+      ? "Heu rebut aquest correu perquè esteu configurat com a contacte actiu del sistema Esports IES Calvià."
+      : "Heu rebut aquest correu perquè sou responsable de la inscripció o teniu accés autoritzat al formulari de l'equip.";
 
-    const año =
-        new Date()
-            .getFullYear();
+  const año = new Date().getFullYear();
 
-    return `
+  return `
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html dir="ltr" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns="http://www.w3.org/1999/xhtml" lang="ca">
 <head>
@@ -1339,15 +862,15 @@ function crearHTMLInscripcion({
             </tr>
 
             ${
-                banner
-                    ? `
+              banner
+                ? `
                         <tr>
                             <td bgcolor="#0b1c30" align="center" style="padding:0 20px 20px;Margin:0;background-color:#0b1c30;font-size:0">
                                 <img src="${escaparHTML(banner)}" alt="${nombreTorneo}" width="560" class="adapt-img" style="display:block;width:100%;max-width:560px;height:auto;border:0;outline:none;text-decoration:none;border-radius:12px">
                             </td>
                         </tr>
                     `
-                    : ""
+                : ""
             }
 
         </tbody>
@@ -1400,13 +923,13 @@ function crearHTMLInscripcion({
                                             <tr>
 
                                                 ${
-                                                    logoEquipo
-                                                        ? `
+                                                  logoEquipo
+                                                    ? `
                                                             <td valign="middle" width="110" class="es-adapt-td es-m-p20b" style="padding:0 18px 0 0;Margin:0;width:110px">
                                                                 <img src="${escaparHTML(logoEquipo)}" alt="" width="96" style="display:block;width:96px;max-width:96px;height:auto;border:0;outline:none;text-decoration:none">
                                                             </td>
                                                         `
-                                                        : ""
+                                                    : ""
                                                 }
 
                                                 <td valign="middle" class="es-adapt-td" style="padding:0;Margin:0">
@@ -1423,13 +946,13 @@ function crearHTMLInscripcion({
                                                     </p>
 
                                                     ${
-                                                        emailResponsable
-                                                            ? `
+                                                      emailResponsable
+                                                        ? `
                                                                 <p style="Margin:4px 0 0 0;line-height:19px;color:#d3e4fe;font-size:13px">
                                                                     ${emailResponsable}
                                                                 </p>
                                                             `
-                                                            : ""
+                                                        : ""
                                                     }
 
                                                 </td>
@@ -1489,8 +1012,8 @@ function crearHTMLInscripcion({
                                                     </p>
 
                                                     ${contenidoCardPersonas(
-                                                        entrenadores,
-                                                        "Sense entrenador/a",
+                                                      entrenadores,
+                                                      "Sense entrenador/a",
                                                     )}
 
                                                 </td>
@@ -1512,8 +1035,8 @@ function crearHTMLInscripcion({
                                                     </p>
 
                                                     ${contenidoCardPersonas(
-                                                        profesores,
-                                                        "Sense professor/a",
+                                                      profesores,
+                                                      "Sense professor/a",
                                                     )}
 
                                                 </td>
@@ -1581,8 +1104,8 @@ function crearHTMLInscripcion({
                                             </tr>
 
                                             ${filasParticipantes(
-                                                jugadores,
-                                                datos.equipo.capitan_id,
+                                              jugadores,
+                                              datos.equipo.capitan_id,
                                             )}
 
                                         </tbody>
@@ -1648,8 +1171,8 @@ function crearHTMLInscripcion({
                                             </tr>
 
                                             ${filasParticipantes(
-                                                cuerpoTecnico,
-                                                datos.equipo.capitan_id,
+                                              cuerpoTecnico,
+                                              datos.equipo.capitan_id,
                                             )}
 
                                         </tbody>
@@ -1773,145 +1296,101 @@ function crearHTMLInscripcion({
 // ============================================================
 
 export async function notificarInscripcionEquipoEnviada(
-    formularioID: string,
+  formularioID: string,
 ): Promise<ResultadoEmailInscripcion> {
-    const datos =
-        await cargarDatosEmail(
-            formularioID,
-        );
+  const datos = await cargarDatosEmail(formularioID);
 
-    // ========================================================
-    // COMPROBAR ESTADO
-    // ========================================================
+  // ========================================================
+  // COMPROBAR ESTADO
+  // ========================================================
 
-    if (
-        datos.formulario
-            .estado
-            ?.trim()
-            .toUpperCase() !==
-        ESTADO_ENVIO
-    ) {
-        throw new Error(
-            "El correu d'inscripció només es pot enviar quan el formulari està EN_REVISION.",
-        );
-    }
-
-    // ========================================================
-    // DESTINATARIOS
-    // ========================================================
-
-    const destinatarios =
-        obtenerDestinatarios(
-            datos,
-        );
-
-    if (
-        destinatarios.length ===
-        0
-    ) {
-        return {
-            destinatarios:
-                0,
-
-            enviados:
-                0,
-
-            fallidos:
-                0,
-
-            tipo:
-                datos.tipoNotificacion,
-        };
-    }
-
-    // ========================================================
-    // ENVÍOS
-    // ========================================================
-
-    /*
-     * Cada correo se envía individualmente.
-     *
-     * Así:
-     *
-     * - no mostramos otros destinatarios;
-     * - podemos usar enlaces diferentes para sistema/usuario;
-     * - un error no impide intentar el resto.
-     */
-
-    const resultados =
-        await Promise.allSettled(
-            destinatarios.map(
-                destinatario =>
-                    enviarEmailApi({
-                        to:
-                            destinatario.email,
-
-                        subject:
-                            crearAsunto(
-                                datos,
-                            ),
-
-                        html:
-                            crearHTMLInscripcion({
-                                datos,
-                                destinatario,
-                            }),
-
-                        origen:
-                            ORIGEN_EMAIL,
-                    }),
-            ),
-        );
-
-    let enviados =
-        0;
-
-    let fallidos =
-        0;
-
-    resultados.forEach(
-        (
-            resultado,
-            indice,
-        ) => {
-            const destinatario =
-                destinatarios[
-                    indice
-                ];
-
-            if (
-                resultado.status ===
-                "fulfilled"
-            ) {
-                enviados +=
-                    1;
-
-                console.info(
-                    `[EMAIL] ${datos.tipoNotificacion} enviado a ${destinatario?.tipo ?? "DESCONOCIDO"} (${destinatario?.email ?? "sin-email"}).`,
-                );
-
-                return;
-            }
-
-            fallidos +=
-                1;
-
-            console.error(
-                `[EMAIL] Error enviando ${datos.tipoNotificacion} a ${destinatario?.tipo ?? "DESCONOCIDO"} (${destinatario?.email ?? "sin-email"}):`,
-                resultado.reason,
-            );
-        },
+  if (datos.formulario.estado?.trim().toUpperCase() !== ESTADO_ENVIO) {
+    throw new Error(
+      "El correu d'inscripció només es pot enviar quan el formulari està EN_REVISION.",
     );
+  }
 
+  // ========================================================
+  // DESTINATARIOS
+  // ========================================================
+
+  const destinatarios = obtenerDestinatarios(datos);
+
+  if (destinatarios.length === 0) {
     return {
-        destinatarios:
-            destinatarios.length,
+      destinatarios: 0,
 
-        enviados,
+      enviados: 0,
 
-        fallidos,
+      fallidos: 0,
 
-        tipo:
-            datos.tipoNotificacion,
+      tipo: datos.tipoNotificacion,
     };
+  }
+
+  // ========================================================
+  // ENVÍOS
+  // ========================================================
+
+  /*
+   * Cada correo se envía individualmente.
+   *
+   * Así:
+   *
+   * - no mostramos otros destinatarios;
+   * - podemos usar enlaces diferentes para sistema/usuario;
+   * - un error no impide intentar el resto.
+   */
+
+  const resultados = await Promise.allSettled(
+    destinatarios.map((destinatario) =>
+      enviarEmailApi({
+        to: destinatario.email,
+
+        subject: crearAsunto(datos),
+
+        html: crearHTMLInscripcion({
+          datos,
+          destinatario,
+        }),
+
+        origen: ORIGEN_EMAIL,
+      }),
+    ),
+  );
+
+  let enviados = 0;
+
+  let fallidos = 0;
+
+  resultados.forEach((resultado, indice) => {
+    const destinatario = destinatarios[indice];
+
+    if (resultado.status === "fulfilled") {
+      enviados += 1;
+
+      console.info(
+        `[EMAIL] ${datos.tipoNotificacion} enviado a ${destinatario?.tipo ?? "DESCONOCIDO"} (${destinatario?.email ?? "sin-email"}).`,
+      );
+
+      return;
+    }
+
+    fallidos += 1;
+
+    console.error(
+      `[EMAIL] Error enviando ${datos.tipoNotificacion} a ${destinatario?.tipo ?? "DESCONOCIDO"} (${destinatario?.email ?? "sin-email"}):`,
+      resultado.reason,
+    );
+  });
+
+  return {
+    destinatarios: destinatarios.length,
+
+    enviados,
+
+    fallidos,
+
+    tipo: datos.tipoNotificacion,
+  };
 }
