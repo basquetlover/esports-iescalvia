@@ -58,11 +58,6 @@ function emailValido(email: string) {
 // ============================================================
 // TOKEN ALEATORIO
 // ============================================================
-//
-// Este token es el que recibirá el usuario.
-//
-// NO se guarda directamente en Supabase.
-// ============================================================
 
 function generarTokenSeguro() {
   const bytes = new Uint8Array(32);
@@ -75,32 +70,13 @@ function generarTokenSeguro() {
 }
 
 // ============================================================
-// TOKEN PARA BASE DE DATOS
+// HUELLA DEL TOKEN
 // ============================================================
 //
-// Queremos guardar una huella del token, no el token real.
+// El token real se envía por email.
 //
-// Pero no sabemos si la columna verificaciones.token
-// está definida actualmente como:
-//
-// - uuid
-// - text
-//
-// Para mantener compatibilidad con ambos casos:
-//
-// 1. SHA-256(token)
-// 2. utilizamos parte del hash
-// 3. lo representamos como UUID
-//
-// De esta forma:
-//
-// ENLACE:
-// 8fc94d... token real largo
-//
-// BASE DE DATOS:
-// a50bd418-....
-//
-// No son el mismo valor.
+// En Supabase únicamente almacenamos una huella
+// representada como UUID.
 // ============================================================
 
 async function obtenerHuellaToken(token: string) {
@@ -111,10 +87,6 @@ async function obtenerHuellaToken(token: string) {
   const hash = Array.from(new Uint8Array(buffer))
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
-
-  // ========================================================
-  // Convertimos parte del SHA-256 a UUID válido.
-  // ========================================================
 
   const caracteres = hash.slice(0, 32).split("");
 
@@ -128,13 +100,9 @@ async function obtenerHuellaToken(token: string) {
 
   return [
     uuid.slice(0, 8),
-
     uuid.slice(8, 12),
-
     uuid.slice(12, 16),
-
     uuid.slice(16, 20),
-
     uuid.slice(20, 32),
   ].join("-");
 }
@@ -144,19 +112,6 @@ async function obtenerHuellaToken(token: string) {
 // ============================================================
 
 function obtenerURLBase(request: Request) {
-  /*
-   * Si en el futuro defines:
-   *
-   * PUBLIC_SITE_URL=https://...
-   *
-   * tendrá prioridad.
-   *
-   * Mientras tanto utilizamos automáticamente:
-   *
-   * localhost:4321 en desarrollo
-   * dominio real en producción
-   */
-
   const configurada = String(import.meta.env.PUBLIC_SITE_URL ?? "")
     .trim()
     .replace(/\/+$/, "");
@@ -189,9 +144,13 @@ function obtenerURLRecuperacion(request: Request, token: string) {
 function htmlEmail(urlRecuperacion: string) {
   return `
 <!doctype html>
+
 <html lang="ca">
+
 <head>
+
     <meta charset="UTF-8">
+
     <meta
         name="viewport"
         content="width=device-width, initial-scale=1"
@@ -200,6 +159,7 @@ function htmlEmail(urlRecuperacion: string) {
     <title>
         Recuperació de contrasenya
     </title>
+
 </head>
 
 <body
@@ -211,6 +171,7 @@ function htmlEmail(urlRecuperacion: string) {
         color:#121318;
     "
 >
+
     <table
         role="presentation"
         width="100%"
@@ -222,13 +183,16 @@ function htmlEmail(urlRecuperacion: string) {
             border-collapse:collapse;
         "
     >
+
         <tr>
+
             <td
                 align="center"
                 style="
                     padding:32px 16px;
                 "
             >
+
                 <table
                     role="presentation"
                     width="600"
@@ -243,11 +207,13 @@ function htmlEmail(urlRecuperacion: string) {
                         border-collapse:collapse;
                     "
                 >
-                    <!-- =====================================
-                        CABECERA
-                    ====================================== -->
+
+                    <!-- ============================= -->
+                    <!-- CABECERA -->
+                    <!-- ============================= -->
 
                     <tr>
+
                         <td
                             style="
                                 padding:32px 28px;
@@ -255,6 +221,7 @@ function htmlEmail(urlRecuperacion: string) {
                                 text-align:center;
                             "
                         >
+
                             <h1
                                 style="
                                     margin:0;
@@ -276,19 +243,23 @@ function htmlEmail(urlRecuperacion: string) {
                                 "
                             >
                             </div>
+
                         </td>
+
                     </tr>
 
-                    <!-- =====================================
-                        CONTENIDO
-                    ====================================== -->
+                    <!-- ============================= -->
+                    <!-- CONTENIDO -->
+                    <!-- ============================= -->
 
                     <tr>
+
                         <td
                             style="
                                 padding:32px 28px;
                             "
                         >
+
                             <p
                                 style="
                                     margin:0 0 18px;
@@ -319,10 +290,13 @@ function htmlEmail(urlRecuperacion: string) {
                                 cellspacing="0"
                                 cellpadding="0"
                             >
+
                                 <tr>
+
                                     <td
                                         align="center"
                                     >
+
                                         <a
                                             href="${urlRecuperacion}"
                                             style="
@@ -338,8 +312,11 @@ function htmlEmail(urlRecuperacion: string) {
                                         >
                                             Restablir la contrasenya
                                         </a>
+
                                     </td>
+
                                 </tr>
+
                             </table>
 
                             <div
@@ -350,6 +327,7 @@ function htmlEmail(urlRecuperacion: string) {
                                     background:#f5f6f8;
                                 "
                             >
+
                                 <p
                                     style="
                                         margin:0;
@@ -360,10 +338,12 @@ function htmlEmail(urlRecuperacion: string) {
                                 >
                                     Aquest enllaç és personal
                                     i caduca al cap de
+
                                     <strong>
                                         ${MINUTOS_VALIDEZ} minuts
                                     </strong>.
                                 </p>
+
                             </div>
 
                             <p
@@ -376,17 +356,22 @@ function htmlEmail(urlRecuperacion: string) {
                             >
                                 Si no has sol·licitat aquest
                                 canvi, pots ignorar aquest
-                                correu. La teva contrasenya
-                                actual continuarà funcionant.
+                                correu.
+
+                                La teva contrasenya actual
+                                continuarà funcionant.
                             </p>
+
                         </td>
+
                     </tr>
 
-                    <!-- =====================================
-                        FOOTER
-                    ====================================== -->
+                    <!-- ============================= -->
+                    <!-- FOOTER -->
+                    <!-- ============================= -->
 
                     <tr>
+
                         <td
                             style="
                                 padding:20px 28px;
@@ -394,6 +379,7 @@ function htmlEmail(urlRecuperacion: string) {
                                 text-align:center;
                             "
                         >
+
                             <p
                                 style="
                                     margin:0;
@@ -404,13 +390,21 @@ function htmlEmail(urlRecuperacion: string) {
                             >
                                 Esports IES Calvià
                             </p>
+
                         </td>
+
                     </tr>
+
                 </table>
+
             </td>
+
         </tr>
+
     </table>
+
 </body>
+
 </html>
 `;
 }
@@ -444,13 +438,15 @@ function establecerBloqueo(
 
 export const POST: APIRoute = async ({ request, cookies }) => {
   try {
-    // =================================================
-    // BLOQUEO BÁSICO DEL CLIENTE
-    // =================================================
+    // ======================================================
+    // BLOQUEO DEL CLIENTE
+    // ======================================================
 
     const bloqueo = cookies.get("bloqueo_email")?.value;
 
     if (bloqueo === "bloqueo_email_habilitado") {
+      console.log("[RECUPERACIÓN] Petición bloqueada por cookie");
+
       return responder(
         {
           success: false,
@@ -462,9 +458,9 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       );
     }
 
-    // =================================================
+    // ======================================================
     // BODY
-    // =================================================
+    // ======================================================
 
     let body: Record<string, unknown>;
 
@@ -483,9 +479,9 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
     const email = normalizarEmail(body.email);
 
-    // =================================================
-    // VALIDACIÓN
-    // =================================================
+    // ======================================================
+    // VALIDAR EMAIL
+    // ======================================================
 
     if (!email || !emailValido(email)) {
       return responder(
@@ -498,36 +494,23 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       );
     }
 
-    // =================================================
-    // IMPORTANTE:
+    console.log("[RECUPERACIÓN] Solicitud recibida");
+
+    // ======================================================
+    // BLOQUEO DEL NAVEGADOR
+    // ======================================================
     //
-    // Aplicamos el bloqueo ANTES de saber si existe
-    // el usuario.
-    //
-    // Así no damos pistas sobre qué cuentas existen.
-    // =================================================
+    // Se establece antes de consultar si existe el usuario
+    // para evitar enumeración de cuentas.
+    // ======================================================
 
     establecerBloqueo(request, cookies);
 
-    // =================================================
+    // ======================================================
     // BUSCAR USUARIO
-    // =================================================
-    //
-    // NO usamos select("*").
-    //
-    // Nunca devolvemos:
-    //
-    // - contraseña
-    // - permisos
-    // - rol
-    // - datos personales
-    // =================================================
+    // ======================================================
 
-    const {
-      data: usuario,
-
-      error: errorUsuario,
-    } = await supabaseAdmin
+    const { data: usuario, error: errorUsuario } = await supabaseAdmin
       .from("users")
       .select("id,email,activa")
       .ilike("email", email)
@@ -554,16 +537,13 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       );
     }
 
-    // =================================================
+    // ======================================================
     // USUARIO NO EXISTE / INACTIVO
-    // =================================================
-    //
-    // Respondemos EXACTAMENTE igual que si existiera.
-    //
-    // Esto evita enumeración de usuarios.
-    // =================================================
+    // ======================================================
 
     if (!usuario || usuario.activa === false) {
+      console.log("[RECUPERACIÓN] Solicitud finalizada con respuesta genérica");
+
       return responder({
         success: true,
 
@@ -571,16 +551,9 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       });
     }
 
-    // =================================================
+    // ======================================================
     // RATE LIMIT EN BASE DE DATOS
-    // =================================================
-    //
-    // La cookie evita doble clics desde el mismo
-    // navegador.
-    //
-    // La BD evita pedir muchos correos simplemente
-    // eliminando cookies o cambiando navegador.
-    // =================================================
+    // ======================================================
 
     const fechaLimite = new Date(
       Date.now() - SEGUNDOS_BLOQUEO * 1000,
@@ -595,6 +568,19 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       .select("token")
       .eq("id_usuario", usuario.id)
       .eq("tipo", TIPO_VERIFICACION)
+
+      // ================================================
+      // IMPORTANTE
+      //
+      // Una verificación cuyo email falló se marca
+      // como usado=true.
+      //
+      // Esas verificaciones NO deben bloquear
+      // nuevos intentos.
+      // ================================================
+
+      .eq("usado", false)
+
       .gte("fecha_creacion", fechaLimite)
       .limit(1);
 
@@ -615,6 +601,8 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     }
 
     if ((verificacionesRecientes ?? []).length > 0) {
+      console.log("[RECUPERACIÓN] Existe una solicitud válida reciente");
+
       return responder({
         success: true,
 
@@ -622,14 +610,9 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       });
     }
 
-    // =================================================
+    // ======================================================
     // INVALIDAR TOKENS ANTERIORES
-    // =================================================
-    //
-    // Al solicitar uno nuevo:
-    //
-    // TODOS los enlaces anteriores dejan de servir.
-    // =================================================
+    // ======================================================
 
     const { error: errorInvalidar } = await supabaseAdmin
       .from("verificaciones")
@@ -656,9 +639,9 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       );
     }
 
-    // =================================================
+    // ======================================================
     // GENERAR TOKEN
-    // =================================================
+    // ======================================================
 
     const token = generarTokenSeguro();
 
@@ -668,16 +651,9 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
     const expiracion = new Date(ahora.getTime() + MINUTOS_VALIDEZ * 60 * 1000);
 
-    // =================================================
+    // ======================================================
     // GUARDAR VERIFICACIÓN
-    // ============================================================
-    //
-    // IMPORTANTE:
-    //
-    // Guardamos huellaToken.
-    //
-    // NO guardamos token.
-    // =================================================
+    // ======================================================
 
     const { error: errorCrearVerificacion } = await supabaseAdmin
       .from("verificaciones")
@@ -716,15 +692,17 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       );
     }
 
-    // =================================================
-    // URL
-    // =================================================
+    // ======================================================
+    // URL DE RECUPERACIÓN
+    // ======================================================
 
     const urlRecuperacion = obtenerURLRecuperacion(request, token);
 
-    // =================================================
+    // ======================================================
     // ENVIAR EMAIL
-    // =================================================
+    // ======================================================
+
+    console.log("[RECUPERACIÓN] Llamando a enviarEmailApi()");
 
     try {
       await enviarEmailApi({
@@ -736,13 +714,14 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
         origen: "esports_iescalvia",
       });
+
+      console.log("[RECUPERACIÓN] Email enviado correctamente");
     } catch (errorEmail) {
       console.error("[RECUPERACIÓN] Error enviando email:", errorEmail);
 
-      // =============================================
-      // Si el email no ha salido, invalidamos
-      // inmediatamente ese token.
-      // =============================================
+      // ====================================================
+      // INVALIDAR TOKEN DEL EMAIL FALLIDO
+      // ====================================================
 
       const { error: errorAnularToken } = await supabaseAdmin
         .from("verificaciones")
@@ -761,12 +740,13 @@ export const POST: APIRoute = async ({ request, cookies }) => {
         );
       }
 
-      /*
-       * No revelamos al cliente que el usuario
-       * existía.
-       *
-       * Mantenemos la misma respuesta genérica.
-       */
+      // ====================================================
+      // RESPUESTA GENÉRICA
+      // ====================================================
+      //
+      // No devolvemos el error de email al navegador
+      // porque permitiría averiguar qué usuarios existen.
+      // ====================================================
 
       return responder({
         success: true,
@@ -775,9 +755,9 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       });
     }
 
-    // =================================================
+    // ======================================================
     // OK
-    // =================================================
+    // ======================================================
 
     return responder({
       success: true,

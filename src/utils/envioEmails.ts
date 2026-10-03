@@ -1,5 +1,9 @@
 import { getSecret } from "astro:env/server";
 
+// ============================================================
+// TIPOS
+// ============================================================
+
 type EnviarEmailParametros = {
   to: string;
   subject: string;
@@ -7,20 +11,25 @@ type EnviarEmailParametros = {
   origen: string;
 };
 
+// ============================================================
+// CONFIGURACIÓN
+// ============================================================
+
+const EMAIL_API_URL = "https://perealemany-dev.vercel.app/api/emails/enviar";
+
+// ============================================================
+// ENVIAR EMAIL
+// ============================================================
+
 export async function enviarEmailApi({
   to,
   subject,
   html,
   origen,
 }: EnviarEmailParametros) {
-  const body = JSON.stringify({
-    to,
-    subject,
-    html,
-    origen,
-  });
-
-  const timestamp = Date.now().toString();
+  // ==========================================================
+  // CREDENCIALES
+  // ==========================================================
 
   const API_KEY = getSecret("PADEV_EMAIL_KEY");
   const API_SECRET = getSecret("PADEV_EMAIL_SECRET");
@@ -32,6 +41,27 @@ export async function enviarEmailApi({
   if (!API_SECRET) {
     throw new Error("Falta la variable de entorno PADEV_EMAIL_SECRET");
   }
+
+  // ==========================================================
+  // BODY
+  // ==========================================================
+
+  const body = JSON.stringify({
+    to,
+    subject,
+    html,
+    origen,
+  });
+
+  // ==========================================================
+  // TIMESTAMP
+  // ==========================================================
+
+  const timestamp = Date.now().toString();
+
+  // ==========================================================
+  // FIRMA HMAC SHA-256
+  // ==========================================================
 
   const encoder = new TextEncoder();
 
@@ -56,9 +86,21 @@ export async function enviarEmailApi({
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
 
-  const res = await fetch(
-    "https://perealemany-dev.vercel.app/api/emails/enviar",
-    {
+  // ==========================================================
+  // PETICIÓN
+  // ==========================================================
+
+  console.log("[EMAIL] Enviando petición a API de emails", {
+    to,
+    origen,
+    timestamp,
+    signatureLength: signature.length,
+  });
+
+  let response: Response;
+
+  try {
+    response = await fetch(EMAIL_API_URL, {
       method: "POST",
 
       headers: {
@@ -69,18 +111,42 @@ export async function enviarEmailApi({
       },
 
       body,
-    },
-  );
+    });
+  } catch (error) {
+    console.error("[EMAIL] No se pudo conectar con la API de emails:", error);
 
-  const data = await res.json().catch(() => null);
+    throw new Error("No se pudo conectar con la API de emails");
+  }
 
-  if (!res.ok) {
-    const mensaje = data?.error || "Error enviando email";
+  // ==========================================================
+  // RESPUESTA
+  // ==========================================================
 
-    console.error("Error enviando email:", mensaje);
+  const data = await response.json().catch(() => null);
+
+  console.log("[EMAIL] Respuesta API emails:", {
+    status: response.status,
+    ok: response.ok,
+  });
+
+  // ==========================================================
+  // ERROR
+  // ==========================================================
+
+  if (!response.ok) {
+    const mensaje = data?.error || `Error enviando email (${response.status})`;
+
+    console.error("[EMAIL] API de emails devolvió error:", {
+      status: response.status,
+      mensaje,
+    });
 
     throw new Error(mensaje);
   }
+
+  // ==========================================================
+  // OK
+  // ==========================================================
 
   return data;
 }
