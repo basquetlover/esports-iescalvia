@@ -75,13 +75,14 @@ type ParticipanteEmailDB = {
   activo: boolean;
 };
 
-type ContactoSistemaDB = {
-  id: string;
-  nombre: string | null;
-  cargo: string | null;
-  email: string | null;
-  activo: boolean;
-  orden: number | null;
+type ConfiguracionNotificacionesDB = {
+  email_notificaciones_principal: string | null;
+
+  email_notificaciones_secundario: string | null;
+
+  notificar_nuevo_equipo: boolean | null;
+
+  notificar_modificacion: boolean | null;
 };
 
 type ObservacionDB = {
@@ -109,7 +110,7 @@ type DatosEmailInscripcion = {
 
   participantes: ParticipanteEmailDB[];
 
-  contactos: ContactoSistemaDB[];
+  configuracion: ConfiguracionNotificacionesDB | null;
 
   tipoNotificacion: TipoNotificacion;
 };
@@ -349,13 +350,13 @@ async function cargarDatosEmail(
   const observaciones = (resultadoObservaciones.data ?? []) as ObservacionDB[];
 
   // ========================================================
-  // TORNEO + PARTICIPANTES + CONTACTOS + RESPONSABLE
+  // TORNEO + PARTICIPANTES + CONFIGURACIÓN + RESPONSABLE
   // ========================================================
 
   const [
     resultadoTorneo,
     resultadoParticipantes,
-    resultadoContactos,
+    resultadoConfiguracion,
     resultadoResponsable,
   ] = await Promise.all([
     supabaseAdmin
@@ -378,14 +379,22 @@ async function cargarDatosEmail(
       }),
 
     supabaseAdmin
-      .from("contactos_soporte")
-      .select("id,nombre,cargo,email,activo,orden")
-      .eq("activo", true)
-      .order("orden", {
-        ascending: true,
+      .from("configuracion_plataforma")
+      .select(
+        "email_notificaciones_principal,email_notificaciones_secundario,notificar_nuevo_equipo,notificar_modificacion,updated_at,created_at",
+      )
+      .order("updated_at", {
+        ascending: false,
 
         nullsFirst: false,
-      }),
+      })
+      .order("created_at", {
+        ascending: false,
+
+        nullsFirst: false,
+      })
+      .limit(1)
+      .maybeSingle(),
 
     formularioDB.usuario_id
       ? supabaseAdmin
@@ -408,8 +417,8 @@ async function cargarDatosEmail(
     throw resultadoParticipantes.error;
   }
 
-  if (resultadoContactos.error) {
-    throw resultadoContactos.error;
+  if (resultadoConfiguracion.error) {
+    throw resultadoConfiguracion.error;
   }
 
   if (resultadoResponsable.error) {
@@ -435,7 +444,9 @@ async function cargarDatosEmail(
 
     participantes: (resultadoParticipantes.data ?? []) as ParticipanteEmailDB[],
 
-    contactos: (resultadoContactos.data ?? []) as ContactoSistemaDB[],
+    configuracion: resultadoConfiguracion.data
+      ? (resultadoConfiguracion.data as ConfiguracionNotificacionesDB)
+      : null,
 
     tipoNotificacion: determinarTipoNotificacion(observaciones),
   };
@@ -491,7 +502,7 @@ function obtenerDestinatarios(datos: DatosEmailInscripcion) {
         participante.tipo_participante?.trim().toUpperCase() === "JUGADOR",
     );
 
-    if (capitan && capitan.email) {
+    if (capitan?.email) {
       añadir({
         email: capitan.email,
 
@@ -503,24 +514,58 @@ function obtenerDestinatarios(datos: DatosEmailInscripcion) {
   }
 
   // ========================================================
-  // CONTACTOS DEL SISTEMA
+  // NOTIFICACIONES INTERNAS DEL SISTEMA
+  // ========================================================
+  //
+  // PRIMER_ENVIO
+  // → notificar_nuevo_equipo
+  //
+  // REENVIO
+  // → notificar_modificacion
+  //
+  // Los destinatarios salen EXCLUSIVAMENTE de:
+  //
+  // - email_notificaciones_principal
+  // - email_notificaciones_secundario
+  //
+  // contactos_soporte NO participa aquí.
   // ========================================================
 
-  for (const contacto of datos.contactos) {
-    if (!contacto.email) {
-      continue;
+  const configuracion = datos.configuracion;
+
+  const enviarSistema =
+    datos.tipoNotificacion === "PRIMER_ENVIO"
+      ? configuracion?.notificar_nuevo_equipo !== false
+      : configuracion?.notificar_modificacion !== false;
+
+  if (configuracion && enviarSistema) {
+    const principal = normalizarEmail(
+      configuracion.email_notificaciones_principal,
+    );
+
+    if (principal) {
+      añadir({
+        email: principal,
+
+        nombre: "Notificacions del sistema",
+
+        tipo: "SISTEMA",
+      });
     }
 
-    añadir({
-      email: contacto.email,
+    const secundario = normalizarEmail(
+      configuracion.email_notificaciones_secundario,
+    );
 
-      nombre:
-        contacto.nombre?.trim() ||
-        contacto.cargo?.trim() ||
-        "Contacte del sistema",
+    if (secundario) {
+      añadir({
+        email: secundario,
 
-      tipo: "SISTEMA",
-    });
+        nombre: "Notificacions del sistema",
+
+        tipo: "SISTEMA",
+      });
+    }
   }
 
   return [...destinatarios.values()];
@@ -555,9 +600,13 @@ function filasParticipantes(
       const curso = escaparHTML(textoCurso(participante));
 
       return `
-                    <tr${esCapitan ? ' style="background-color:#14b8a61a"' : ""}>
+                    <tr${
+                      esCapitan ? ' style="background-color:#14b8a61a"' : ""
+                    }>
                         <td style="padding:10px;Margin:0;border-bottom:1px solid #3e4947">
-                            <span style="font-size:13px;color:${esCapitan ? "#71F8E4" : "#f8f9ff"};font-weight:${esCapitan ? "bold" : "normal"}">
+                            <span style="font-size:13px;color:${
+                              esCapitan ? "#71F8E4" : "#f8f9ff"
+                            };font-weight:${esCapitan ? "bold" : "normal"}">
                                 ${nombre}
                             </span>
 
@@ -612,7 +661,9 @@ function contenidoCardPersonas(
       (participante) => `
                 <div style="margin-top:6px">
                     <p style="Margin:0;line-height:21px;color:#f8f9ff;font-size:14px;font-weight:bold">
-                        ${escaparHTML(nombreCompleto(participante) || "Sense nom")}
+                        ${escaparHTML(
+                          nombreCompleto(participante) || "Sense nom",
+                        )}
                     </p>
 
                     ${
@@ -703,15 +754,17 @@ function crearHTMLInscripcion({
     return tipo === "ENTRENADOR" || tipo === "PROFESOR" || tipo === "STAFF";
   });
 
-  const urlInscripcion = `${base}/inscripcio?edicionID=${encodeURIComponent(datos.edicion.id)}`;
+  const urlInscripcion = `${base}/inscripcio?edicionID=${encodeURIComponent(
+    datos.edicion.id,
+  )}`;
 
-  const urlPanel = `${base}/panell/equips/${encodeURIComponent(datos.equipo.id)}?${new URLSearchParams(
-    {
-      torneoID: datos.torneo.id,
+  const urlPanel = `${base}/panell/equips/${encodeURIComponent(
+    datos.equipo.id,
+  )}?${new URLSearchParams({
+    torneoID: datos.torneo.id,
 
-      edicionID: datos.edicion.id,
-    },
-  ).toString()}`;
+    edicionID: datos.edicion.id,
+  }).toString()}`;
 
   const urlDestino =
     destinatario.tipo === "SISTEMA" ? urlPanel : urlInscripcion;
@@ -734,7 +787,7 @@ function crearHTMLInscripcion({
 
   const textoFooter =
     destinatario.tipo === "SISTEMA"
-      ? "Heu rebut aquest correu perquè esteu configurat com a contacte actiu del sistema Esports IES Calvià."
+      ? "Heu rebut aquest correu perquè aquesta adreça està configurada per rebre notificacions internes d'Esports IES Calvià."
       : "Heu rebut aquest correu perquè sou responsable de la inscripció o teniu accés autoritzat al formulari de l'equip.";
 
   const año = new Date().getFullYear();
