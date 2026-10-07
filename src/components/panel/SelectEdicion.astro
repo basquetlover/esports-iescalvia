@@ -120,13 +120,13 @@ const estadoSeleccionado = edicionSeleccionada
   puedeVerEdiciones && (
     <>
       {torneoSeleccionadoID ? (
-        <div class="relative w-max" id="edicionDropdown">
+        <div class="relative w-max" data-edicion-dropdown-root>
           <button
             type="button"
-            id="edicionDropdownButton"
             aria-haspopup="listbox"
             aria-expanded="false"
-            class="flex w-56 max-md:w-50 items-center justify-between gap-2 rounded-md border border-border bg-background p-1.5 text-left text-neutral transition hover:bg-card"
+            data-edicion-dropdown-toggle
+            class="flex w-56 max-md:w-50 items-center justify-between gap-2 rounded-md border border-border bg-background p-1.5 text-left text-neutral transition hover:bg-card cursor-pointer"
           >
             <div class="flex min-w-0 items-center gap-2">
               <svg
@@ -180,8 +180,8 @@ const estadoSeleccionado = edicionSeleccionada
           </button>
 
           <div
-            id="edicionesContDropdown"
             role="listbox"
+            data-edicion-dropdown-content
             class="absolute left-0 z-60 mt-1 hidden max-h-72 w-56 max-md:w-50 overflow-y-auto rounded-md border border-border bg-background py-1 shadow-lg"
           >
             {otrasEdiciones.length > 0 ? (
@@ -260,26 +260,36 @@ const estadoSeleccionado = edicionSeleccionada
 }
 
 <script type="module">
-  const dropdown = document.getElementById("edicionDropdown");
-  const boton = document.getElementById("edicionDropdownButton");
-  const contenido = document.getElementById("edicionesContDropdown");
+  document.querySelectorAll("[data-edicion-dropdown-root]").forEach((dropdown) => {
+    const boton = dropdown.querySelector("[data-edicion-dropdown-toggle]");
+    const contenido = dropdown.querySelector("[data-edicion-dropdown-content]");
 
-  boton?.addEventListener("click", (evento) => {
-    evento.stopPropagation();
+    if (!boton || !contenido) return;
 
-    contenido?.classList.toggle("hidden");
+    boton.addEventListener("click", (evento) => {
+      evento.stopPropagation();
 
-    const abierto = !contenido?.classList.contains("hidden");
-    boton?.setAttribute("aria-expanded", abierto ? "true" : "false");
-  });
+      const estabaAbierto = !contenido.classList.contains("hidden");
 
-  document.addEventListener("click", (evento) => {
-    const objetivo = evento.target;
+      document.querySelectorAll("[data-edicion-dropdown-content]").forEach((panel) => {
+        panel.classList.add("hidden");
+      });
 
-    if (dropdown && objetivo instanceof Node && !dropdown.contains(objetivo)) {
-      contenido?.classList.add("hidden");
-      boton?.setAttribute("aria-expanded", "false");
-    }
+      if (!estabaAbierto) {
+        contenido.classList.remove("hidden");
+      }
+
+      boton.setAttribute("aria-expanded", estabaAbierto ? "false" : "true");
+    });
+
+    document.addEventListener("click", (evento) => {
+      const objetivo = evento.target;
+
+      if (objetivo instanceof Node && !dropdown.contains(objetivo)) {
+        contenido.classList.add("hidden");
+        boton.setAttribute("aria-expanded", "false");
+      }
+    });
   });
 </script>
 
