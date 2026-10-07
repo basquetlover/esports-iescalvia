@@ -8,6 +8,13 @@ const url = new URL(Astro.request.url);
 const torneoSeleccionadoID = url.searchParams.get("torneoID");
 const edicionSeleccionadoID = url.searchParams.get("edicionID");
 
+function urlConEdicion(edicionID: string) {
+    const urlActual = new URL(Astro.request.url);
+    urlActual.searchParams.set("edicionID", edicionID);
+
+    return `${urlActual.pathname}${urlActual.search}`;
+}
+
 const puedeVerEdiciones = Boolean(
     torneoSeleccionadoID &&
     tienePermiso(usuario, "panell") &&
@@ -145,7 +152,7 @@ const estadoSeleccionado = edicionSeleccionada
 
                             return (
                                 <a
-                                    href={`/panell?torneoID=${torneoSeleccionadoID}&edicionID=${edicion.id}`}
+                                    href={urlConEdicion(edicion.id)}
                                     role="option"
                                     class="flex w-full items-center gap-2 px-2 py-2 text-neutral transition hover:bg-card"
                                 >
