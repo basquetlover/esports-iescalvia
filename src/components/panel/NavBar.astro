@@ -13,6 +13,8 @@ import {
     esDesarrollador,
     tienePermiso,
 } from "@const/Permisos";
+import SelectEdicion from "./SelectEdicion.astro";
+import SelectTorneo from "./SelectTorneo.astro";
 
 // ============================================================
 // PROPS
@@ -476,6 +478,20 @@ function obtenerIcono(
         </p>
     </div>
 
+    <!-- SELECTOES TORNEO Y EDICION EN MOBILE -->
+
+    <div class="md:hidden p-2 space-y-2 w-full flex flex-col items-center justify-center">
+        <SelectTorneo
+            torneoID={torneoID}
+            usuario={usuario}
+        />
+        <SelectEdicion
+            torneoID={torneoID}
+            edicionID={edicionID}
+            usuario={usuario}
+        />
+    </div>
+
     <!-- =====================================================
         NAVEGACIÓN
     ====================================================== -->
@@ -648,7 +664,7 @@ function obtenerIcono(
                 ),
             )
         }
-    </nav>
+    
 
     <!-- =====================================================
         PIE DEL MENÚ
@@ -718,4 +734,5 @@ function obtenerIcono(
             </span>
         </a>
     </div>
+    </nav>
 </div>
