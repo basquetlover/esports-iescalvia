@@ -19,42 +19,57 @@ type Registro = Record<string, unknown>;
 
 type TorneoDB = {
   id: string;
-
   nombre: string | null;
-
   deporte: string | null;
-
   activo: boolean | null;
 };
 
 type EdicionDB = {
   id: string;
-
   torneo_id: string;
-
   nombre: string | null;
-
-  fecha_inicio: string | null;
-
-  fecha_fin: string | null;
-
-  estado: string | null;
-
   sede: string | null;
 };
 
 type ConfiguracionDB = {
   edicion_id: string;
-
   equipos: unknown;
-
   voluntarios: unknown;
 };
 
 type PeriodoInscripcion = {
   apertura: string;
-
   cierre: string;
+};
+
+type PartidoDB = {
+  id: string;
+  edicion_id: string;
+  fase_tipo: string;
+  codigo: string;
+  nombre: string | null;
+  jornada: number | null;
+  estado: string;
+  fecha_hora: string | null;
+  pista: string | null;
+};
+
+type PlazaPartidoDB = {
+  partido_id: string | null;
+  lado: string | null;
+  equipo_origen_id: string | null;
+  equipo_resuelto_id: string | null;
+};
+
+type EquipoPartidoDB = {
+  id: string;
+  nombre: string | null;
+};
+
+type ResultadoPartidoDB = {
+  partido_id: string;
+  marcador_local: number | null;
+  marcador_visitante: number | null;
 };
 
 // ============================================================
@@ -65,18 +80,11 @@ function esRegistro(valor: unknown): valor is Registro {
   return valor !== null && typeof valor === "object" && !Array.isArray(valor);
 }
 
-// ============================================================
-// FECHA ACTUAL
-// ============================================================
-
 function fechaMadridActual(): string {
   const partes = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Madrid",
-
     year: "numeric",
-
     month: "2-digit",
-
     day: "2-digit",
   }).formatToParts(new Date());
 
@@ -87,10 +95,6 @@ function fechaMadridActual(): string {
   return `${valores.year}-${valores.month}-${valores.day}`;
 }
 
-// ============================================================
-// FECHAS
-// ============================================================
-
 function normalizarFecha(valor: unknown): string | null {
   if (typeof valor !== "string" || !valor.trim()) {
     return null;
@@ -98,17 +102,9 @@ function normalizarFecha(valor: unknown): string | null {
 
   const texto = valor.trim();
 
-  // ========================================================
-  // YYYY-MM-DD
-  // ========================================================
-
   if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
     return texto;
   }
-
-  // ========================================================
-  // ISO CON HORA
-  // ========================================================
 
   const fecha = new Date(texto);
 
@@ -118,11 +114,8 @@ function normalizarFecha(valor: unknown): string | null {
 
   const partes = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Madrid",
-
     year: "numeric",
-
     month: "2-digit",
-
     day: "2-digit",
   }).formatToParts(fecha);
 
@@ -133,8 +126,19 @@ function normalizarFecha(valor: unknown): string | null {
   return `${valores.year}-${valores.month}-${valores.day}`;
 }
 
+function normalizarHora(valor: string): string {
+  const fecha = new Date(valor);
+
+  return new Intl.DateTimeFormat("ca-ES", {
+    timeZone: "Europe/Madrid",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(fecha);
+}
+
 // ============================================================
-// INSCRIPCIÓN
+// INSCRIPCIONES
 // ============================================================
 
 function obtenerInscripcion(configuracion: unknown): PeriodoInscripcion | null {
@@ -149,26 +153,14 @@ function obtenerInscripcion(configuracion: unknown): PeriodoInscripcion | null {
   }
 
   const apertura = normalizarFecha(inscripcion.apertura);
-
   const cierre = normalizarFecha(inscripcion.cierre);
 
-  if (!apertura || !cierre) {
+  if (!apertura || !cierre || cierre < apertura) {
     return null;
   }
 
-  if (cierre < apertura) {
-    return null;
-  }
-
-  return {
-    apertura,
-    cierre,
-  };
+  return { apertura, cierre };
 }
-
-// ============================================================
-// ESTADO INSCRIPCIÓN
-// ============================================================
 
 function estadoInscripcion(
   apertura: string,
@@ -187,52 +179,35 @@ function estadoInscripcion(
 }
 
 // ============================================================
-// ESTADO EDICIÓN
+// ESTADO PARTIDO
 // ============================================================
 
-function nombreEstado(estado: string | null): string {
-  const valor = estado?.trim().toLowerCase() ?? "";
+function nombreEstadoPartido(estado: string): string {
+  switch (estado.trim().toUpperCase()) {
+    case "PROGRAMADO":
+      return "Programat";
 
-  if (valor === "activa" || valor === "activo" || valor === "actiu") {
-    return "En curs";
+    case "EN_CURSO":
+      return "En joc";
+
+    case "FINALIZADO":
+      return "Finalitzat";
+
+    case "SUSPENDIDO":
+      return "Suspès";
+
+    case "CANCELADO":
+      return "Cancel·lat";
+
+    default:
+      return "Pendent";
   }
-
-  if (
-    valor === "en_preparacio" ||
-    valor === "en preparacio" ||
-    valor === "en preparació" ||
-    valor === "en_preparacion" ||
-    valor === "en preparación"
-  ) {
-    return "Pròximament";
-  }
-
-  if (
-    valor === "finalizada" ||
-    valor === "finalizado" ||
-    valor === "finalitzada" ||
-    valor === "finalitzat"
-  ) {
-    return "Finalitzada";
-  }
-
-  return "Disponible";
 }
 
 // ============================================================
-// COLOR ACTIVIDAD
+// COLORES
 // ============================================================
 
-/*
- * Únicamente usamos tres colores.
- *
- * 0 = inscripción de equipos
- * 1 = voluntariado
- * 2 = jornada
- *
- * El torneo se identifica mediante el texto,
- * no mediante un color diferente.
- */
 function colorActividad(tipo: TipoEventoCalendario): number {
   switch (tipo) {
     case "inscripcion_equipos":
@@ -241,13 +216,13 @@ function colorActividad(tipo: TipoEventoCalendario): number {
     case "inscripcion_voluntarios":
       return 1;
 
-    case "jornada":
+    case "partido":
       return 2;
   }
 }
 
 // ============================================================
-// MES
+// VALIDACIÓN MES
 // ============================================================
 
 function mesValido(valor: string | null): valor is string {
@@ -279,34 +254,25 @@ const mesInicial = mesValido(parametroMes) ? parametroMes : hoy.slice(0, 7);
 let errorCarga = false;
 
 let torneosDB: TorneoDB[] = [];
-
 let edicionesDB: EdicionDB[] = [];
-
 let configuracionesDB: ConfiguracionDB[] = [];
+
+let partidosDB: PartidoDB[] = [];
+let plazasPartidosDB: PlazaPartidoDB[] = [];
+let equiposPartidosDB: EquipoPartidoDB[] = [];
+let resultadosPartidosDB: ResultadoPartidoDB[] = [];
 
 try {
   // ========================================================
-  // TORNEOS
+  // TORNEOS ACTIVOS
   // ========================================================
 
-  const {
-    data: torneosData,
-
-    error: errorTorneos,
-  } = await supabaseAdmin
+  const { data: torneosData, error: errorTorneos } = await supabaseAdmin
     .from("torneos")
-    .select(
-      `
-          id,
-          nombre,
-          deporte,
-          activo
-        `,
-    )
+    .select("id,nombre,deporte,activo")
     .eq("activo", true)
     .order("nombre", {
       ascending: true,
-
       nullsFirst: false,
     });
 
@@ -316,30 +282,16 @@ try {
 
   torneosDB = (torneosData ?? []) as TorneoDB[];
 
+  const idsTorneos = torneosDB.map((torneo) => torneo.id);
+
   // ========================================================
   // EDICIONES
   // ========================================================
 
-  const idsTorneos = torneosDB.map((torneo) => torneo.id);
-
   if (idsTorneos.length > 0) {
-    const {
-      data: edicionesData,
-
-      error: errorEdiciones,
-    } = await supabaseAdmin
+    const { data: edicionesData, error: errorEdiciones } = await supabaseAdmin
       .from("ediciones")
-      .select(
-        `
-            id,
-            torneo_id,
-            nombre,
-            fecha_inicio,
-            fecha_fin,
-            estado,
-            sede
-          `,
-      )
+      .select("id,torneo_id,nombre,sede")
       .in("torneo_id", idsTorneos);
 
     if (errorEdiciones) {
@@ -349,33 +301,147 @@ try {
     edicionesDB = (edicionesData ?? []) as EdicionDB[];
   }
 
-  // ========================================================
-  // CONFIGURACIONES
-  // ========================================================
-
   const idsEdiciones = edicionesDB.map((edicion) => edicion.id);
 
   if (idsEdiciones.length > 0) {
-    const {
-      data: configuracionesData,
+    // ======================================================
+    // CONFIGURACIONES DE INSCRIPCIÓN
+    // ======================================================
 
-      error: errorConfiguraciones,
-    } = await supabaseAdmin
-      .from("configuracion_ediciones")
-      .select(
-        `
-            edicion_id,
-            equipos,
-            voluntarios
-          `,
-      )
-      .in("edicion_id", idsEdiciones);
+    const { data: configuracionesData, error: errorConfiguraciones } =
+      await supabaseAdmin
+        .from("configuracion_ediciones")
+        .select("edicion_id,equipos,voluntarios")
+        .in("edicion_id", idsEdiciones);
 
     if (errorConfiguraciones) {
       throw errorConfiguraciones;
     }
 
     configuracionesDB = (configuracionesData ?? []) as ConfiguracionDB[];
+
+    // ======================================================
+    // PARTIDOS PUBLICADOS
+    // ======================================================
+
+    const { data: partidosData, error: errorPartidos } = await supabaseAdmin
+      .from("competicion_partidos")
+      .select(
+        `
+          id,
+          edicion_id,
+          fase_tipo,
+          codigo,
+          nombre,
+          jornada,
+          estado,
+          fecha_hora,
+          pista
+        `,
+      )
+      .in("edicion_id", idsEdiciones)
+      .eq("publicado", true)
+      .not("fecha_hora", "is", null)
+      .neq("estado", "BORRADOR")
+      .order("fecha_hora", {
+        ascending: true,
+      });
+
+    if (errorPartidos) {
+      throw errorPartidos;
+    }
+
+    partidosDB = (partidosData ?? []) as PartidoDB[];
+
+    const idsPartidos = partidosDB.map((partido) => partido.id);
+
+    if (idsPartidos.length > 0) {
+      // ====================================================
+      // PLAZAS Y RESULTADOS
+      // ====================================================
+
+      const [plazasRespuesta, resultadosRespuesta] = await Promise.all([
+        supabaseAdmin
+          .from("competicion_plazas")
+          .select(
+            `
+              partido_id,
+              lado,
+              equipo_origen_id,
+              equipo_resuelto_id
+            `,
+          )
+          .eq("destino_tipo", "PARTIDO")
+          .in("partido_id", idsPartidos)
+          .order("orden", {
+            ascending: true,
+          }),
+
+        supabaseAdmin
+          .from("competicion_resultados")
+          .select(
+            `
+              partido_id,
+              marcador_local,
+              marcador_visitante,
+              confirmado_at,
+              updated_at
+            `,
+          )
+          .in("partido_id", idsPartidos)
+          .eq("confirmado", true)
+          .order("confirmado_at", {
+            ascending: false,
+            nullsFirst: false,
+          })
+          .order("updated_at", {
+            ascending: false,
+          }),
+      ]);
+
+      if (plazasRespuesta.error) {
+        throw plazasRespuesta.error;
+      }
+
+      if (resultadosRespuesta.error) {
+        throw resultadosRespuesta.error;
+      }
+
+      plazasPartidosDB = (plazasRespuesta.data ?? []) as PlazaPartidoDB[];
+
+      resultadosPartidosDB = (resultadosRespuesta.data ??
+        []) as ResultadoPartidoDB[];
+
+      // ====================================================
+      // EQUIPOS DE LOS PARTIDOS
+      // ====================================================
+
+      const idsEquipos = Array.from(
+        new Set(
+          plazasPartidosDB
+            .flatMap((plaza) => [
+              plaza.equipo_origen_id,
+              plaza.equipo_resuelto_id,
+            ])
+            .filter(
+              (id): id is string => typeof id === "string" && Boolean(id),
+            ),
+        ),
+      );
+
+      if (idsEquipos.length > 0) {
+        const { data: equiposData, error: errorEquipos } = await supabaseAdmin
+          .from("equipos")
+          .select("id,nombre")
+          .in("id", idsEquipos);
+
+        if (errorEquipos) {
+          throw errorEquipos;
+        }
+
+        equiposPartidosDB = (equiposData ?? []) as EquipoPartidoDB[];
+      }
+    }
   }
 } catch (error) {
   console.error("Error carregant el calendari públic:", error);
@@ -389,20 +455,14 @@ try {
 
 const torneos: TorneoCalendario[] = torneosDB.map((torneo) => ({
   id: torneo.id,
-
   nombre: torneo.nombre?.trim() || "Torneig",
-
   deporte: torneo.deporte?.trim() || "",
 }));
-
-// ============================================================
-// MAPA TORNEOS
-// ============================================================
 
 const torneosPorId = new Map(torneos.map((torneo) => [torneo.id, torneo]));
 
 // ============================================================
-// CONFIGURACIONES
+// MAPAS PARA EVITAR CONSULTAS POR PARTIDO
 // ============================================================
 
 const configuracionPorEdicion = new Map(
@@ -411,6 +471,47 @@ const configuracionPorEdicion = new Map(
     configuracion,
   ]),
 );
+
+const partidosPorEdicion = new Map<string, PartidoDB[]>();
+
+for (const partido of partidosDB) {
+  const lista = partidosPorEdicion.get(partido.edicion_id) ?? [];
+
+  lista.push(partido);
+
+  partidosPorEdicion.set(partido.edicion_id, lista);
+}
+
+const plazasPorPartido = new Map<string, PlazaPartidoDB[]>();
+
+for (const plaza of plazasPartidosDB) {
+  if (!plaza.partido_id) {
+    continue;
+  }
+
+  const lista = plazasPorPartido.get(plaza.partido_id) ?? [];
+
+  lista.push(plaza);
+
+  plazasPorPartido.set(plaza.partido_id, lista);
+}
+
+const equiposPorId = new Map(
+  equiposPartidosDB.map((equipo) => [
+    equipo.id,
+    equipo.nombre?.trim() || "Equip",
+  ]),
+);
+
+// Resultados confirmados, priorizando el más reciente.
+
+const resultadoPorPartido = new Map<string, ResultadoPartidoDB>();
+
+for (const resultado of resultadosPartidosDB) {
+  if (!resultadoPorPartido.has(resultado.partido_id)) {
+    resultadoPorPartido.set(resultado.partido_id, resultado);
+  }
+}
 
 // ============================================================
 // EVENTOS
@@ -437,52 +538,98 @@ for (const edicion of edicionesDB) {
 
   const sede = edicion.sede?.trim() || "";
 
-  const enlaceBase = `/tornejos/${encodeURIComponent(
-    torneo.id,
-  )}?edicionID=${encodeURIComponent(edicion.id)}`;
+  const enlaceBase =
+    `/tornejos/${encodeURIComponent(torneo.id)}` +
+    `?edicionID=${encodeURIComponent(edicion.id)}`;
 
   // ========================================================
-  // JORNADAS DE JUEGO
+  // PARTIDOS DE LA EDICIÓN
   // ========================================================
 
-  const fechaInicio = normalizarFecha(edicion.fecha_inicio);
+  const partidosEdicion = partidosPorEdicion.get(edicion.id) ?? [];
 
-  const fechaFinOriginal = normalizarFecha(edicion.fecha_fin);
+  for (const partido of partidosEdicion) {
+    if (!partido.fecha_hora) {
+      continue;
+    }
 
-  if (fechaInicio) {
-    const fechaFin =
-      fechaFinOriginal && fechaFinOriginal >= fechaInicio
-        ? fechaFinOriginal
-        : fechaInicio;
+    const fecha = normalizarFecha(partido.fecha_hora);
 
-    const tipo: TipoEventoCalendario = "jornada";
+    if (!fecha) {
+      continue;
+    }
+
+    const hora = normalizarHora(partido.fecha_hora);
+
+    const plazas = plazasPorPartido.get(partido.id) ?? [];
+
+    // ======================================================
+    // EQUIPO LOCAL / VISITANTE
+    // ======================================================
+
+    function obtenerNombreEquipo(lado: "LOCAL" | "VISITANTE"): string {
+      const plaza = plazas.find((item) => item.lado === lado);
+
+      const equipoID = plaza?.equipo_resuelto_id ?? plaza?.equipo_origen_id;
+
+      if (!equipoID) {
+        return "Per definir";
+      }
+
+      return equiposPorId.get(equipoID) ?? "Per definir";
+    }
+
+    const local = obtenerNombreEquipo("LOCAL");
+
+    const visitante = obtenerNombreEquipo("VISITANTE");
+
+    const resultado = resultadoPorPartido.get(partido.id);
+
+    const tipo: TipoEventoCalendario = "partido";
+
+    const seccion =
+      partido.fase_tipo === "ELIMINATORIA" ? "eliminatoria" : "competicio";
+
+    const nombrePartido = partido.nombre?.trim() || partido.codigo;
+
+    // ======================================================
+    // CREAR EVENTO DE PARTIDO
+    // ======================================================
 
     eventos.push({
-      id: `jornada-${edicion.id}`,
+      id: `partit-${partido.id}`,
 
       torneoId: torneo.id,
-
       torneo: torneo.nombre,
-
       deporte: torneo.deporte,
-
       edicion: nombreEdicion,
 
-      titulo: nombreCompleto,
+      titulo: `${hora} · ${local} – ${visitante}`,
 
       tipo,
 
-      fechaInicio,
+      fechaInicio: fecha,
+      fechaFin: fecha,
 
-      fechaFin,
-
-      estado: nombreEstado(edicion.estado),
+      estado: nombreEstadoPartido(partido.estado),
 
       sede,
 
-      enlace: enlaceBase,
+      enlace: `${enlaceBase}&seccio=${seccion}`,
 
       color: colorActividad(tipo),
+
+      hora,
+      local,
+      visitante,
+
+      jornada: partido.jornada,
+      pista: partido.pista?.trim() || "",
+
+      nombrePartido,
+
+      marcadorLocal: resultado?.marcador_local ?? null,
+      marcadorVisitante: resultado?.marcador_visitante ?? null,
     });
   }
 
@@ -509,11 +656,8 @@ for (const edicion of edicionesDB) {
       id: `inscripcion-equipos-${edicion.id}`,
 
       torneoId: torneo.id,
-
       torneo: torneo.nombre,
-
       deporte: torneo.deporte,
-
       edicion: nombreEdicion,
 
       titulo: `Inscripció d'equips · ${nombreCompleto}`,
@@ -521,7 +665,6 @@ for (const edicion of edicionesDB) {
       tipo,
 
       fechaInicio: inscripcionEquipos.apertura,
-
       fechaFin: inscripcionEquipos.cierre,
 
       estado: estadoInscripcion(
@@ -551,11 +694,8 @@ for (const edicion of edicionesDB) {
       id: `inscripcion-voluntariat-${edicion.id}`,
 
       torneoId: torneo.id,
-
       torneo: torneo.nombre,
-
       deporte: torneo.deporte,
-
       edicion: nombreEdicion,
 
       titulo: `Inscripció de voluntariat · ${nombreCompleto}`,
@@ -563,7 +703,6 @@ for (const edicion of edicionesDB) {
       tipo,
 
       fechaInicio: inscripcionVoluntariado.apertura,
-
       fechaFin: inscripcionVoluntariado.cierre,
 
       estado: estadoInscripcion(
@@ -592,25 +731,24 @@ eventos.sort((a, b) => {
     return fecha;
   }
 
-  /*
-   * Si empiezan el mismo día:
-   *
-   * 1. equipos
-   * 2. voluntariado
-   * 3. jornada
-   */
   const prioridad: Record<TipoEventoCalendario, number> = {
     inscripcion_equipos: 0,
-
     inscripcion_voluntarios: 1,
-
-    jornada: 2,
+    partido: 2,
   };
 
   const diferenciaTipo = prioridad[a.tipo] - prioridad[b.tipo];
 
   if (diferenciaTipo !== 0) {
     return diferenciaTipo;
+  }
+
+  if (a.tipo === "partido" && b.tipo === "partido") {
+    const hora = (a.hora ?? "").localeCompare(b.hora ?? "");
+
+    if (hora !== 0) {
+      return hora;
+    }
   }
 
   return a.titulo.localeCompare(b.titulo, "ca");
@@ -628,7 +766,7 @@ const torneoInicial =
 // ============================================================
 
 const descripcion =
-  "Consulta el calendari de competicions, inscripcions i activitats esportives d'Esports IES Calvià.";
+  "Consulta el calendari de partits, horaris, resultats i inscripcions de les competicions esportives d'Esports IES Calvià.";
 ---
 
 <Layout title="Calendari" description={descripcion}>

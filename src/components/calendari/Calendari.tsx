@@ -15,7 +15,7 @@ export type TorneoCalendario = {
 export type TipoEventoCalendario =
   | "inscripcion_equipos"
   | "inscripcion_voluntarios"
-  | "jornada";
+  | "partido";
 
 export type EventoCalendario = {
   id: string;
@@ -39,15 +39,27 @@ export type EventoCalendario = {
   enlace: string;
 
   color: number;
+
+  // Datos específicos de los partidos
+  hora?: string;
+
+  local?: string;
+  visitante?: string;
+
+  jornada?: number | null;
+  pista?: string;
+
+  nombrePartido?: string;
+
+  marcadorLocal?: number | null;
+  marcadorVisitante?: number | null;
 };
 
 type Props = {
   torneos: TorneoCalendario[];
-
   eventos: EventoCalendario[];
 
   hoy: string;
-
   mesInicial: string;
 
   torneoInicial?: string;
@@ -55,11 +67,8 @@ type Props = {
 
 type DiaCalendario = {
   fecha: string;
-
   numero: number;
-
   perteneceMes: boolean;
-
   esHoy: boolean;
 };
 
@@ -67,13 +76,10 @@ type SegmentoEvento = {
   evento: EventoCalendario;
 
   columnaInicio: number;
-
   columnas: number;
-
   carril: number;
 
   empiezaAqui: boolean;
-
   terminaAqui: boolean;
 };
 
@@ -81,7 +87,6 @@ type SemanaCalendario = {
   clave: string;
 
   dias: DiaCalendario[];
-
   segmentos: SegmentoEvento[];
 
   carriles: number;
@@ -109,16 +114,16 @@ const MESES = [
 const DIAS_SEMANA = ["Dl", "Dt", "Dc", "Dj", "Dv", "Ds", "Dg"];
 
 /*
- * Solo tres colores.
- *
- * 0 = equipos
- * 1 = voluntariado
- * 2 = jornada
+ * Colores de actividades:
+ * 0 = Inscripción de equipos
+ * 1 = Voluntariado
+ * 2 = Partidos
  */
+
 const COLORES_EVENTO = ["#2563eb", "#b7791f", "#0f766e"];
 
 // ============================================================
-// TIPO ACTIVIDAD
+// NOMBRES DE ACTIVIDAD
 // ============================================================
 
 function nombreTipoActividad(tipo: TipoEventoCalendario): string {
@@ -129,8 +134,8 @@ function nombreTipoActividad(tipo: TipoEventoCalendario): string {
     case "inscripcion_voluntarios":
       return "Voluntariat";
 
-    case "jornada":
-      return "Jornada de joc";
+    case "partido":
+      return "Partit";
   }
 }
 
@@ -142,13 +147,13 @@ function nombreTipoCompacto(tipo: TipoEventoCalendario): string {
     case "inscripcion_voluntarios":
       return "Voluntariat";
 
-    case "jornada":
-      return "Jornada";
+    case "partido":
+      return "Partit";
   }
 }
 
 // ============================================================
-// COLOR
+// COLORES
 // ============================================================
 
 function obtenerColor(indice: number): string {
@@ -191,20 +196,18 @@ function diferenciaDias(inicio: string, fin: string): number {
 
 function cambiarMes(mes: string, desplazamiento: number): string {
   const ano = Number(mes.slice(0, 4));
-
   const numeroMes = Number(mes.slice(5, 7));
 
   const fecha = new Date(Date.UTC(ano, numeroMes - 1 + desplazamiento, 1));
 
-  return `${fecha.getUTCFullYear()}-${String(fecha.getUTCMonth() + 1).padStart(
-    2,
-    "0",
-  )}`;
+  return (
+    `${fecha.getUTCFullYear()}-` +
+    String(fecha.getUTCMonth() + 1).padStart(2, "0")
+  );
 }
 
 function nombreMes(mes: string): string {
   const ano = Number(mes.slice(0, 4));
-
   const numeroMes = Number(mes.slice(5, 7));
 
   return `${MESES[numeroMes - 1]} ${ano}`;
@@ -212,12 +215,11 @@ function nombreMes(mes: string): string {
 
 function ultimoDiaMes(mes: string): string {
   const ano = Number(mes.slice(0, 4));
-
   const numeroMes = Number(mes.slice(5, 7));
 
   const fecha = new Date(Date.UTC(ano, numeroMes, 0));
 
-  return `${mes}-${String(fecha.getUTCDate()).padStart(2, "0")}`;
+  return `${mes}-` + String(fecha.getUTCDate()).padStart(2, "0");
 }
 
 function textoFecha(fecha: string): string {
@@ -225,13 +227,9 @@ function textoFecha(fecha: string): string {
 
   const texto = new Intl.DateTimeFormat("ca-ES", {
     weekday: "long",
-
     day: "numeric",
-
     month: "long",
-
     year: "numeric",
-
     timeZone: "UTC",
   }).format(date);
 
@@ -241,9 +239,7 @@ function textoFecha(fecha: string): string {
 function textoFechaCorta(fecha: string): string {
   return new Intl.DateTimeFormat("ca-ES", {
     day: "numeric",
-
     month: "short",
-
     timeZone: "UTC",
   }).format(crearFechaUTC(fecha));
 }
@@ -253,21 +249,43 @@ function textoRangoEvento(evento: EventoCalendario): string {
     return textoFechaCorta(evento.fechaInicio);
   }
 
-  return `${textoFechaCorta(evento.fechaInicio)} – ${textoFechaCorta(
-    evento.fechaFin,
-  )}`;
+  return (
+    `${textoFechaCorta(evento.fechaInicio)} – ` +
+    textoFechaCorta(evento.fechaFin)
+  );
 }
 
 // ============================================================
-// TEXTO EVENTO
+// TEXTO DEL EVENTO
 // ============================================================
 
 function tituloCompactoEvento(evento: EventoCalendario): string {
-  return `${nombreTipoCompacto(evento.tipo)} · ${evento.torneo}`;
+  if (evento.tipo === "partido") {
+    const hora = evento.hora ? `${evento.hora} · ` : "";
+
+    const local = evento.local || "Per definir";
+    const visitante = evento.visitante || "Per definir";
+
+    return `${hora}${local} – ${visitante}`;
+  }
+
+  return `${nombreTipoCompacto(evento.tipo)} · ` + evento.torneo;
 }
 
 // ============================================================
-// SEMANAS
+// MARCADOR
+// ============================================================
+
+function tieneMarcador(evento: EventoCalendario): boolean {
+  return (
+    evento.tipo === "partido" &&
+    typeof evento.marcadorLocal === "number" &&
+    typeof evento.marcadorVisitante === "number"
+  );
+}
+
+// ============================================================
+// GENERAR SEMANAS
 // ============================================================
 
 function generarSemanas(
@@ -276,7 +294,6 @@ function generarSemanas(
   hoy: string,
 ): SemanaCalendario[] {
   const ano = Number(mes.slice(0, 4));
-
   const numeroMes = Number(mes.slice(5, 7));
 
   const primerDiaMes = new Date(Date.UTC(ano, numeroMes - 1, 1));
@@ -300,9 +317,9 @@ function generarSemanas(
 
     const finSemanaISO = fechaISO(finSemana);
 
-    // ====================================================
-    // DÍAS
-    // ====================================================
+    // ======================================================
+    // DÍAS DE LA SEMANA
+    // ======================================================
 
     const dias: DiaCalendario[] = [];
 
@@ -313,7 +330,6 @@ function generarSemanas(
 
       dias.push({
         fecha: texto,
-
         numero: fecha.getUTCDate(),
 
         perteneceMes: fecha.getUTCMonth() === numeroMes - 1,
@@ -322,9 +338,9 @@ function generarSemanas(
       });
     }
 
-    // ====================================================
-    // EVENTOS
-    // ====================================================
+    // ======================================================
+    // EVENTOS QUE COINCIDEN CON LA SEMANA
+    // ======================================================
 
     const candidatos = eventos
       .filter(
@@ -350,7 +366,6 @@ function generarSemanas(
           evento,
 
           columnaInicio,
-
           columnaFin,
 
           columnas: columnaFin - columnaInicio + 1,
@@ -365,12 +380,20 @@ function generarSemanas(
           return a.columnaInicio - b.columnaInicio;
         }
 
-        return b.columnas - a.columnas;
+        if (a.columnas !== b.columnas) {
+          return b.columnas - a.columnas;
+        }
+
+        if (a.evento.tipo === "partido" && b.evento.tipo === "partido") {
+          return (a.evento.hora ?? "").localeCompare(b.evento.hora ?? "");
+        }
+
+        return a.evento.titulo.localeCompare(b.evento.titulo, "ca");
       });
 
-    // ====================================================
-    // CARRILES
-    // ====================================================
+    // ======================================================
+    // DISTRIBUCIÓN POR CARRILES
+    // ======================================================
 
     const finalCarriles: number[] = [];
 
@@ -408,7 +431,6 @@ function generarSemanas(
       clave: inicioSemanaISO,
 
       dias,
-
       segmentos,
 
       carriles: Math.max(1, finalCarriles.length),
@@ -421,7 +443,7 @@ function generarSemanas(
 }
 
 // ============================================================
-// COMPONENTE
+// COMPONENTE PRINCIPAL
 // ============================================================
 
 export default function Calendari({
@@ -473,7 +495,7 @@ export default function Calendari({
   );
 
   // ========================================================
-  // CANTIDAD MES
+  // CANTIDAD DE EVENTOS DEL MES
   // ========================================================
 
   const cantidadMes = useMemo(() => {
@@ -487,7 +509,7 @@ export default function Calendari({
   }, [eventosFiltrados, mesActual]);
 
   // ========================================================
-  // URL
+  // SINCRONIZAR URL
   // ========================================================
 
   useEffect(() => {
@@ -540,9 +562,9 @@ export default function Calendari({
 
   return (
     <main className="min-h-screen bg-background">
-      {/* ==================================================
+      {/* ================================================
           CABECERA
-      ================================================== */}
+      ================================================ */}
 
       <section className="border-b border-border bg-card/40">
         <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
@@ -555,20 +577,20 @@ export default function Calendari({
           </h1>
 
           <p className="mt-3 max-w-3xl text-base leading-7 text-neutral">
-            Consulta les dates de les competicions, inscripcions i activitats
-            d'Esports IES Calvià.
+            Consulta els partits, horaris i resultats de les competicions, així
+            com les inscripcions i altres activitats d'Esports IES Calvià.
           </p>
         </div>
       </section>
 
-      {/* ==================================================
+      {/* ================================================
           CONTENIDO
-      ================================================== */}
+      ================================================ */}
 
       <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        {/* ==============================================
+        {/* ============================================
             FILTROS
-        ============================================== */}
+        ============================================ */}
 
         <div className="mb-5 flex flex-col gap-4 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="w-full sm:max-w-sm">
@@ -612,9 +634,9 @@ export default function Calendari({
           </button>
         </div>
 
-        {/* ==============================================
+        {/* ============================================
             LEYENDA
-        ============================================== */}
+        ============================================ */}
 
         <div className="mb-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-neutral">
           <span className="inline-flex items-center gap-2">
@@ -644,18 +666,18 @@ export default function Calendari({
                 backgroundColor: COLORES_EVENTO[2],
               }}
             />
-            Jornada
+            Partits
           </span>
         </div>
 
-        {/* ==============================================
-            CALENDARIO
-        ============================================== */}
+        {/* ============================================
+            CALENDARIO MENSUAL
+        ============================================ */}
 
         <div className="overflow-hidden rounded-xl border border-border bg-background">
-          {/* ==========================================
+          {/* ========================================
               NAVEGACIÓN MES
-          ========================================== */}
+          ======================================== */}
 
           <div className="flex items-center justify-between border-b border-border bg-card px-3 py-3 sm:px-5">
             <button
@@ -701,9 +723,9 @@ export default function Calendari({
             </button>
           </div>
 
-          {/* ==========================================
+          {/* ========================================
               SCROLL HORIZONTAL MÓVIL
-          ========================================== */}
+          ======================================== */}
 
           <div className="scroll-personalizada overflow-x-auto">
             <div className="min-w-[760px]">
@@ -738,9 +760,9 @@ export default function Calendari({
                         minHeight: altura,
                       }}
                     >
-                      {/* ==================
-                              DÍAS
-                          ================== */}
+                      {/* ========================
+                          DÍAS
+                      ======================== */}
 
                       <div className="absolute inset-0 grid grid-cols-7">
                         {semana.dias.map((dia) => {
@@ -779,9 +801,9 @@ export default function Calendari({
                         })}
                       </div>
 
-                      {/* ==================
-                              EVENTOS
-                          ================== */}
+                      {/* ========================
+                          EVENTOS
+                      ======================== */}
 
                       <div className="pointer-events-none absolute inset-0">
                         {semana.segmentos.map((segmento) => {
@@ -843,11 +865,15 @@ export default function Calendari({
           </div>
         </div>
 
-        {/* ==============================================
+        {/* ============================================
             DETALLE DEL DÍA
-        ============================================== */}
+        ============================================ */}
 
         <section className="mt-6 rounded-xl border border-border bg-card">
+          {/* ========================================
+              CABECERA
+          ======================================== */}
+
           <div className="flex flex-col gap-1 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-secondary">
@@ -867,6 +893,10 @@ export default function Calendari({
             </span>
           </div>
 
+          {/* ========================================
+              LISTA DE EVENTOS
+          ======================================== */}
+
           <div className="p-4 sm:p-5">
             {eventosDia.length === 0 ? (
               <div className="rounded-lg border border-dashed border-border px-5 py-8 text-center">
@@ -883,12 +913,20 @@ export default function Calendari({
                 {eventosDia.map((evento) => {
                   const color = obtenerColor(evento.color);
 
+                  const esPartido = evento.tipo === "partido";
+
+                  const mostrarMarcador = tieneMarcador(evento);
+
                   return (
                     <a
                       key={evento.id}
                       href={evento.enlace}
                       className="group flex items-start gap-3 py-4 first:pt-0 last:pb-0"
                     >
+                      {/* =====================
+                          INDICADOR COLOR
+                      ===================== */}
+
                       <span
                         className="mt-1 h-9 w-1 shrink-0 rounded-full"
                         style={{
@@ -897,6 +935,10 @@ export default function Calendari({
                       />
 
                       <div className="min-w-0 flex-1">
+                        {/* =====================
+                            TIPO Y ESTADO
+                        ===================== */}
+
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                           <p className="font-semibold text-neutral-titulos transition group-hover:text-secondary">
                             {nombreTipoActividad(evento.tipo)}
@@ -914,14 +956,84 @@ export default function Calendari({
                           </span>
                         </div>
 
-                        <p className="mt-1 text-sm font-medium text-neutral-titulos">
-                          {evento.torneo}
+                        {/* =====================
+                            PARTIDO
+                        ===================== */}
 
-                          {evento.edicion && ` · ${evento.edicion}`}
-                        </p>
+                        {esPartido ? (
+                          <>
+                            <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                              <span className="font-semibold text-neutral-titulos">
+                                {evento.local || "Per definir"}
+                              </span>
 
-                        <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral">
-                          <span>{textoRangoEvento(evento)}</span>
+                              {mostrarMarcador ? (
+                                <span className="rounded-md bg-secondary/10 px-2 py-1 text-sm font-bold tabular-nums text-secondary">
+                                  {evento.marcadorLocal} –{" "}
+                                  {evento.marcadorVisitante}
+                                </span>
+                              ) : (
+                                <span className="text-sm font-semibold text-neutral">
+                                  vs
+                                </span>
+                              )}
+
+                              <span className="font-semibold text-neutral-titulos">
+                                {evento.visitante || "Per definir"}
+                              </span>
+                            </div>
+
+                            <p className="mt-1.5 text-sm font-medium text-neutral">
+                              {evento.torneo}
+
+                              {evento.edicion && ` · ${evento.edicion}`}
+                            </p>
+
+                            {evento.nombrePartido && (
+                              <p className="mt-1 text-xs text-neutral">
+                                {evento.nombrePartido}
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          <p className="mt-1 text-sm font-medium text-neutral-titulos">
+                            {evento.torneo}
+
+                            {evento.edicion && ` · ${evento.edicion}`}
+                          </p>
+                        )}
+
+                        {/* =====================
+                            FECHA, HORA, PISTA
+                        ===================== */}
+
+                        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral">
+                          {esPartido ? (
+                            <>
+                              {evento.hora && (
+                                <span className="inline-flex items-center gap-1 font-semibold text-neutral-titulos">
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 -960 960 960"
+                                    className="h-4 w-4 fill-current"
+                                    aria-hidden="true"
+                                  >
+                                    <path d="M480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80zm0-80q133 0 226.5-93.5T800-480q0-133-93.5-226.5T480-800q-133 0-226.5 93.5T160-480q0 133 93.5 226.5T480-160zm40-320v-200h-80v240l160 96 40-66-120-70z" />
+                                  </svg>
+                                  {evento.hora} h
+                                </span>
+                              )}
+
+                              {evento.jornada !== null &&
+                                evento.jornada !== undefined && (
+                                  <span>Jornada {evento.jornada}</span>
+                                )}
+
+                              {evento.pista && <span>{evento.pista}</span>}
+                            </>
+                          ) : (
+                            <span>{textoRangoEvento(evento)}</span>
+                          )}
 
                           {evento.sede && <span>{evento.sede}</span>}
 
@@ -937,6 +1049,10 @@ export default function Calendari({
                           )}
                         </div>
                       </div>
+
+                      {/* =====================
+                          FLECHA ENLACE
+                      ===================== */}
 
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
