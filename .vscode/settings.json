@@ -1,13 +1,17 @@
 {
-    "css.lint.unknownAtRules": "ignore",
-    "editor.defaultColorDecorators": "always",
-    "editor.colorDecorators": true,
-    "editor.quickSuggestions": {
-        "strings": "on"
-    },
+  "css.lint.unknownAtRules": "ignore",
+  "editor.defaultColorDecorators": "always",
+  "editor.colorDecorators": true,
+  "editor.quickSuggestions": {
+    "strings": "on"
+  },
   "editor.codeActionsOnSave": {
     "source.fixAll.prettier": "explicit",
-    "source.fixAll.eslint": "explicit",
+    "source.fixAll.eslint": "explicit"
   },
 
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  }
 }

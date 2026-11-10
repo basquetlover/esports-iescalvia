@@ -5,6 +5,7 @@ import PartitDetallClient from "@components/tornejos/partits/PartitDetallClient"
 import ClassificacioPartitClient from "@components/tornejos/partits/ClassificacioPartitClient";
 
 import { supabaseAdmin } from "@utils/supabase";
+import InformesPublicosPartido from "@components/tornejos/partits/InformesPublicosPartido";
 
 export const prerender = false;
 
@@ -575,6 +576,13 @@ const descripcion =
     ================================================== -->
 
     <PartitDetallClient
+      client:load
+      torneoID={torneoID}
+      edicionID={edicionID}
+      partidoID={partidoID}
+    />
+
+    <InformesPublicosPartido
       client:load
       torneoID={torneoID}
       edicionID={edicionID}

@@ -12,7 +12,7 @@ import {
   type ConfirmacionFinalizacionActa,
   type EventoLocalActa,
 } from "@utils/acta/localStorage";
-
+import Informes from "../Informes";
 // ============================================================
 // ICONOS DE EVENTOS
 // ============================================================
@@ -1987,29 +1987,45 @@ export default function ActaFutbol({
                             lg:justify-between
                         "
           >
-            <div>
-              <p
-                className="
+            <div className="flex items-center gap-4 w-max h-auto">
+              <div>
+                <p
+                  className="
                                     text-xs
                                     font-bold
                                     uppercase
                                     tracking-[0.14em]
                                     text-primary
                                 "
-              >
-                Futbol · {nombreEstructura(estructura)}
-              </p>
+                >
+                  Futbol · {nombreEstructura(estructura)}
+                </p>
 
-              <h2
-                className="
+                <h2
+                  className="
                                     mt-2
                                     text-2xl
                                     font-bold
                                     text-neutral-titulos
                                 "
-              >
-                {partido.nombre || partido.codigo}
-              </h2>
+                >
+                  {partido.nombre || partido.codigo}
+                </h2>
+              </div>
+              <div className="flex justify-end">
+                <Informes
+                  partidoID={partido.id}
+                  controlToken={controlToken}
+                  editable={puedeRegistrar && Boolean(controlToken)}
+                  tema="claro"
+                  equipos={[equipos.local.equipo, equipos.visitante.equipo]
+                    .filter((equipo): equipo is Equipo => equipo !== null)
+                    .map((equipo) => ({
+                      id: equipo.id,
+                      nombre: equipo.nombre,
+                    }))}
+                />
+              </div>
             </div>
 
             <div

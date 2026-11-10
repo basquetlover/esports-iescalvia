@@ -24,7 +24,7 @@ import {
   type ModoCierreVoleibol,
   type TipoPuntoVoleibol,
 } from "@utils/acta/voleibol";
-
+import Informes from "../Informes";
 type Jugador = {
   id: string;
   equipo_id: string;
@@ -1664,13 +1664,18 @@ export default function ActaVoleibol({
                     >
                       <Icono tipo="config" /> Configuració
                     </button>
-                    <button
-                      type="button"
-                      className="flex min-h-[77px] min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-[#5b869d] bg-[linear-gradient(#183b4c,#092332)] text-xs font-extrabold text-[#f2f8fb] hover:enabled:border-[#16d6c1] hover:enabled:bg-[#154457] [&_svg]:h-[25px] [&_svg]:w-[25px] max-[560px]:p-1 max-[560px]:text-[10px] [@media(max-height:750px)_and_(min-width:901px)]:min-h-[58px]"
-                      onClick={() => setDialogo("INFORMES")}
-                    >
-                      <Icono tipo="informes" /> Informes
-                    </button>
+                    <Informes
+                      partidoID={partido.id}
+                      controlToken={controlToken}
+                      editable={puedeEscribir}
+                      tema="oscuro"
+                      equipos={[local, visitante]
+                        .filter((equipo): equipo is Equipo => equipo !== null)
+                        .map((equipo) => ({
+                          id: equipo.id,
+                          nombre: equipo.nombre,
+                        }))}
+                    />
                     <button
                       type="button"
                       className="flex min-h-[77px] min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-[#5b869d] bg-[linear-gradient(#183b4c,#092332)] text-xs font-extrabold text-[#f2f8fb] hover:enabled:border-[#16d6c1] hover:enabled:bg-[#154457] [&_svg]:h-[25px] [&_svg]:w-[25px] max-[560px]:p-1 max-[560px]:text-[10px] [@media(max-height:750px)_and_(min-width:901px)]:min-h-[58px] border-[#ff6269] bg-[linear-gradient(#a33740,#651722)]"
@@ -2167,106 +2172,7 @@ export default function ActaVoleibol({
                       </button>
                     </>
                   )}
-                  {dialogo === "INFORMES" && (
-                    <>
-                      <h2>Informes del partit</h2>
-                      <p>
-                        Els informes es conserven en aquest dispositiu i es
-                        poden exportar. La sincronització amb el servidor encara
-                        no està implementada.
-                      </p>
-                      <div className="max-h-[130px] overflow-y-auto">
-                        {informes.map((informe) => (
-                          <div
-                            className="my-[7px] rounded-[9px] border border-[#2e5365] bg-[#0b293b] p-[9px] text-white [&_p]:whitespace-pre-wrap"
-                            key={informe.id}
-                          >
-                            <strong>
-                              {informe.tipo === "GENERIC"
-                                ? "Informe general"
-                                : "Suspensió"}{" "}
-                              · Pendent
-                            </strong>
-                            <p>{informe.contenido}</p>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="mt-[18px] flex flex-wrap gap-[10px]">
-                        <button
-                          type="button"
-                          className={
-                            tipoInforme === "GENERIC"
-                              ? "rounded-[10px] border border-[#20cdc0] bg-[#009d95] px-4 py-[11px] font-extrabold text-white"
-                              : "rounded-[10px] border border-[#517d8d] bg-[#183a4d] px-4 py-[11px] font-extrabold text-white"
-                          }
-                          onClick={() => setTipoInforme("GENERIC")}
-                        >
-                          Informe general
-                        </button>
-                        <button
-                          type="button"
-                          className={
-                            tipoInforme === "SUSPENSION"
-                              ? "rounded-[10px] border border-[#20cdc0] bg-[#009d95] px-4 py-[11px] font-extrabold text-white"
-                              : "rounded-[10px] border border-[#517d8d] bg-[#183a4d] px-4 py-[11px] font-extrabold text-white"
-                          }
-                          onClick={() => setTipoInforme("SUSPENSION")}
-                        >
-                          Suspendre partit
-                        </button>
-                      </div>
-                      {tipoInforme === "SUSPENSION" && (
-                        <label>
-                          Equip responsable
-                          <select
-                            value={equipoInforme}
-                            onChange={(e) => setEquipoInforme(e.target.value)}
-                          >
-                            <option value="">Selecciona equip</option>
-                            {[local, visitante]
-                              .filter((e): e is Equipo => e !== null)
-                              .map((e) => (
-                                <option key={e.id} value={e.id}>
-                                  {e.nombre}
-                                </option>
-                              ))}
-                          </select>
-                        </label>
-                      )}
-                      <label>
-                        Descripció
-                        <textarea
-                          maxLength={3000}
-                          value={textoInforme}
-                          rows={4}
-                          onChange={(e) => setTextoInforme(e.target.value)}
-                          placeholder="Descriu els fets..."
-                        />
-                      </label>
-                      <div className="mt-[18px] flex flex-wrap gap-[10px]">
-                        <button
-                          type="button"
-                          className="rounded-[10px] border border-[#20cdc0] bg-[#009d95] px-4 py-[11px] font-extrabold text-white"
-                          disabled={
-                            !puedeEscribir ||
-                            !textoInforme.trim() ||
-                            (tipoInforme === "SUSPENSION" && !equipoInforme)
-                          }
-                          onClick={guardarInforme}
-                        >
-                          Desar informe local
-                        </button>
-                        <button
-                          type="button"
-                          className="rounded-[10px] border border-[#517d8d] bg-[#183a4d] px-4 py-[11px] font-extrabold text-white"
-                          disabled={!informes.length}
-                          onClick={exportarInformes}
-                        >
-                          Exportar informes
-                        </button>
-                      </div>
-                    </>
-                  )}
+
                   <div className="mt-[18px] flex flex-wrap gap-[10px] justify-end border-t border-[#426779] pt-[13px]">
                     <button
                       type="button"
