@@ -419,7 +419,10 @@ export default function Resultats({ torneoID, edicionID }: Props) {
   // DEPORTE
   // ========================================================
 
-  if (normalizarDeporte(datos.torneo.deporte) !== "FUTBOL") {
+  if (
+    normalizarDeporte(datos.torneo.deporte) !== "FUTBOL" &&
+    normalizarDeporte(datos.torneo.deporte) !== "VOLEIBOL"
+  ) {
     return (
       <section className="rounded-2xl border border-border/50 bg-card p-8 text-center">
         <IconoConstruccion className="mx-auto h-12 w-12 text-neutral" />
