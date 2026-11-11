@@ -206,6 +206,20 @@ export const MENU_PANEL_TORNEO: GrupoMenuPanel[] = [
         contexto: "edicion",
       },
 
+      {
+        id: "designacions",
+
+        nombre: "Designacions",
+
+        enlace: "/panell/designacions",
+
+        seccion: "designacions",
+
+        estado: "Activa",
+
+        contexto: "edicion",
+      },
+
       // ============================================
       // CLASIFICACIONES
       // ============================================

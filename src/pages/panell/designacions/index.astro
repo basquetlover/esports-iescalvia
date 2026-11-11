@@ -1,0 +1,79 @@
+
+---
+import Gestor from "@components/panel/designacions/Gestor";
+import LayoutPanel from "@layouts/LayoutPanel.astro";
+
+export const prerender = false;
+
+// ============================================================
+// SEGURIDAD Y CACHÉ
+// ============================================================
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "private, no-store, no-cache, must-revalidate",
+);
+
+// ============================================================
+// CONTEXTO DEL TORNEO Y EDICIÓN
+// ============================================================
+
+const torneoID =
+  Astro.url.searchParams
+    .get("torneoID")
+    ?.trim()
+    .toLowerCase() ?? "";
+
+const edicionID =
+  Astro.url.searchParams
+    .get("edicionID")
+    ?.trim()
+    .toLowerCase() ?? "";
+
+// Sin edición seleccionada, regresar al panel.
+if (!torneoID || !edicionID) {
+  return Astro.redirect("/panell", 303);
+}
+
+// ============================================================
+// CONFIGURACIÓN PÚBLICA DE REALTIME
+// ============================================================
+
+/**
+ * Astro obtiene la configuración en el servidor.
+ *
+ * React solamente recibe URL y clave pública.
+ * Nunca se envían SUPABASE_SERVICE_ROLE_KEY,
+ * SUPABASE_DB_URL ni otras credenciales privadas.
+ *
+ * La funcionalidad de designaciones seguirá
+ * disponible sin Realtime: el gestor permite
+ * actualizar los datos manualmente.
+ */
+
+const supabaseUrl = String(
+  import.meta.env.PUBLIC_SUPABASE_URL ??
+  import.meta.env.SUPABASE_URL ??
+  "",
+).trim();
+
+const supabaseAnonKey = String(
+  import.meta.env.PUBLIC_SUPABASE_ANON_KEY ??
+  import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+  "",
+).trim();
+---
+
+<LayoutPanel
+  title="Designacions"
+  seccion="designacions"
+  accion="ver"
+>
+  <Gestor
+    torneoID={torneoID}
+    edicionID={edicionID}
+    supabaseUrl={supabaseUrl}
+    supabaseAnonKey={supabaseAnonKey}
+    client:load
+  />
+</LayoutPanel>
