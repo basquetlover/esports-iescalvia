@@ -1,28 +1,25 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+
 import { createClient } from "@supabase/supabase-js";
 
+import PorPartidos from "./PorPartidos";
+import PorPersonas from "./PorPersonas";
+
 // ============================================================
-// TIPOS
+// TIPOS COMPARTIDOS
 // ============================================================
 
-type Funcion = "ARBITRE" | "OFICIAL_TAULA";
-type TipoPersona = "TODOS" | "VOLUNTARI" | "ADMINISTRADOR";
-type OrdenPartidos = "competicion" | "fecha" | "pista";
+export type Funcion = "ARBITRE" | "OFICIAL_TAULA";
 
-type Props = {
-  torneoID: string;
-  edicionID: string;
-  supabaseUrl?: string;
-  supabaseAnonKey?: string;
-};
+export type Modo = "partits" | "persones";
 
-type Persona = {
+export type OrdenPartidos = "competicion" | "fecha" | "pista";
+
+export type FiltroDesignados = "TODOS" | "DESIGNADOS" | "PENDIENTES";
+
+export type TipoPersona = "TODOS" | "VOLUNTARI" | "ADMINISTRADOR";
+
+export type Persona = {
   id: string;
   nombre: string | null;
   apellido1: string | null;
@@ -31,7 +28,7 @@ type Persona = {
   tipoAcceso?: "VOLUNTARI" | "ADMINISTRADOR";
 };
 
-type Designacion = {
+export type Designacion = {
   id: string;
   partido_id: string;
   usuario_id: string;
@@ -41,14 +38,15 @@ type Designacion = {
   usuario: Persona | null;
 };
 
-type Ronda = {
+export type Ronda = {
   id: string;
+  fase_id?: string;
   nombre: string;
-  tipo: string;
+  tipo?: string;
   orden: number;
 };
 
-type Fase = {
+export type Fase = {
   id: string;
   nombre: string;
   tipo: string;
@@ -56,236 +54,153 @@ type Fase = {
   rondas: Ronda[];
 };
 
-type Partido = {
+export type Partido = {
   id: string;
   codigo: string;
   nombre: string | null;
   fecha_hora: string | null;
   pista: string | null;
   estado: string;
+  orden?: number;
+
   fase: Fase | null;
-  ronda: {
-    id: string;
-    nombre: string;
-  } | null;
+  ronda: Ronda | null;
+
   grupo: {
     id: string;
     nombre: string;
+    orden?: number;
   } | null;
+
   designaciones: Designacion[];
+
   totales: {
     arbitres: number;
     oficialsTaula: number;
   };
 };
 
-type Permisos = {
+export type Permisos = {
   ver: boolean;
   asignar: boolean;
   revocar: boolean;
   revocacionDisponible: boolean;
 };
 
-type Listado = {
+export type Filtros = {
+  buscarPartido: string;
+  faseID: string;
+  rondaID: string;
+  estado: string;
+  orden: OrdenPartidos;
+  designados: FiltroDesignados;
+  buscarPersona: string;
+  tipoPersona: TipoPersona;
+};
+
+// ============================================================
+// CONTRATO COMPARTIDO CON LAS DOS VISTAS
+// ============================================================
+
+export type PropsVista = {
+  partidos: Partido[];
+  personas: Persona[];
+  fases: Fase[];
+  rondas: Ronda[];
+
+  permisos: Permisos;
+  filtros: Filtros;
+
+  seleccionadoPartidoID: string;
+  seleccionadoPersonaID: string;
+
+  designacionesSeleccionadas: Designacion[];
+
+  detalleCargando: boolean;
+  guardando: boolean;
+  cargandoPersonas: boolean;
+  errorDetalle: string;
+
+  historial: boolean;
+
+  onHistorial: (valor: boolean) => void;
+
+  onSeleccionarPartido: (id: string) => void;
+  onSeleccionarPersona: (id: string) => void;
+
+  onFiltro: <K extends keyof Filtros>(campo: K, valor: Filtros[K]) => void;
+
+  onLimpiarFiltros: () => void;
+
+  onAlternar: (partidoID: string, personaID: string, funcion: Funcion) => void;
+
+  onRevocar: (designacion: Designacion) => void;
+
+  estaAsignado: (
+    partidoID: string,
+    personaID: string,
+    funcion: Funcion,
+  ) => boolean;
+};
+
+// ============================================================
+// PROPIEDADES DEL GESTOR
+// ============================================================
+
+type Props = {
+  torneoID: string;
+  edicionID: string;
+  supabaseUrl?: string;
+  supabaseAnonKey?: string;
+};
+
+type RespuestaLista = {
   success: true;
   partidos: Partido[];
   fases: Fase[];
-  pagina: number;
   total: number;
   totalPaginas: number;
   permisos: Permisos;
 };
 
-type Detalle = {
-  success: true;
-  partidoID: string;
-  designaciones: Designacion[];
-  permisos: Permisos;
-};
-
-type Candidatos = {
+type RespuestaPersonas = {
   success: true;
   candidatos: Persona[];
-  total: number;
 };
 
-type Asignacion = {
+type RespuestaDetalle = {
+  success: true;
+  designaciones: Designacion[];
+};
+
+type RespuestaAccion = {
   success: true;
   mensaje: string;
-  reutilizada: boolean;
 };
 
-type IconoTipo =
-  | "buscar"
-  | "filtro"
-  | "actualizar"
-  | "usuarios"
-  | "usuario"
-  | "calendario"
-  | "reloj"
-  | "pista"
-  | "trofeo"
-  | "check"
-  | "mas"
-  | "chevron"
-  | "cerrar";
+type PeticionRevocacion = {
+  designacion: Designacion;
+  partidoID: string;
+};
 
 // ============================================================
 // ESTILOS
 // ============================================================
 
-const ESTILOS = {
-  tarjeta:
-    "min-w-0 overflow-hidden rounded-2xl border border-border bg-card shadow-sm",
+const CAMPO =
+  "w-full min-w-0 rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-neutral-titulos outline-none focus:border-primary focus:ring-2 focus:ring-primary/15";
 
-  tarjetaInterior: "rounded-xl border border-border bg-background",
-
-  campo:
-    "w-full min-w-0 rounded-xl border border-border bg-background px-3.5 py-3 text-sm text-neutral-titulos outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-50",
-
-  etiqueta: "mb-1.5 block text-xs font-semibold text-neutral",
-
-  boton:
-    "inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-semibold text-neutral-titulos transition hover:bg-background disabled:cursor-not-allowed disabled:opacity-50",
-
-  primario:
-    "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50",
-
-  seccion: "text-sm font-bold text-neutral-titulos",
-} as const;
-
-// ============================================================
-// ICONOS
-// ============================================================
-
-function Icono({
-  tipo,
-  className = "h-5 w-5",
-}: {
-  tipo: IconoTipo;
-  className?: string;
-}) {
-  const formas: Record<IconoTipo, ReactNode> = {
-    buscar: (
-      <>
-        <circle cx="11" cy="11" r="7" />
-        <path d="m16 16 4 4" />
-      </>
-    ),
-
-    filtro: (
-      <>
-        <path d="M4 7h16" />
-        <path d="M7 12h10" />
-        <path d="M10 17h4" />
-      </>
-    ),
-
-    actualizar: (
-      <>
-        <path d="M20 7v5h-5" />
-        <path d="M4 17v-5h5" />
-        <path d="M5.5 9a7 7 0 0 1 12-2L20 12" />
-        <path d="M18.5 15a7 7 0 0 1-12 2L4 12" />
-      </>
-    ),
-
-    usuarios: (
-      <>
-        <circle cx="9" cy="8" r="3" />
-        <path d="M3 20v-2a6 6 0 0 1 12 0v2" />
-        <path d="M17 5a3 3 0 0 1 0 6" />
-        <path d="M18 14a5 5 0 0 1 3 5v1" />
-      </>
-    ),
-
-    usuario: (
-      <>
-        <circle cx="12" cy="8" r="4" />
-        <path d="M4 21v-2a8 8 0 0 1 16 0v2" />
-      </>
-    ),
-
-    calendario: (
-      <>
-        <rect x="3" y="5" width="18" height="16" rx="2" />
-        <path d="M7 3v4M17 3v4M3 10h18" />
-      </>
-    ),
-
-    reloj: (
-      <>
-        <circle cx="12" cy="12" r="9" />
-        <path d="M12 7v5l3 2" />
-      </>
-    ),
-
-    pista: (
-      <>
-        <rect x="3" y="4" width="18" height="16" rx="2" />
-        <path d="M12 4v16" />
-        <circle cx="12" cy="12" r="3" />
-      </>
-    ),
-
-    trofeo: (
-      <>
-        <path d="M7 4h10v7a5 5 0 0 1-10 0V4Z" />
-        <path d="M7 6H4v3a4 4 0 0 0 4 4" />
-        <path d="M17 6h3v3a4 4 0 0 1-4 4" />
-        <path d="M12 16v4M8 20h8" />
-      </>
-    ),
-
-    check: <path d="m5 12 4 4L19 6" />,
-
-    mas: (
-      <>
-        <path d="M12 5v14" />
-        <path d="M5 12h14" />
-      </>
-    ),
-
-    chevron: <path d="m9 5 7 7-7 7" />,
-
-    cerrar: (
-      <>
-        <path d="M5 5 19 19" />
-        <path d="M19 5 5 19" />
-      </>
-    ),
-  };
-
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      {formas[tipo]}
-    </svg>
-  );
-}
+const BOTON =
+  "inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-semibold text-neutral-titulos transition hover:bg-background disabled:cursor-not-allowed disabled:opacity-50";
 
 // ============================================================
 // UTILIDADES
 // ============================================================
 
-function normalizar(valor: string): string {
-  return valor
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-}
-
-function nombrePersona(persona: Persona | null | undefined): string {
-  if (!persona) return "Usuari no disponible";
+export function nombrePersona(persona: Persona | null | undefined): string {
+  if (!persona) {
+    return "Usuari no disponible";
+  }
 
   return (
     [persona.nombre, persona.apellido1, persona.apellido2]
@@ -295,23 +210,14 @@ function nombrePersona(persona: Persona | null | undefined): string {
   );
 }
 
-function iniciales(persona: Persona | null | undefined): string {
-  if (!persona) return "?";
-
-  const partes = [persona.nombre, persona.apellido1].filter(
-    Boolean,
-  ) as string[];
-
-  return (
-    partes
-      .map((parte) => parte.charAt(0).toUpperCase())
-      .join("")
-      .slice(0, 2) || "?"
-  );
+export function formatoPartido(partido: Partido): string {
+  return partido.nombre?.trim() || `Partit ${partido.codigo}`;
 }
 
-function fecha(valor: string | null): string {
-  if (!valor) return "Data pendent";
+export function formatearFecha(valor: string | null): string {
+  if (!valor) {
+    return "Data pendent";
+  }
 
   const fecha = new Date(valor);
 
@@ -325,34 +231,12 @@ function fecha(valor: string | null): string {
   }).format(fecha);
 }
 
-function nombreEstado(valor: string): string {
-  const estados: Record<string, string> = {
-    BORRADOR: "Esborrany",
-    PROGRAMADO: "Programat",
-    EN_CURSO: "En curs",
-    FINALIZADO: "Finalitzat",
-    SUSPENDIDO: "Suspès",
-    CANCELADO: "Cancel·lat",
-  };
-
-  return estados[valor] ?? valor;
-}
-
-function estiloEstado(valor: string): string {
-  switch (valor) {
-    case "EN_CURSO":
-      return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
-
-    case "FINALIZADO":
-      return "bg-blue-500/10 text-blue-700 dark:text-blue-300";
-
-    case "SUSPENDIDO":
-    case "CANCELADO":
-      return "bg-red-500/10 text-red-700 dark:text-red-300";
-
-    default:
-      return "bg-background text-neutral";
-  }
+function normalizar(valor: string): string {
+  return valor
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 }
 
 function mensajeError(error: unknown): string {
@@ -364,168 +248,33 @@ function mensajeError(error: unknown): string {
 async function leerRespuesta<T>(respuesta: Response): Promise<T> {
   const contenido: unknown = await respuesta.json().catch(() => null);
 
-  if (
-    contenido === null ||
-    typeof contenido !== "object" ||
-    Array.isArray(contenido)
-  ) {
-    throw new Error("La resposta del servidor no és vàlida.");
+  if (!contenido || typeof contenido !== "object" || Array.isArray(contenido)) {
+    throw new Error("El servidor no ha retornat una resposta vàlida.");
   }
 
-  const datos = contenido as Record<string, unknown>;
+  const registro = contenido as Record<string, unknown>;
 
-  if (!respuesta.ok || datos.success !== true) {
+  if (!respuesta.ok || registro.success !== true) {
     throw new Error(
-      typeof datos.mensaje === "string"
-        ? datos.mensaje
-        : "No s'ha pogut completar l'operació.",
+      typeof registro.mensaje === "string"
+        ? registro.mensaje
+        : `No s'ha pogut completar l'operació (${respuesta.status}).`,
     );
   }
 
   return contenido as T;
 }
 
-// ============================================================
-// COMPONENTES REUTILIZABLES
-// ============================================================
-
-function Avatar({
-  persona,
-  size = "normal",
-}: {
-  persona: Persona | null | undefined;
-  size?: "normal" | "small";
-}) {
-  return (
-    <div
-      className={`flex shrink-0 items-center justify-center rounded-xl bg-primary/10 font-bold text-primary ${
-        size === "small" ? "h-9 w-9 text-xs" : "h-11 w-11 text-sm"
-      }`}
-    >
-      {iniciales(persona)}
-    </div>
-  );
-}
-
-function BadgeEstado({ estado }: { estado: string }) {
-  return (
-    <span
-      className={`inline-flex rounded-lg px-2.5 py-1 text-[11px] font-semibold ${estiloEstado(estado)}`}
-    >
-      {nombreEstado(estado)}
-    </span>
-  );
-}
-
-function Aviso({
-  texto,
-  tipo = "error",
-}: {
-  texto: string;
-  tipo?: "error" | "exito";
-}) {
-  return (
-    <div
-      role={tipo === "error" ? "alert" : "status"}
-      className={`rounded-xl border p-3.5 text-sm ${
-        tipo === "error"
-          ? "border-red-300/40 bg-red-500/5 text-red-700 dark:text-red-300"
-          : "border-emerald-300/40 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300"
-      }`}
-    >
-      {texto}
-    </div>
-  );
-}
-
-function Estadistica({
-  titulo,
-  valor,
-  icono,
-}: {
-  titulo: string;
-  valor: number;
-  icono: IconoTipo;
-}) {
-  return (
-    <div className={`${ESTILOS.tarjeta} flex items-center gap-3 p-4`}>
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-        <Icono tipo={icono} className="h-5 w-5" />
-      </div>
-
-      <div className="min-w-0">
-        <p className="text-2xl font-bold tabular-nums text-neutral-titulos">
-          {valor}
-        </p>
-
-        <p className="text-xs text-neutral">{titulo}</p>
-      </div>
-    </div>
-  );
-}
-
-function GrupoDesignaciones({
-  titulo,
-  funcion,
-  designaciones,
-}: {
-  titulo: string;
-  funcion: Funcion;
-  designaciones: Designacion[];
-}) {
-  const registros = designaciones.filter(
-    (designacion) =>
-      designacion.funcion === funcion && !designacion.revocada_at,
-  );
-
-  return (
-    <div className={`${ESTILOS.tarjetaInterior} p-4`}>
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <h3 className={ESTILOS.seccion}>{titulo}</h3>
-
-        <span className="rounded-lg bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
-          {registros.length}
-        </span>
-      </div>
-
-      {registros.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-5 text-center">
-          <Icono tipo="usuario" className="mx-auto h-6 w-6 text-neutral" />
-
-          <p className="mt-2 text-xs text-neutral">Cap persona designada</p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {registros.map((designacion) => (
-            <div
-              key={designacion.id}
-              className="flex min-w-0 items-center gap-3 rounded-xl border border-border bg-card p-2.5"
-            >
-              <Avatar persona={designacion.usuario} size="small" />
-
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-neutral-titulos">
-                  {nombrePersona(designacion.usuario)}
-                </p>
-
-                {designacion.usuario?.email && (
-                  <p className="truncate text-xs text-neutral">
-                    {designacion.usuario.email}
-                  </p>
-                )}
-              </div>
-
-              <Icono
-                tipo="check"
-                className="h-4 w-4 shrink-0 text-emerald-600"
-              />
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+const FILTROS_INICIALES: Filtros = {
+  buscarPartido: "",
+  faseID: "",
+  rondaID: "",
+  estado: "",
+  orden: "competicion",
+  designados: "TODOS",
+  buscarPersona: "",
+  tipoPersona: "TODOS",
+};
 
 // ============================================================
 // GESTOR PRINCIPAL
@@ -538,85 +287,80 @@ export default function Gestor({
   supabaseAnonKey = "",
 }: Props) {
   // ==========================================================
-  // ESTADO DE PARTIDOS
+  // ESTADO GENERAL
   // ==========================================================
+
+  const [modo, setModo] = useState<Modo>("partits");
+
+  const [filtros, setFiltros] = useState<Filtros>(FILTROS_INICIALES);
 
   const [partidos, setPartidos] = useState<Partido[]>([]);
+
   const [fases, setFases] = useState<Fase[]>([]);
-  const [permisos, setPermisos] = useState<Permisos | null>(null);
 
-  const [seleccionadoID, setSeleccionadoID] = useState<string | null>(null);
+  const [personas, setPersonas] = useState<Persona[]>([]);
 
-  const [cargandoPartidos, setCargandoPartidos] = useState(true);
+  const [permisos, setPermisos] = useState<Permisos>({
+    ver: false,
+    asignar: false,
+    revocar: false,
+    revocacionDisponible: false,
+  });
 
-  const [errorPartidos, setErrorPartidos] = useState<string | null>(null);
+  const [seleccionadoPartidoID, setSeleccionadoPartidoID] = useState("");
 
-  const [pagina, setPagina] = useState(1);
-  const [total, setTotal] = useState(0);
-  const [totalPaginas, setTotalPaginas] = useState(1);
-
-  const [busquedaPartidos, setBusquedaPartidos] = useState("");
-
-  const [busquedaAplicada, setBusquedaAplicada] = useState("");
-
-  const [faseID, setFaseID] = useState("");
-  const [rondaID, setRondaID] = useState("");
-  const [estado, setEstado] = useState("");
-  const [orden, setOrden] = useState<OrdenPartidos>("competicion");
+  const [seleccionadoPersonaID, setSeleccionadoPersonaID] = useState("");
 
   // ==========================================================
-  // ESTADO DE DESIGNACIONES
+  // DETALLE DE DESIGNACIONES
   // ==========================================================
 
   const [detalle, setDetalle] = useState<Designacion[]>([]);
 
-  const [detallePartidoID, setDetallePartidoID] = useState<string | null>(null);
-
-  const [cargandoDetalle, setCargandoDetalle] = useState(false);
-
-  const [errorDetalle, setErrorDetalle] = useState<string | null>(null);
+  const [detalleID, setDetalleID] = useState("");
 
   const [historial, setHistorial] = useState(false);
 
   // ==========================================================
-  // ESTADO DE PERSONAS
+  // CARGA Y ERRORES
   // ==========================================================
 
-  const [candidatos, setCandidatos] = useState<Persona[]>([]);
+  const [cargandoPartidos, setCargandoPartidos] = useState(true);
 
   const [cargandoPersonas, setCargandoPersonas] = useState(false);
 
-  const [errorPersonas, setErrorPersonas] = useState<string | null>(null);
+  const [cargandoDetalle, setCargandoDetalle] = useState(false);
 
-  const [busquedaPersona, setBusquedaPersona] = useState("");
+  const [errorPartidos, setErrorPartidos] = useState("");
 
-  const [tipoPersona, setTipoPersona] = useState<TipoPersona>("TODOS");
+  const [errorPersonas, setErrorPersonas] = useState("");
 
-  const [personaID, setPersonaID] = useState("");
+  const [errorDetalle, setErrorDetalle] = useState("");
 
-  const [funcion, setFuncion] = useState<Funcion>("ARBITRE");
+  const [aviso, setAviso] = useState<{
+    tipo: "error" | "exito";
+    mensaje: string;
+  } | null>(null);
 
-  const [limitePersonas, setLimitePersonas] = useState(8);
+  const [operacion, setOperacion] = useState<string | null>(null);
 
   // ==========================================================
-  // OTROS ESTADOS
+  // REVOCACIÓN
   // ==========================================================
 
-  const [guardando, setGuardando] = useState(false);
-  const [errorAccion, setErrorAccion] = useState<string | null>(null);
+  const [revocacion, setRevocacion] = useState<PeticionRevocacion | null>(null);
 
-  const [aviso, setAviso] = useState<string | null>(null);
+  const [motivo, setMotivo] = useState("Canvi de designació");
+
+  // ==========================================================
+  // ACTUALIZACIONES
+  // ==========================================================
 
   const [version, setVersion] = useState(0);
+
   const [versionPersonas, setVersionPersonas] = useState(0);
 
   const [realtimeConectado, setRealtimeConectado] = useState(false);
-
-  const [filtrosAbiertos, setFiltrosAbiertos] = useState(true);
-
-  // ==========================================================
-  // DATOS DERIVADOS
-  // ==========================================================
 
   const parametrosBase = useMemo(
     () =>
@@ -627,174 +371,93 @@ export default function Gestor({
     [torneoID, edicionID],
   );
 
-  const partidoSeleccionado = useMemo(
-    () => partidos.find((partido) => partido.id === seleccionadoID) ?? null,
-    [partidos, seleccionadoID],
-  );
-
-  const rondasDisponibles = useMemo(
-    () => fases.find((fase) => fase.id === faseID)?.rondas ?? [],
-    [fases, faseID],
-  );
-
-  const personasFiltradas = useMemo(() => {
-    const texto = normalizar(busquedaPersona);
-
-    return candidatos.filter((persona) => {
-      if (tipoPersona !== "TODOS" && persona.tipoAcceso !== tipoPersona) {
-        return false;
-      }
-
-      if (!texto) return true;
-
-      return normalizar(
-        `${nombrePersona(persona)} ${persona.email ?? ""}`,
-      ).includes(texto);
-    });
-  }, [candidatos, busquedaPersona, tipoPersona]);
-
-  const personasVisibles = useMemo(
-    () => personasFiltradas.slice(0, limitePersonas),
-    [personasFiltradas, limitePersonas],
-  );
-
-  const personaSeleccionada = useMemo(
-    () => candidatos.find((persona) => persona.id === personaID) ?? null,
-    [candidatos, personaID],
-  );
-
-  const detalleActual = detallePartidoID === seleccionadoID;
-
-  const designacionesActivas = detalleActual
-    ? detalle.filter((designacion) => !designacion.revocada_at)
-    : [];
-
-  const designacionesRevocadas = detalleActual
-    ? detalle.filter((designacion) => Boolean(designacion.revocada_at))
-    : [];
-
-  const totalAsignacionesPagina = partidos.reduce(
-    (total, partido) =>
-      total + partido.totales.arbitres + partido.totales.oficialsTaula,
-    0,
-  );
-
-  const partidosSinDesignar = partidos.filter(
-    (partido) =>
-      partido.totales.arbitres === 0 && partido.totales.oficialsTaula === 0,
-  ).length;
-
-  const filtrosActivos = [
-    faseID,
-    rondaID,
-    estado,
-    busquedaPartidos.trim(),
-  ].filter(Boolean).length;
-
-  const puedeAsignar = permisos?.asignar === true;
-
-  // ==========================================================
-  // RECARGA
-  // ==========================================================
-
-  const recargar = useCallback(() => {
-    setVersion((actual) => actual + 1);
+  const refrescar = useCallback(() => {
+    setVersion((valor) => valor + 1);
   }, []);
 
-  const recargarTodo = useCallback(() => {
-    recargar();
+  const refrescarTodo = useCallback(() => {
+    refrescar();
 
-    setVersionPersonas((actual) => actual + 1);
-  }, [recargar]);
-
-  // ==========================================================
-  // DEBOUNCE DE BÚSQUEDA
-  // ==========================================================
-
-  useEffect(() => {
-    const temporizador = setTimeout(() => {
-      setBusquedaAplicada(busquedaPartidos.trim());
-    }, 300);
-
-    return () => clearTimeout(temporizador);
-  }, [busquedaPartidos]);
+    setVersionPersonas((valor) => valor + 1);
+  }, [refrescar]);
 
   // ==========================================================
-  // CARGAR PARTIDOS
+  // CARGAR TODOS LOS PARTIDOS DE LA EDICIÓN
   // ==========================================================
 
   useEffect(() => {
-    const controlador = new AbortController();
+    const abortar = new AbortController();
+
+    const obtenerPagina = async (pagina: number): Promise<RespuestaLista> => {
+      const query = new URLSearchParams(parametrosBase);
+
+      query.set("pagina", String(pagina));
+      query.set("porPagina", "100");
+      query.set("orden", "competicion");
+
+      const respuesta = await fetch(`/api/panell/designacions?${query}`, {
+        credentials: "same-origin",
+        cache: "no-store",
+        signal: abortar.signal,
+      });
+
+      return leerRespuesta<RespuestaLista>(respuesta);
+    };
 
     async function cargar() {
       setCargandoPartidos(true);
-      setErrorPartidos(null);
+      setErrorPartidos("");
 
       try {
-        const query = new URLSearchParams(parametrosBase);
+        const primera = await obtenerPagina(1);
 
-        query.set("pagina", String(pagina));
-        query.set("porPagina", "40");
-        query.set("orden", orden);
-
-        if (faseID) {
-          query.set("faseID", faseID);
-        }
-
-        if (rondaID) {
-          query.set("rondaID", rondaID);
-        }
-
-        if (estado) {
-          query.set("estado", estado);
-        }
-
-        if (busquedaAplicada) {
-          query.set("buscarPartido", busquedaAplicada);
-        }
-
-        const respuesta = await fetch(`/api/panell/designacions?${query}`, {
-          credentials: "same-origin",
-          cache: "no-store",
-          signal: controlador.signal,
-        });
-
-        const datos = await leerRespuesta<Listado>(respuesta);
-
-        if (!Array.isArray(datos.partidos) || !Array.isArray(datos.fases)) {
+        if (!Array.isArray(primera.partidos) || !Array.isArray(primera.fases)) {
           throw new Error(
-            "L'API no retorna el llistat complet. " +
-              "Revisa que estigui actualitzada.",
+            "L'API no retorna les fases i els partits. Actualitza-la.",
           );
         }
 
-        if (controlador.signal.aborted) {
+        const paginas = Math.max(1, primera.totalPaginas ?? 1);
+
+        if (paginas > 100) {
+          throw new Error(
+            "L'edició supera el límit de 10.000 partits del gestor.",
+          );
+        }
+
+        const todos = [...primera.partidos];
+
+        // Cargar páginas en bloques de cinco.
+        for (let inicio = 2; inicio <= paginas; inicio += 5) {
+          const indices = Array.from(
+            {
+              length: Math.min(5, paginas - inicio + 1),
+            },
+            (_, i) => inicio + i,
+          );
+
+          const bloques = await Promise.all(indices.map(obtenerPagina));
+
+          for (const bloque of bloques) {
+            todos.push(...bloque.partidos);
+          }
+        }
+
+        if (abortar.signal.aborted) {
           return;
         }
 
-        setPartidos(datos.partidos);
-        setFases(datos.fases);
-        setPermisos(datos.permisos);
-
-        setTotal(datos.total);
-        setTotalPaginas(Math.max(1, datos.totalPaginas));
-
-        setSeleccionadoID((anterior) => {
-          if (
-            anterior &&
-            datos.partidos.some((partido) => partido.id === anterior)
-          ) {
-            return anterior;
-          }
-
-          return datos.partidos[0]?.id ?? null;
-        });
+        setPartidos(todos);
+        setFases(primera.fases);
+        setPermisos(primera.permisos);
       } catch (error) {
-        if (!controlador.signal.aborted) {
-          setErrorPartidos(mensajeError(error));
+        if (abortar.signal.aborted) {
+          return;
         }
+
+        setErrorPartidos(mensajeError(error));
       } finally {
-        if (!controlador.signal.aborted) {
+        if (!abortar.signal.aborted) {
           setCargandoPartidos(false);
         }
       }
@@ -802,33 +465,24 @@ export default function Gestor({
 
     void cargar();
 
-    return () => controlador.abort();
-  }, [
-    parametrosBase,
-    pagina,
-    orden,
-    faseID,
-    rondaID,
-    estado,
-    busquedaAplicada,
-    version,
-  ]);
+    return () => abortar.abort();
+  }, [parametrosBase, version]);
 
   // ==========================================================
-  // CARGAR PERSONAS AUTOMÁTICAMENTE
+  // CARGAR PERSONAS DISPONIBLES
   // ==========================================================
 
   useEffect(() => {
-    if (!puedeAsignar) {
-      setCargandoPersonas(false);
+    if (!permisos.asignar) {
+      setPersonas([]);
       return;
     }
 
-    const controlador = new AbortController();
+    const abortar = new AbortController();
 
     async function cargar() {
       setCargandoPersonas(true);
-      setErrorPersonas(null);
+      setErrorPersonas("");
 
       try {
         const query = new URLSearchParams(parametrosBase);
@@ -838,37 +492,24 @@ export default function Gestor({
         const respuesta = await fetch(`/api/panell/designacions?${query}`, {
           credentials: "same-origin",
           cache: "no-store",
-          signal: controlador.signal,
+          signal: abortar.signal,
         });
 
-        const datos = await leerRespuesta<Candidatos>(respuesta);
+        const datos = await leerRespuesta<RespuestaPersonas>(respuesta);
 
         if (!Array.isArray(datos.candidatos)) {
-          throw new Error(
-            "L'API no ha retornat les persones disponibles. " +
-              "Comprova que has actualitzat l'arxiu " +
-              "api/panell/designacions/index.ts.",
-          );
+          throw new Error("L'API no retorna els candidats.");
         }
 
-        if (controlador.signal.aborted) {
-          return;
+        if (!abortar.signal.aborted) {
+          setPersonas(datos.candidatos);
         }
-
-        setCandidatos(datos.candidatos);
-
-        setPersonaID((anterior) =>
-          datos.candidatos.some((persona) => persona.id === anterior)
-            ? anterior
-            : "",
-        );
       } catch (error) {
-        if (!controlador.signal.aborted) {
-          setCandidatos([]);
+        if (!abortar.signal.aborted) {
           setErrorPersonas(mensajeError(error));
         }
       } finally {
-        if (!controlador.signal.aborted) {
+        if (!abortar.signal.aborted) {
           setCargandoPersonas(false);
         }
       }
@@ -876,59 +517,202 @@ export default function Gestor({
 
     void cargar();
 
-    return () => controlador.abort();
-  }, [parametrosBase, puedeAsignar, versionPersonas]);
+    return () => abortar.abort();
+  }, [parametrosBase, permisos.asignar, versionPersonas]);
 
   // ==========================================================
-  // CARGAR DESIGNACIONES DEL PARTIDO
+  // FILTROS DE FASE Y RONDA
+  // ==========================================================
+
+  const rondas = useMemo(
+    () => fases.find((fase) => fase.id === filtros.faseID)?.rondas ?? [],
+    [fases, filtros.faseID],
+  );
+
+  // ==========================================================
+  // FILTRAR Y ORDENAR PARTIDOS
+  // ==========================================================
+
+  const partidosVisibles = useMemo(() => {
+    const buscar = normalizar(filtros.buscarPartido);
+
+    const resultado = partidos.filter((partido) => {
+      if (filtros.faseID && partido.fase?.id !== filtros.faseID) {
+        return false;
+      }
+
+      if (filtros.rondaID && partido.ronda?.id !== filtros.rondaID) {
+        return false;
+      }
+
+      if (filtros.estado && partido.estado !== filtros.estado) {
+        return false;
+      }
+
+      if (
+        buscar &&
+        !normalizar(
+          [
+            partido.codigo,
+            partido.nombre,
+            partido.pista,
+            partido.fase?.nombre,
+            partido.ronda?.nombre,
+            partido.grupo?.nombre,
+          ]
+            .filter(Boolean)
+            .join(" "),
+        ).includes(buscar)
+      ) {
+        return false;
+      }
+
+      // Filtro por designaciones.
+      if (filtros.designados !== "TODOS") {
+        const designado =
+          modo === "partits"
+            ? partido.designaciones.some((d) => !d.revocada_at)
+            : Boolean(seleccionadoPersonaID) &&
+              partido.designaciones.some(
+                (d) => d.usuario_id === seleccionadoPersonaID && !d.revocada_at,
+              );
+
+        if (filtros.designados === "DESIGNADOS" && !designado) {
+          return false;
+        }
+
+        if (filtros.designados === "PENDIENTES" && designado) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    // El orden de competición viene de la API.
+    // Solo reordenamos si se elige otro criterio.
+
+    if (filtros.orden === "fecha") {
+      resultado.sort(
+        (a, b) =>
+          (a.fecha_hora ?? "9999").localeCompare(b.fecha_hora ?? "9999") ||
+          a.codigo.localeCompare(b.codigo),
+      );
+    } else if (filtros.orden === "pista") {
+      resultado.sort(
+        (a, b) =>
+          (a.pista ?? "zzzz").localeCompare(b.pista ?? "zzzz", "ca") ||
+          (a.fecha_hora ?? "9999").localeCompare(b.fecha_hora ?? "9999"),
+      );
+    }
+
+    return resultado;
+  }, [partidos, filtros, modo, seleccionadoPersonaID]);
+
+  // ==========================================================
+  // FILTRAR PERSONAS
+  // ==========================================================
+
+  const personasVisibles = useMemo(() => {
+    const buscar = normalizar(filtros.buscarPersona);
+
+    return personas.filter((persona) => {
+      if (
+        filtros.tipoPersona !== "TODOS" &&
+        persona.tipoAcceso !== filtros.tipoPersona
+      ) {
+        return false;
+      }
+
+      if (!buscar) {
+        return true;
+      }
+
+      return normalizar(
+        `${nombrePersona(persona)} ${persona.email ?? ""}`,
+      ).includes(buscar);
+    });
+  }, [personas, filtros.buscarPersona, filtros.tipoPersona]);
+
+  // ==========================================================
+  // SELECCIÓN AUTOMÁTICA DE PARTIDOS
   // ==========================================================
 
   useEffect(() => {
-    if (!seleccionadoID) {
+    if (
+      partidosVisibles.length > 0 &&
+      !partidosVisibles.some((partido) => partido.id === seleccionadoPartidoID)
+    ) {
+      setSeleccionadoPartidoID(partidosVisibles[0].id);
+    } else if (partidosVisibles.length === 0 && seleccionadoPartidoID) {
+      setSeleccionadoPartidoID("");
+    }
+  }, [partidosVisibles, seleccionadoPartidoID]);
+
+  // ==========================================================
+  // SELECCIÓN AUTOMÁTICA DE PERSONAS
+  // ==========================================================
+
+  useEffect(() => {
+    if (
+      personasVisibles.length > 0 &&
+      !personasVisibles.some((persona) => persona.id === seleccionadoPersonaID)
+    ) {
+      setSeleccionadoPersonaID(personasVisibles[0].id);
+    } else if (personasVisibles.length === 0 && seleccionadoPersonaID) {
+      setSeleccionadoPersonaID("");
+    }
+  }, [personasVisibles, seleccionadoPersonaID]);
+
+  // ==========================================================
+  // DETALLE DEL PARTIDO SELECCIONADO
+  // ==========================================================
+
+  useEffect(() => {
+    if (modo !== "partits" || !seleccionadoPartidoID) {
+      setDetalleID("");
       setDetalle([]);
-      setDetallePartidoID(null);
       return;
     }
 
-    const controlador = new AbortController();
-    const partidoID = seleccionadoID;
+    const abortar = new AbortController();
 
     async function cargar() {
       setCargandoDetalle(true);
-      setErrorDetalle(null);
-      setDetallePartidoID(null);
+      setErrorDetalle("");
+      setDetalleID("");
 
       try {
         const query = new URLSearchParams(parametrosBase);
 
-        query.set("partidoID", partidoID);
+        query.set("partidoID", seleccionadoPartidoID);
+
         query.set("incluirRevocadas", String(historial));
 
         const respuesta = await fetch(`/api/panell/designacions?${query}`, {
           credentials: "same-origin",
           cache: "no-store",
-          signal: controlador.signal,
+          signal: abortar.signal,
         });
 
-        const datos = await leerRespuesta<Detalle>(respuesta);
+        const datos = await leerRespuesta<RespuestaDetalle>(respuesta);
 
         if (!Array.isArray(datos.designaciones)) {
-          throw new Error("La resposta de designacions no és vàlida.");
+          throw new Error("El detall de designacions no és vàlid.");
         }
 
-        if (controlador.signal.aborted) {
+        if (abortar.signal.aborted) {
           return;
         }
 
         setDetalle(datos.designaciones);
-        setDetallePartidoID(partidoID);
+        setDetalleID(seleccionadoPartidoID);
       } catch (error) {
-        if (!controlador.signal.aborted) {
-          setDetalle([]);
+        if (!abortar.signal.aborted) {
           setErrorDetalle(mensajeError(error));
         }
       } finally {
-        if (!controlador.signal.aborted) {
+        if (!abortar.signal.aborted) {
           setCargandoDetalle(false);
         }
       }
@@ -936,34 +720,27 @@ export default function Gestor({
 
     void cargar();
 
-    return () => controlador.abort();
-  }, [parametrosBase, seleccionadoID, historial, version]);
+    return () => abortar.abort();
+  }, [parametrosBase, seleccionadoPartidoID, historial, modo, version]);
 
   // ==========================================================
-  // REINICIAR SELECCIÓN AL CAMBIAR DE PARTIDO
-  // ==========================================================
-
-  useEffect(() => {
-    setPersonaID("");
-    setAviso(null);
-    setErrorAccion(null);
-    setDetallePartidoID(null);
-    setHistorial(false);
-  }, [seleccionadoID]);
-
-  // ==========================================================
-  // REALTIME
+  // REALTIME DEL PARTIDO SELECCIONADO
   // ==========================================================
 
   useEffect(() => {
-    if (!seleccionadoID || !supabaseUrl || !supabaseAnonKey) {
+    if (
+      modo !== "partits" ||
+      !seleccionadoPartidoID ||
+      !supabaseUrl ||
+      !supabaseAnonKey
+    ) {
       setRealtimeConectado(false);
       return;
     }
 
     let activo = true;
 
-    const cliente = createClient(supabaseUrl, supabaseAnonKey, {
+    const client = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
         persistSession: false,
         autoRefreshToken: false,
@@ -971,1091 +748,764 @@ export default function Gestor({
       },
     });
 
-    const canal = cliente
-      .channel(`designacions-partit-${seleccionadoID}`)
+    const channel = client
+      .channel(`designacions-partit-${seleccionadoPartidoID}`)
       .on(
         "broadcast",
         {
           event: "actualitzada",
         },
         () => {
-          if (activo) recargar();
+          if (activo) {
+            refrescar();
+          }
         },
       )
-      .subscribe((estadoCanal) => {
-        if (!activo) return;
+      .subscribe((estado) => {
+        if (!activo) {
+          return;
+        }
 
-        if (estadoCanal === "SUBSCRIBED") {
-          setRealtimeConectado(true);
-          recargar();
-        } else if (
-          estadoCanal === "CHANNEL_ERROR" ||
-          estadoCanal === "TIMED_OUT" ||
-          estadoCanal === "CLOSED"
-        ) {
-          setRealtimeConectado(false);
+        setRealtimeConectado(estado === "SUBSCRIBED");
+
+        if (estado === "SUBSCRIBED") {
+          refrescar();
         }
       });
 
     return () => {
       activo = false;
-      void cliente.removeChannel(canal);
+      void client.removeChannel(channel);
     };
-  }, [seleccionadoID, supabaseUrl, supabaseAnonKey, recargar]);
+  }, [modo, seleccionadoPartidoID, supabaseUrl, supabaseAnonKey, refrescar]);
 
   // ==========================================================
-  // ACTUALIZAR AL REGRESAR A LA PESTAÑA
+  // RECARGA AL REGRESAR A LA PESTAÑA
   // ==========================================================
 
   useEffect(() => {
-    const comprobarVisibilidad = () => {
+    const recargarAlVolver = () => {
       if (document.visibilityState === "visible") {
-        recargar();
+        refrescar();
       }
     };
 
-    document.addEventListener("visibilitychange", comprobarVisibilidad);
+    document.addEventListener("visibilitychange", recargarAlVolver);
 
-    return () => {
-      document.removeEventListener("visibilitychange", comprobarVisibilidad);
-    };
-  }, [recargar]);
+    return () =>
+      document.removeEventListener("visibilitychange", recargarAlVolver);
+  }, [refrescar]);
 
   // ==========================================================
-  // ASIGNAR PERSONA
+  // DESIGNACIONES DEL PARTIDO ACTUAL
   // ==========================================================
 
-  const yaDesignado = (id: string) =>
-    detalleActual &&
-    designacionesActivas.some(
-      (designacion) =>
-        designacion.usuario_id === id && designacion.funcion === funcion,
+  const designacionesSeleccionadas = useMemo(() => {
+    if (modo === "partits" && detalleID === seleccionadoPartidoID) {
+      return detalle;
+    }
+
+    return (
+      partidos.find((partido) => partido.id === seleccionadoPartidoID)
+        ?.designaciones ?? []
     );
+  }, [modo, detalleID, seleccionadoPartidoID, detalle, partidos]);
 
-  async function asignar() {
-    if (
-      !seleccionadoID ||
-      !personaID ||
-      !puedeAsignar ||
-      guardando ||
-      cargandoDetalle ||
-      !detalleActual ||
-      yaDesignado(personaID)
-    ) {
+  // ==========================================================
+  // BUSCAR UNA DESIGNACIÓN ACTIVA
+  // ==========================================================
+
+  const buscarAsignacion = useCallback(
+    (
+      partidoID: string,
+      personaID: string,
+      funcion: Funcion,
+    ): Designacion | undefined => {
+      const partido = partidos.find((p) => p.id === partidoID);
+
+      const fuentes =
+        modo === "partits" && detalleID === partidoID
+          ? detalle
+          : (partido?.designaciones ?? []);
+
+      return fuentes.find(
+        (designacion) =>
+          designacion.usuario_id === personaID &&
+          designacion.funcion === funcion &&
+          !designacion.revocada_at,
+      );
+    },
+    [partidos, modo, detalleID, detalle],
+  );
+
+  const estaAsignado = useCallback(
+    (partidoID: string, personaID: string, funcion: Funcion) =>
+      Boolean(buscarAsignacion(partidoID, personaID, funcion)),
+    [buscarAsignacion],
+  );
+
+  // ==========================================================
+  // ALTERNAR ASIGNACIÓN
+  // ==========================================================
+
+  const onAlternar = useCallback(
+    async (pid: string, uid: string, funcion: Funcion) => {
+      if (operacion) {
+        return;
+      }
+
+      const actual = buscarAsignacion(pid, uid, funcion);
+
+      // Si existe, solicitar revocación.
+      if (actual) {
+        if (!permisos.revocar) {
+          setAviso({
+            tipo: "error",
+            mensaje: "No tens permís per llevar aquesta designació.",
+          });
+          return;
+        }
+
+        setMotivo("Canvi de designació");
+
+        setRevocacion({
+          designacion: actual,
+          partidoID: pid,
+        });
+
+        return;
+      }
+
+      // Si no existe, crearla.
+      if (!permisos.asignar) {
+        setAviso({
+          tipo: "error",
+          mensaje: "No tens permís per crear designacions.",
+        });
+        return;
+      }
+
+      setOperacion(`${pid}|${uid}|${funcion}`);
+
+      setAviso(null);
+
+      try {
+        const query = new URLSearchParams(parametrosBase);
+
+        query.set("partidoID", pid);
+
+        const respuesta = await fetch(`/api/panell/designacions?${query}`, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            usuarioID: uid,
+            funcion,
+          }),
+        });
+
+        const datos = await leerRespuesta<RespuestaAccion>(respuesta);
+
+        setAviso({
+          tipo: "exito",
+          mensaje: datos.mensaje,
+        });
+
+        refrescar();
+      } catch (error) {
+        setAviso({
+          tipo: "error",
+          mensaje: mensajeError(error),
+        });
+      } finally {
+        setOperacion(null);
+      }
+    },
+    [
+      operacion,
+      buscarAsignacion,
+      permisos.asignar,
+      permisos.revocar,
+      parametrosBase,
+      refrescar,
+    ],
+  );
+
+  // ==========================================================
+  // SOLICITAR REVOCACIÓN
+  // ==========================================================
+
+  const onRevocar = useCallback(
+    (designacion: Designacion) => {
+      if (!permisos.revocar) {
+        setAviso({
+          tipo: "error",
+          mensaje: "No tens permís per llevar aquesta designació.",
+        });
+        return;
+      }
+
+      setMotivo("Canvi de designació");
+
+      setRevocacion({
+        designacion,
+        partidoID: designacion.partido_id,
+      });
+    },
+    [permisos.revocar],
+  );
+
+  // ==========================================================
+  // CONFIRMAR REVOCACIÓN
+  // ==========================================================
+
+  const confirmarRevocacion = async () => {
+    if (!revocacion || operacion || !motivo.trim()) {
       return;
     }
 
-    setGuardando(true);
-    setErrorAccion(null);
+    const { designacion, partidoID } = revocacion;
+
+    setOperacion(designacion.id);
     setAviso(null);
 
     try {
       const query = new URLSearchParams(parametrosBase);
 
-      query.set("partidoID", seleccionadoID);
+      query.set("partidoID", partidoID);
 
-      const respuesta = await fetch(`/api/panell/designacions?${query}`, {
-        method: "POST",
-        credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
+      const respuesta = await fetch(
+        `/api/panell/designacions/revocar?${query}`,
+        {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            designacionID: designacion.id,
+            motivo: motivo.trim(),
+          }),
         },
-        body: JSON.stringify({
-          usuarioID: personaID,
-          funcion,
-        }),
+      );
+
+      const datos = await leerRespuesta<RespuestaAccion>(respuesta);
+
+      setAviso({
+        tipo: "exito",
+        mensaje: datos.mensaje,
       });
 
-      const datos = await leerRespuesta<Asignacion>(respuesta);
-
-      setAviso(datos.mensaje);
-      setPersonaID("");
-      recargar();
+      setRevocacion(null);
+      refrescar();
     } catch (error) {
-      setErrorAccion(mensajeError(error));
+      setAviso({
+        tipo: "error",
+        mensaje: mensajeError(error),
+      });
     } finally {
-      setGuardando(false);
+      setOperacion(null);
     }
-  }
+  };
 
   // ==========================================================
-  // FILTROS
+  // CONTROL DE FILTROS
   // ==========================================================
 
-  function cambiarFiltro(
-    campo: "estado" | "fase" | "ronda" | "orden",
-    valor: string,
-  ) {
-    setPagina(1);
+  const onFiltro = <K extends keyof Filtros>(campo: K, valor: Filtros[K]) => {
+    setFiltros((prev) => ({
+      ...prev,
+      [campo]: valor,
+      ...(campo === "faseID" ? { rondaID: "" } : {}),
+    }));
+  };
 
-    switch (campo) {
-      case "estado":
-        setEstado(valor);
-        break;
+  const onLimpiarFiltros = () => {
+    setFiltros(FILTROS_INICIALES);
+  };
 
-      case "fase":
-        setFaseID(valor);
-        setRondaID("");
-        break;
+  const onModo = (nuevo: Modo) => {
+    setModo(nuevo);
 
-      case "ronda":
-        setRondaID(valor);
-        break;
+    setFiltros((prev) => ({
+      ...prev,
+      designados: "TODOS",
+    }));
 
-      case "orden":
-        setOrden(valor as OrdenPartidos);
-        break;
-    }
-  }
-
-  function limpiarFiltros() {
-    setBusquedaPartidos("");
-    setBusquedaAplicada("");
-    setFaseID("");
-    setRondaID("");
-    setEstado("");
-    setOrden("competicion");
-    setPagina(1);
-  }
-
-  function cambiarFiltroPersona() {
-    setPersonaID("");
-    setLimitePersonas(8);
-  }
+    setAviso(null);
+  };
 
   // ==========================================================
-  // RENDER PRINCIPAL
+  // RESUMEN
+  // ==========================================================
+
+  const resumen = useMemo(
+    () => ({
+      total: partidos.length,
+
+      designaciones: partidos.reduce(
+        (n, partido) =>
+          n + partido.designaciones.filter((d) => !d.revocada_at).length,
+        0,
+      ),
+
+      pendientes: partidos.filter(
+        (partido) => !partido.designaciones.some((d) => !d.revocada_at),
+      ).length,
+    }),
+    [partidos],
+  );
+
+  // ==========================================================
+  // PROPIEDADES PARA LAS DOS VISTAS
+  // ==========================================================
+
+  const propsVista: PropsVista = {
+    partidos: partidosVisibles,
+    personas: personasVisibles,
+    fases,
+    rondas,
+
+    permisos,
+    filtros,
+
+    seleccionadoPartidoID,
+    seleccionadoPersonaID,
+
+    designacionesSeleccionadas,
+
+    detalleCargando:
+      cargandoDetalle ||
+      (modo === "partits" && detalleID !== seleccionadoPartidoID),
+
+    guardando: Boolean(operacion),
+    cargandoPersonas,
+    errorDetalle,
+    historial,
+
+    onHistorial: setHistorial,
+
+    onSeleccionarPartido: setSeleccionadoPartidoID,
+
+    onSeleccionarPersona: setSeleccionadoPersonaID,
+
+    onFiltro,
+    onLimpiarFiltros,
+
+    onAlternar: (pid, uid, funcion) => {
+      void onAlternar(pid, uid, funcion);
+    },
+
+    onRevocar,
+    estaAsignado,
+  };
+
+  // ==========================================================
+  // INTERFAZ
   // ==========================================================
 
   return (
-    <main className="mx-auto w-full min-w-0 max-w-[1750px] space-y-5 px-3 pb-10 sm:px-5">
-      {/* =====================================================
-          CABECERA
-          ===================================================== */}
+    <main className="mx-auto w-full max-w-[1740px] space-y-5 px-3 pb-10 sm:px-5">
+      {/* CABECERA */}
 
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <div className="mb-2 flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Icono tipo="usuarios" className="h-5 w-5" />
-            </div>
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.13em] text-primary">
+            Gestió de competició
+          </p>
 
-            <span className="text-xs font-bold uppercase tracking-[0.15em] text-primary">
-              Gestió de competició
-            </span>
-          </div>
-
-          <h1 className="text-2xl font-bold tracking-tight text-neutral-titulos sm:text-3xl">
+          <h1 className="mt-1 text-3xl font-bold tracking-tight text-neutral-titulos">
             Designacions
           </h1>
 
-          <p className="mt-1 text-sm leading-6 text-neutral">
-            Organitza els àrbitres i oficials de taula de cada partit.
+          <p className="mt-2 text-sm text-neutral">
+            Gestiona àrbitres i oficials de taula per partit o per persona.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          {supabaseUrl && supabaseAnonKey && (
-            <div className="flex items-center gap-2 text-xs text-neutral">
-              <span
-                className={`h-2 w-2 rounded-full ${
-                  realtimeConectado ? "bg-emerald-500" : "bg-amber-500"
-                }`}
-              />
+        <button
+          type="button"
+          className={BOTON}
+          onClick={refrescarTodo}
+          disabled={cargandoPartidos}
+        >
+          <span aria-hidden="true">↻</span>
+          Actualitzar
+        </button>
+      </header>
 
-              {realtimeConectado
-                ? "Sincronització activa"
-                : "Sincronització pendent"}
-            </div>
-          )}
+      {/* SELECTOR DEL MODO */}
+
+      <nav
+        aria-label="Modalitat de designació"
+        className="grid grid-cols-2 gap-2 rounded-2xl border border-border bg-card p-2"
+      >
+        <button
+          type="button"
+          aria-pressed={modo === "partits"}
+          onClick={() => onModo("partits")}
+          className={`rounded-xl px-3 py-3 text-left transition ${
+            modo === "partits"
+              ? "bg-primary text-white"
+              : "bg-background text-neutral-titulos hover:bg-primary/5"
+          }`}
+        >
+          <span className="block text-sm font-bold">Per partits</span>
+
+          <span
+            className={`mt-1 block text-xs ${
+              modo === "partits" ? "text-white/80" : "text-neutral"
+            }`}
+          >
+            Tria un partit i gestiona el personal
+          </span>
+        </button>
+
+        <button
+          type="button"
+          aria-pressed={modo === "persones"}
+          onClick={() => onModo("persones")}
+          className={`rounded-xl px-3 py-3 text-left transition ${
+            modo === "persones"
+              ? "bg-primary text-white"
+              : "bg-background text-neutral-titulos hover:bg-primary/5"
+          }`}
+        >
+          <span className="block text-sm font-bold">Per persones</span>
+
+          <span
+            className={`mt-1 block text-xs ${
+              modo === "persones" ? "text-white/80" : "text-neutral"
+            }`}
+          >
+            Tria una persona i marca funcions per partit
+          </span>
+        </button>
+      </nav>
+
+      {/* RESUMEN */}
+
+      <section
+        className="grid grid-cols-3 gap-2 sm:gap-3"
+        aria-label="Resum de designacions"
+      >
+        {[
+          ["Partits", resumen.total],
+          ["Designacions", resumen.designaciones],
+          ["Sense designar", resumen.pendientes],
+        ].map(([titulo, valor]) => (
+          <div
+            key={titulo}
+            className="rounded-xl border border-border bg-card p-3 sm:p-4"
+          >
+            <p className="text-xs text-neutral">{titulo}</p>
+
+            <p className="mt-1 text-xl font-bold tabular-nums text-neutral-titulos sm:text-2xl">
+              {valor}
+            </p>
+          </div>
+        ))}
+      </section>
+
+      {/* FILTROS COMPARTIDOS */}
+
+      <section
+        className="rounded-2xl border border-border bg-card p-3 sm:p-4"
+        aria-label="Filtres de designacions"
+      >
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-bold text-neutral-titulos">
+            Filtres de partits
+          </h2>
 
           <button
             type="button"
-            onClick={recargarTodo}
-            className={ESTILOS.boton}
+            onClick={onLimpiarFiltros}
+            className="text-xs font-semibold text-primary hover:underline"
           >
-            <Icono tipo="actualizar" className="h-4 w-4" />
-            Actualitzar
+            Netejar filtres
           </button>
         </div>
-      </header>
 
-      {/* =====================================================
-          RESUMEN
-          ===================================================== */}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {/* BUSCAR PARTIDO */}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Estadistica
-          titulo="Partits de l'edició"
-          valor={total}
-          icono="calendario"
-        />
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-neutral">Cercar</span>
 
-        <Estadistica
-          titulo="Partits en aquesta pàgina"
-          valor={partidos.length}
-          icono="trofeo"
-        />
+            <input
+              type="search"
+              className={CAMPO}
+              value={filtros.buscarPartido}
+              onChange={(e) => onFiltro("buscarPartido", e.target.value)}
+              placeholder="Partit, fase o pista..."
+            />
+          </label>
 
-        <Estadistica
-          titulo="Assignacions en aquesta pàgina"
-          valor={totalAsignacionesPagina}
-          icono="usuarios"
-        />
+          {/* FASE */}
 
-        <Estadistica
-          titulo="Sense designacions en aquesta pàgina"
-          valor={partidosSinDesignar}
-          icono="usuario"
-        />
-      </div>
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-neutral">Fase</span>
 
-      {errorPartidos && <Aviso texto={errorPartidos} />}
+            <select
+              className={CAMPO}
+              value={filtros.faseID}
+              onChange={(e) => onFiltro("faseID", e.target.value)}
+            >
+              <option value="">Totes les fases</option>
 
-      {/* =====================================================
-          DOS COLUMNAS
-          ===================================================== */}
+              {fases.map((fase) => (
+                <option key={fase.id} value={fase.id}>
+                  {fase.nombre}
+                </option>
+              ))}
+            </select>
+          </label>
 
-      <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
-        {/* ===================================================
-            COLUMNA IZQUIERDA — PARTIDOS
-            =================================================== */}
+          {/* RONDA */}
 
-        <section className={ESTILOS.tarjeta}>
-          <div className="border-b border-border p-4 sm:p-5">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-bold text-neutral-titulos">
-                  Partits
-                </h2>
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-neutral">Ronda</span>
 
-                <p className="mt-1 text-xs text-neutral">{total} resultats</p>
-              </div>
+            <select
+              className={CAMPO}
+              value={filtros.rondaID}
+              disabled={!filtros.faseID}
+              onChange={(e) => onFiltro("rondaID", e.target.value)}
+            >
+              <option value="">Totes les rondes</option>
 
-              <button
-                type="button"
-                onClick={() => setFiltrosAbiertos((valor) => !valor)}
-                className={ESTILOS.boton}
-                aria-expanded={filtrosAbiertos}
-              >
-                <Icono tipo="filtro" className="h-4 w-4" />
-                Filtres
-                {filtrosActivos > 0 && (
-                  <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] text-white">
-                    {filtrosActivos}
-                  </span>
-                )}
-              </button>
-            </div>
+              {rondas.map((ronda) => (
+                <option key={ronda.id} value={ronda.id}>
+                  {ronda.nombre}
+                </option>
+              ))}
+            </select>
+          </label>
 
-            {/* BUSCADOR */}
+          {/* ESTADO */}
 
-            <div className="relative mt-4">
-              <Icono
-                tipo="buscar"
-                className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral"
-              />
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-neutral">Estat</span>
 
-              <input
-                type="search"
-                value={busquedaPartidos}
-                onChange={(evento) => {
-                  setBusquedaPartidos(evento.target.value);
+            <select
+              className={CAMPO}
+              value={filtros.estado}
+              onChange={(e) => onFiltro("estado", e.target.value)}
+            >
+              <option value="">Tots els estats</option>
+              <option value="BORRADOR">Esborrany</option>
+              <option value="PROGRAMADO">Programat</option>
+              <option value="EN_CURSO">En curs</option>
+              <option value="FINALIZADO">Finalitzat</option>
+              <option value="SUSPENDIDO">Suspès</option>
+              <option value="CANCELADO">Cancel·lat</option>
+            </select>
+          </label>
 
-                  setPagina(1);
-                }}
-                placeholder="Cerca partit, ronda, fase o pista..."
-                aria-label="Cercar partits"
-                className={`${ESTILOS.campo} pl-10`}
-              />
-            </div>
+          {/* ORDEN */}
 
-            {/* FILTROS AVANZADOS */}
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-neutral">Ordre</span>
 
-            {filtrosAbiertos && (
-              <div className="mt-4 space-y-3 rounded-xl border border-border bg-background p-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label htmlFor="ordre-partits" className={ESTILOS.etiqueta}>
-                      Ordenació
-                    </label>
+            <select
+              className={CAMPO}
+              value={filtros.orden}
+              onChange={(e) =>
+                onFiltro("orden", e.target.value as OrdenPartidos)
+              }
+            >
+              <option value="competicion">Ordre de competició</option>
 
-                    <select
-                      id="ordre-partits"
-                      value={orden}
-                      onChange={(evento) =>
-                        cambiarFiltro("orden", evento.target.value)
-                      }
-                      className={ESTILOS.campo}
-                    >
-                      <option value="competicion">Ordre de competició</option>
+              <option value="fecha">Data i hora</option>
 
-                      <option value="fecha">Data i hora</option>
+              <option value="pista">Pista</option>
+            </select>
+          </label>
 
-                      <option value="pista">Pista</option>
-                    </select>
-                  </div>
+          {/* FILTRO POR PARTIDOS DESIGNADOS */}
 
-                  <div>
-                    <label htmlFor="estat-partits" className={ESTILOS.etiqueta}>
-                      Estat
-                    </label>
+          <div className="space-y-1 sm:col-span-2 lg:col-span-3">
+            <span className="text-xs font-medium text-neutral">
+              Partits designats
+            </span>
 
-                    <select
-                      id="estat-partits"
-                      value={estado}
-                      onChange={(evento) =>
-                        cambiarFiltro("estado", evento.target.value)
-                      }
-                      className={ESTILOS.campo}
-                    >
-                      <option value="">Tots els estats</option>
-
-                      <option value="BORRADOR">Esborrany</option>
-
-                      <option value="PROGRAMADO">Programat</option>
-
-                      <option value="EN_CURSO">En curs</option>
-
-                      <option value="FINALIZADO">Finalitzat</option>
-
-                      <option value="SUSPENDIDO">Suspès</option>
-
-                      <option value="CANCELADO">Cancel·lat</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label htmlFor="fase-partits" className={ESTILOS.etiqueta}>
-                      Fase
-                    </label>
-
-                    <select
-                      id="fase-partits"
-                      value={faseID}
-                      onChange={(evento) =>
-                        cambiarFiltro("fase", evento.target.value)
-                      }
-                      className={ESTILOS.campo}
-                    >
-                      <option value="">Totes les fases</option>
-
-                      {fases.map((fase) => (
-                        <option key={fase.id} value={fase.id}>
-                          {fase.nombre}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label htmlFor="ronda-partits" className={ESTILOS.etiqueta}>
-                      Ronda
-                    </label>
-
-                    <select
-                      id="ronda-partits"
-                      value={rondaID}
-                      disabled={!faseID || rondasDisponibles.length === 0}
-                      onChange={(evento) =>
-                        cambiarFiltro("ronda", evento.target.value)
-                      }
-                      className={ESTILOS.campo}
-                    >
-                      <option value="">Totes les rondes</option>
-
-                      {rondasDisponibles.map((ronda) => (
-                        <option key={ronda.id} value={ronda.id}>
-                          {ronda.nombre}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={limpiarFiltros}
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
-                  >
-                    <Icono tipo="cerrar" className="h-3.5 w-3.5" />
-                    Netejar filtres
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* =================================================
-              LISTADO DE PARTIDOS
-              ================================================= */}
-
-          <div className="max-h-[720px] space-y-2 overflow-y-auto p-3">
-            {cargandoPartidos && (
-              <p role="status" className="p-5 text-center text-sm text-neutral">
-                Carregant partits...
-              </p>
-            )}
-
-            {!cargandoPartidos && partidos.length === 0 && (
-              <div className="rounded-xl border border-dashed border-border p-8 text-center">
-                <Icono tipo="buscar" className="mx-auto h-8 w-8 text-neutral" />
-
-                <p className="mt-3 text-sm font-semibold text-neutral-titulos">
-                  No s'han trobat partits
-                </p>
-
-                <p className="mt-1 text-xs text-neutral">
-                  Prova de canviar els filtres.
-                </p>
-              </div>
-            )}
-
-            {partidos.map((partido) => {
-              const seleccionado = seleccionadoID === partido.id;
-
-              const asignados =
-                partido.totales.arbitres + partido.totales.oficialsTaula;
-
-              const faseNombre = partido.fase?.nombre ?? "Sense fase";
-
-              const rondaNombre =
-                partido.ronda?.nombre ?? partido.grupo?.nombre ?? "";
-
-              return (
+            <div className="grid grid-cols-3 gap-2">
+              {(
+                [
+                  ["TODOS", "Tots"],
+                  [
+                    "DESIGNADOS",
+                    modo === "partits" ? "Amb designacions" : "Ja designats",
+                  ],
+                  [
+                    "PENDIENTES",
+                    modo === "partits" ? "Sense designar" : "Pendents",
+                  ],
+                ] as const
+              ).map(([valor, titulo]) => (
                 <button
-                  key={partido.id}
+                  key={valor}
                   type="button"
-                  onClick={() => setSeleccionadoID(partido.id)}
-                  disabled={guardando}
-                  aria-pressed={seleccionado}
-                  className={`group w-full min-w-0 rounded-xl border p-4 text-left transition ${
-                    seleccionado
-                      ? "border-primary bg-primary/5 shadow-sm"
-                      : "border-border bg-background hover:border-primary/40 hover:bg-primary/[0.025]"
-                  } disabled:opacity-60`}
+                  aria-pressed={filtros.designados === valor}
+                  onClick={() => onFiltro("designados", valor)}
+                  className={`min-h-10 rounded-lg border px-2 py-2 text-xs font-semibold transition ${
+                    filtros.designados === valor
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-background text-neutral-titulos hover:border-primary/40"
+                  }`}
                 >
-                  {/* CABECERA TARJETA */}
-
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className="text-xs font-bold text-primary">
-                        {partido.codigo}
-                      </span>
-
-                      {partido.fase?.tipo === "ELIMINATORIA" && (
-                        <Icono
-                          tipo="trofeo"
-                          className="h-3.5 w-3.5 text-primary"
-                        />
-                      )}
-                    </div>
-
-                    <BadgeEstado estado={partido.estado} />
-                  </div>
-
-                  {/* TÍTULO */}
-
-                  <div className="mt-2 flex items-start justify-between gap-3">
-                    <p className="min-w-0 flex-1 text-sm font-bold text-neutral-titulos">
-                      {partido.nombre || `Partit ${partido.codigo}`}
-                    </p>
-
-                    <Icono
-                      tipo="chevron"
-                      className={`h-4 w-4 shrink-0 transition ${
-                        seleccionado
-                          ? "text-primary"
-                          : "text-neutral group-hover:text-primary"
-                      }`}
-                    />
-                  </div>
-
-                  {/* FASE Y RONDA */}
-
-                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    <span className="rounded-md bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">
-                      {faseNombre}
-                    </span>
-
-                    {rondaNombre && (
-                      <span className="rounded-md border border-border px-2 py-1 text-[11px] text-neutral">
-                        {rondaNombre}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* FECHA Y PISTA */}
-
-                  <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-neutral">
-                    <span className="inline-flex items-center gap-1.5">
-                      <Icono tipo="calendario" className="h-3.5 w-3.5" />
-
-                      {fecha(partido.fecha_hora)}
-                    </span>
-
-                    <span className="inline-flex items-center gap-1.5">
-                      <Icono tipo="pista" className="h-3.5 w-3.5" />
-
-                      {partido.pista || "Pista pendent"}
-                    </span>
-                  </div>
-
-                  {/* PERSONAL ASIGNADO */}
-
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-neutral">
-                      <span>
-                        <strong className="text-neutral-titulos">
-                          {partido.totales.arbitres}
-                        </strong>{" "}
-                        àrbitres
-                      </span>
-
-                      <span>
-                        <strong className="text-neutral-titulos">
-                          {partido.totales.oficialsTaula}
-                        </strong>{" "}
-                        oficials
-                      </span>
-                    </div>
-
-                    <span
-                      className={`rounded-lg px-2 py-1 text-[11px] font-semibold ${
-                        asignados > 0
-                          ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                          : "bg-amber-500/10 text-amber-700 dark:text-amber-300"
-                      }`}
-                    >
-                      {asignados > 0
-                        ? "Amb designacions"
-                        : "Sense designacions"}
-                    </span>
-                  </div>
+                  {titulo}
                 </button>
-              );
-            })}
-          </div>
-
-          {/* PAGINACIÓN */}
-
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border p-3 sm:p-4">
-            <p className="text-xs text-neutral">
-              Pàgina <strong className="text-neutral-titulos">{pagina}</strong>{" "}
-              de{" "}
-              <strong className="text-neutral-titulos">{totalPaginas}</strong>
-            </p>
-
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className={ESTILOS.boton}
-                disabled={pagina <= 1 || cargandoPartidos || guardando}
-                onClick={() => setPagina((actual) => Math.max(1, actual - 1))}
-              >
-                Anterior
-              </button>
-
-              <button
-                type="button"
-                className={ESTILOS.boton}
-                disabled={
-                  pagina >= totalPaginas || cargandoPartidos || guardando
-                }
-                onClick={() => setPagina((actual) => actual + 1)}
-              >
-                Següent
-              </button>
+              ))}
             </div>
           </div>
-        </section>
+        </div>
 
-        {/* ===================================================
-            COLUMNA DERECHA — DESIGNACIONES
-            =================================================== */}
+        <p className="mt-3 text-xs text-neutral">
+          {modo === "persones"
+            ? "El filtre de designats s'aplica a la persona seleccionada. Cada partit ofereix les dues funcions per separat."
+            : "El filtre de designats mostra partits amb alguna assignació o sense cap assignació."}
+        </p>
+      </section>
 
-        <section className={ESTILOS.tarjeta}>
-          {!partidoSeleccionado ? (
-            <div className="flex min-h-80 flex-col items-center justify-center px-6 py-12 text-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                <Icono tipo="calendario" className="h-8 w-8" />
-              </div>
+      {/* ERRORES */}
 
-              <h2 className="mt-4 text-lg font-bold text-neutral-titulos">
-                Selecciona un partit
+      {errorPartidos && (
+        <div
+          role="alert"
+          className="rounded-xl border border-red-300/40 bg-red-500/5 p-4 text-sm text-red-700"
+        >
+          {errorPartidos}
+        </div>
+      )}
+
+      {errorPersonas && (
+        <div
+          role="alert"
+          className="rounded-xl border border-red-300/40 bg-red-500/5 p-4 text-sm text-red-700"
+        >
+          {errorPersonas}
+        </div>
+      )}
+
+      {/* RESULTADO DE OPERACIONES */}
+
+      {aviso && (
+        <div
+          role={aviso.tipo === "error" ? "alert" : "status"}
+          className={`rounded-xl border p-4 text-sm ${
+            aviso.tipo === "error"
+              ? "border-red-300/40 bg-red-500/5 text-red-700"
+              : "border-emerald-300/40 bg-emerald-500/5 text-emerald-700"
+          }`}
+        >
+          {aviso.mensaje}
+        </div>
+      )}
+
+      {/* CARGA */}
+
+      {cargandoPartidos && (
+        <div
+          role="status"
+          className="rounded-xl border border-border bg-card p-4 text-sm text-neutral"
+        >
+          Carregant partits i designacions...
+        </div>
+      )}
+
+      {/* VISTA SELECCIONADA */}
+
+      {modo === "partits" ? (
+        <PorPartidos {...propsVista} />
+      ) : (
+        <PorPersonas {...propsVista} />
+      )}
+
+      {/* REALTIME */}
+
+      {modo === "partits" && supabaseUrl && supabaseAnonKey && (
+        <p className="text-xs text-neutral">
+          {realtimeConectado
+            ? "Sincronització del partit seleccionat activa"
+            : "La sincronització Realtime no està connectada. Pots actualitzar manualment."}
+        </p>
+      )}
+
+      {/* CONFIRMACIÓN DE REVOCACIÓN */}
+
+      {revocacion && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirmar-revocacio"
+            className="w-full max-w-lg space-y-4 rounded-2xl border border-border bg-card p-5 shadow-xl"
+          >
+            <div>
+              <h2
+                id="confirmar-revocacio"
+                className="text-lg font-bold text-neutral-titulos"
+              >
+                Llevar designació
               </h2>
 
-              <p className="mt-2 max-w-sm text-sm text-neutral">
-                Tria un partit de la llista per consultar les designacions i
-                assignar-hi personal.
+              <p className="mt-2 text-sm text-neutral">
+                Vols revocar la funció de{" "}
+                {nombrePersona(
+                  revocacion.designacion.usuario ??
+                    personas.find(
+                      (p) => p.id === revocacion.designacion.usuario_id,
+                    ),
+                )}
+                ? L'assignació quedarà a l'historial.
               </p>
             </div>
-          ) : (
-            <>
-              {/* CABECERA DEL PARTIDO */}
 
-              <div className="border-b border-border p-4 sm:p-5">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">
-                    Fitxa de designacions
-                  </p>
+            <label className="block space-y-2">
+              <span className="text-xs font-semibold text-neutral">
+                Motiu de la revocació
+              </span>
 
-                  <BadgeEstado estado={partidoSeleccionado.estado} />
-                </div>
+              <textarea
+                className={CAMPO}
+                rows={3}
+                maxLength={1000}
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+              />
+            </label>
 
-                <h2 className="mt-2 text-xl font-bold text-neutral-titulos sm:text-2xl">
-                  {partidoSeleccionado.nombre || partidoSeleccionado.codigo}
-                </h2>
+            <p className="text-xs text-neutral">
+              Si aquesta persona està controlant l'acta, el servidor ha de
+              rebutjar la revocació.
+            </p>
 
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <span className="rounded-lg bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary">
-                    {partidoSeleccionado.fase?.nombre ?? "Sense fase"}
-                  </span>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className={BOTON}
+                disabled={Boolean(operacion)}
+                onClick={() => setRevocacion(null)}
+              >
+                Cancel·lar
+              </button>
 
-                  {(partidoSeleccionado.ronda || partidoSeleccionado.grupo) && (
-                    <span className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-neutral">
-                      {partidoSeleccionado.ronda?.nombre ??
-                        partidoSeleccionado.grupo?.nombre}
-                    </span>
-                  )}
-                </div>
-
-                <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-neutral">
-                  <span className="flex items-center gap-2">
-                    <Icono tipo="calendario" className="h-4 w-4" />
-
-                    {fecha(partidoSeleccionado.fecha_hora)}
-                  </span>
-
-                  <span className="flex items-center gap-2">
-                    <Icono tipo="pista" className="h-4 w-4" />
-
-                    {partidoSeleccionado.pista || "Pista pendent"}
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-6 p-4 sm:p-5">
-                {/* DESIGNACIONES ACTUALES */}
-
-                <div>
-                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <h3 className="text-base font-bold text-neutral-titulos">
-                        Personal designat
-                      </h3>
-
-                      <p className="mt-1 text-xs text-neutral">
-                        {designacionesActivas.length} assignacions actives
-                      </p>
-                    </div>
-
-                    <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-neutral">
-                      <input
-                        type="checkbox"
-                        checked={historial}
-                        onChange={(evento) =>
-                          setHistorial(evento.target.checked)
-                        }
-                        className="accent-primary"
-                      />
-                      Veure historial
-                    </label>
-                  </div>
-
-                  {errorDetalle && <Aviso texto={errorDetalle} />}
-
-                  {cargandoDetalle && (
-                    <p role="status" className="py-4 text-sm text-neutral">
-                      Carregant designacions...
-                    </p>
-                  )}
-
-                  {!cargandoDetalle && detalleActual && (
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <GrupoDesignaciones
-                        titulo="Àrbitres"
-                        funcion="ARBITRE"
-                        designaciones={designacionesActivas}
-                      />
-
-                      <GrupoDesignaciones
-                        titulo="Oficials de taula"
-                        funcion="OFICIAL_TAULA"
-                        designaciones={designacionesActivas}
-                      />
-                    </div>
-                  )}
-
-                  {/* HISTORIAL */}
-
-                  {historial &&
-                    detalleActual &&
-                    !cargandoDetalle &&
-                    designacionesRevocadas.length > 0 && (
-                      <div className="mt-4 rounded-xl border border-border bg-background p-4">
-                        <h4 className={ESTILOS.seccion}>
-                          Designacions revocades
-                        </h4>
-
-                        <div className="mt-3 space-y-3">
-                          {designacionesRevocadas.map((designacion) => (
-                            <div
-                              key={designacion.id}
-                              className="flex items-start gap-3 border-b border-border pb-3 last:border-0 last:pb-0"
-                            >
-                              <Avatar
-                                persona={designacion.usuario}
-                                size="small"
-                              />
-
-                              <div className="min-w-0">
-                                <p className="text-sm font-semibold text-neutral-titulos">
-                                  {nombrePersona(designacion.usuario)}
-                                </p>
-
-                                <p className="mt-1 text-xs text-neutral">
-                                  {designacion.funcion === "ARBITRE"
-                                    ? "Àrbitre"
-                                    : "Oficial de taula"}
-                                </p>
-
-                                {designacion.motivo_revocacion && (
-                                  <p className="mt-1 text-xs text-neutral">
-                                    Motiu: {designacion.motivo_revocacion}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                </div>
-
-                {/* =================================================
-                    NUEVA DESIGNACIÓN
-                    ================================================= */}
-
-                {puedeAsignar && (
-                  <div className="border-t border-border pt-6">
-                    <div className="mb-4 flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                        <Icono tipo="mas" className="h-5 w-5" />
-                      </div>
-
-                      <div>
-                        <h3 className="text-base font-bold text-neutral-titulos">
-                          Nova designació
-                        </h3>
-
-                        <p className="text-xs text-neutral">
-                          Selecciona una persona i una funció
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* SELECTOR DE FUNCIÓN */}
-
-                    <div className="mb-4">
-                      <p className={ESTILOS.etiqueta}>Funció</p>
-
-                      <div className="grid grid-cols-2 gap-2">
-                        {(
-                          [
-                            ["ARBITRE", "Àrbitre"],
-                            ["OFICIAL_TAULA", "Oficial de taula"],
-                          ] as const
-                        ).map(([valor, titulo]) => (
-                          <button
-                            key={valor}
-                            type="button"
-                            disabled={guardando}
-                            onClick={() => {
-                              setFuncion(valor);
-                              setPersonaID("");
-                            }}
-                            aria-pressed={funcion === valor}
-                            className={`min-h-11 rounded-xl border px-3 py-2 text-sm font-semibold transition ${
-                              funcion === valor
-                                ? "border-primary bg-primary/10 text-primary"
-                                : "border-border bg-background text-neutral hover:border-primary/40"
-                            }`}
-                          >
-                            {titulo}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* BUSCAR PERSONAS */}
-
-                    <div className="mb-4">
-                      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                        <label
-                          htmlFor="cercar-persona"
-                          className={ESTILOS.etiqueta}
-                        >
-                          Persones disponibles
-                        </label>
-
-                        <span className="text-xs text-neutral">
-                          {personasFiltradas.length} resultats
-                        </span>
-                      </div>
-
-                      <div className="relative">
-                        <Icono
-                          tipo="buscar"
-                          className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral"
-                        />
-
-                        <input
-                          id="cercar-persona"
-                          type="search"
-                          value={busquedaPersona}
-                          onChange={(evento) => {
-                            setBusquedaPersona(evento.target.value);
-                            cambiarFiltroPersona();
-                          }}
-                          placeholder="Nom, llinatges o correu..."
-                          className={`${ESTILOS.campo} pl-10`}
-                        />
-                      </div>
-                    </div>
-
-                    {/* TIPO DE PERSONA */}
-
-                    <div className="mb-4 flex flex-wrap gap-2">
-                      {(
-                        [
-                          ["TODOS", "Tothom"],
-                          ["VOLUNTARI", "Voluntaris"],
-                          ["ADMINISTRADOR", "Administradors"],
-                        ] as const
-                      ).map(([valor, titulo]) => (
-                        <button
-                          key={valor}
-                          type="button"
-                          onClick={() => {
-                            setTipoPersona(valor);
-                            cambiarFiltroPersona();
-                          }}
-                          aria-pressed={tipoPersona === valor}
-                          className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${
-                            tipoPersona === valor
-                              ? "border-primary bg-primary/10 text-primary"
-                              : "border-border bg-background text-neutral hover:border-primary/40"
-                          }`}
-                        >
-                          {titulo}
-                        </button>
-                      ))}
-                    </div>
-
-                    {errorPersonas && (
-                      <div className="space-y-2">
-                        <Aviso texto={errorPersonas} />
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setVersionPersonas((actual) => actual + 1)
-                          }
-                          className={ESTILOS.boton}
-                        >
-                          Tornar a carregar persones
-                        </button>
-                      </div>
-                    )}
-
-                    {/* TARJETAS DE PERSONAS */}
-
-                    {cargandoPersonas ? (
-                      <p
-                        role="status"
-                        className="rounded-xl border border-border bg-background p-5 text-center text-sm text-neutral"
-                      >
-                        Carregant persones disponibles...
-                      </p>
-                    ) : !errorPersonas ? (
-                      <div className="space-y-2">
-                        {candidatos.length === 0 && (
-                          <div className="rounded-xl border border-dashed border-border p-6 text-center">
-                            <Icono
-                              tipo="usuarios"
-                              className="mx-auto h-7 w-7 text-neutral"
-                            />
-
-                            <p className="mt-2 text-sm font-semibold text-neutral-titulos">
-                              No hi ha persones habilitades
-                            </p>
-
-                            <p className="mt-1 text-xs text-neutral">
-                              Comprova les inscripcions, validacions i places
-                              confirmades de voluntariat.
-                            </p>
-                          </div>
-                        )}
-
-                        {candidatos.length > 0 &&
-                          personasFiltradas.length === 0 && (
-                            <div className="rounded-xl border border-dashed border-border p-6 text-center">
-                              <p className="text-sm text-neutral">
-                                Cap persona coincideix amb els filtres.
-                              </p>
-                            </div>
-                          )}
-
-                        {personasVisibles.map((persona) => {
-                          const seleccionada = personaID === persona.id;
-
-                          const duplicada = yaDesignado(persona.id);
-
-                          return (
-                            <button
-                              key={persona.id}
-                              type="button"
-                              disabled={
-                                duplicada ||
-                                guardando ||
-                                cargandoDetalle ||
-                                !detalleActual
-                              }
-                              onClick={() => setPersonaID(persona.id)}
-                              aria-pressed={seleccionada}
-                              className={`flex w-full min-w-0 items-center gap-3 rounded-xl border p-3 text-left transition ${
-                                seleccionada
-                                  ? "border-primary bg-primary/10"
-                                  : "border-border bg-background hover:border-primary/40"
-                              } disabled:cursor-not-allowed disabled:opacity-60`}
-                            >
-                              <Avatar persona={persona} />
-
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-semibold text-neutral-titulos">
-                                  {nombrePersona(persona)}
-                                </p>
-
-                                <p className="truncate text-xs text-neutral">
-                                  {persona.email || "Sense correu"}
-                                </p>
-
-                                <p className="mt-1 text-[11px] font-medium text-primary">
-                                  {persona.tipoAcceso === "ADMINISTRADOR"
-                                    ? "Administrador"
-                                    : "Voluntari confirmat"}
-                                </p>
-                              </div>
-
-                              {duplicada ? (
-                                <span className="shrink-0 rounded-lg bg-background px-2 py-1 text-[10px] font-semibold text-neutral">
-                                  Ja designat
-                                </span>
-                              ) : (
-                                <span
-                                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
-                                    seleccionada
-                                      ? "border-primary bg-primary text-white"
-                                      : "border-border"
-                                  }`}
-                                >
-                                  {seleccionada && (
-                                    <Icono tipo="check" className="h-4 w-4" />
-                                  )}
-                                </span>
-                              )}
-                            </button>
-                          );
-                        })}
-
-                        {personasFiltradas.length > limitePersonas && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setLimitePersonas((actual) => actual + 12)
-                            }
-                            className={`${ESTILOS.boton} w-full`}
-                          >
-                            Mostrar més persones
-                          </button>
-                        )}
-                      </div>
-                    ) : null}
-
-                    {/* CONFIRMAR ASIGNACIÓN */}
-
-                    {personaSeleccionada &&
-                      !yaDesignado(personaSeleccionada.id) && (
-                        <div className="mt-4 rounded-xl border border-primary/30 bg-primary/5 p-4">
-                          <p className="text-xs font-semibold text-primary">
-                            Designació preparada
-                          </p>
-
-                          <p className="mt-1 text-sm font-bold text-neutral-titulos">
-                            {nombrePersona(personaSeleccionada)}
-                          </p>
-
-                          <p className="mt-1 text-xs text-neutral">
-                            {funcion === "ARBITRE"
-                              ? "Funció: Àrbitre"
-                              : "Funció: Oficial de taula"}
-                          </p>
-                        </div>
-                      )}
-
-                    {errorAccion && (
-                      <div className="mt-4">
-                        <Aviso texto={errorAccion} />
-                      </div>
-                    )}
-
-                    {aviso && (
-                      <div className="mt-4">
-                        <Aviso texto={aviso} tipo="exito" />
-                      </div>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => void asignar()}
-                      disabled={
-                        !personaID ||
-                        guardando ||
-                        cargandoDetalle ||
-                        !detalleActual ||
-                        yaDesignado(personaID)
-                      }
-                      className={`${ESTILOS.primario} mt-4 w-full`}
-                    >
-                      {guardando ? (
-                        "Desant designació..."
-                      ) : (
-                        <>
-                          <Icono tipo="check" className="h-5 w-5" />
-                          Confirmar designació
-                        </>
-                      )}
-                    </button>
-                  </div>
-                )}
-
-                {/* REVOCACIONES PENDIENTES */}
-
-                {permisos?.revocar && !permisos.revocacionDisponible && (
-                  <div className="border-t border-border pt-4">
-                    <p className="text-xs leading-5 text-neutral">
-                      La revocació de designacions continua desactivada fins a
-                      completar la protecció del control exclusiu de l'acta.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </section>
-      </div>
+              <button
+                type="button"
+                className="inline-flex min-h-10 items-center rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                disabled={!motivo.trim() || Boolean(operacion)}
+                onClick={() => void confirmarRevocacion()}
+              >
+                {operacion ? "Llevant..." : "Confirmar revocació"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </main>
   );
 }
