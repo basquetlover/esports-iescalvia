@@ -1,0 +1,55 @@
+
+---
+import GestorAmbBloqueig from
+  "@components/acta/GestorAmbBloqueig";
+
+import LayoutPanel from "@layouts/LayoutPanel.astro";
+
+export const prerender = false;
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "private, no-store, no-cache, must-revalidate",
+);
+
+const partidoID =
+  Astro.params.partidoID
+    ?.trim()
+    .toLowerCase() ?? "";
+
+const torneoID =
+  Astro.url.searchParams
+    .get("torneoID")
+    ?.trim()
+    .toLowerCase() ?? "";
+
+const edicionID =
+  Astro.url.searchParams
+    .get("edicionID")
+    ?.trim()
+    .toLowerCase() ?? "";
+
+if (
+  !partidoID ||
+  !torneoID ||
+  !edicionID
+) {
+  return Astro.redirect(
+    "/panell/partits",
+    303,
+  );
+}
+---
+
+<LayoutPanel
+  title="Acta digital"
+  seccion="partits"
+  accion="ver"
+>
+  <GestorAmbBloqueig
+    client:load
+    partidoID={partidoID}
+    torneoID={torneoID}
+    edicionID={edicionID}
+  />
+</LayoutPanel>

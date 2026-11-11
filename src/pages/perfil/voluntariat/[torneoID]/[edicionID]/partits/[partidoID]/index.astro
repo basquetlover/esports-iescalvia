@@ -34,7 +34,6 @@ const partidoID = (
 
 let autorizado = false;
 let errorAcceso = "";
-
 let titulo = "Designació del partit";
 
 try {
@@ -48,26 +47,25 @@ try {
 
   autorizado = true;
 
-  titulo =
-    `Designació · ${
-      contexto.edicion.nombre ?? "Edició"
-    }`;
+  titulo = `Designació · ${contexto.edicion.nombre ?? "Edició"}`;
 } catch (error) {
-  if (error instanceof ErrorAPI) {
-    if (error.estado === 401) {
-      return Astro.redirect(
-        `/iniciar-sessio?redirect=${encodeURIComponent(Astro.url.pathname)}`,
-        303,
-      );
-    }
-
-    Astro.response.status =
-      error.estado === 400 ? 404 : error.estado;
-
-    errorAcceso = error.message;
-  } else {
+  if (!(error instanceof ErrorAPI)) {
     throw error;
   }
+
+  if (error.estado === 401) {
+    return Astro.redirect(
+      "/iniciar-sessio",
+      303,
+    );
+  }
+
+  Astro.response.status =
+    error.estado === 400
+      ? 404
+      : error.estado;
+
+  errorAcceso = error.message;
 }
 
 const rutaPartidos =
@@ -83,15 +81,6 @@ const rutaPartidos =
       aria-label="Ruta de navegació"
       class="flex flex-wrap items-center gap-2 text-xs font-medium"
     >
-      <a
-        href="/perfil"
-        class="text-neutral hover:text-primary"
-      >
-        Perfil
-      </a>
-
-      <span>/</span>
-
       <a
         href="/perfil/voluntariat"
         class="text-neutral hover:text-primary"
@@ -130,7 +119,7 @@ const rutaPartidos =
           <h1
             class="text-xl font-bold text-neutral-titulos"
           >
-            No tens accés a aquesta designació
+            Accés no autoritzat
           </h1>
 
           <p class="mt-3 text-sm text-neutral">
@@ -139,9 +128,9 @@ const rutaPartidos =
 
           <a
             href={rutaPartidos}
-            class="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white"
+            class="mt-6 inline-flex rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white"
           >
-            Tornar als meus partits
+            Tornar als partits
           </a>
         </section>
       )
