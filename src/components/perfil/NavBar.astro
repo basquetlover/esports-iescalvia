@@ -1,80 +1,323 @@
+
 ---
 import CerrarSessio from "@components/sesion/cerrar-session";
-import {MENU_PERFIL} from "@const/Menu";
+
+import { MENU_PERFIL } from "@const/Menu";
 import { tienePermiso } from "@const/Permisos";
 
-const urlActual = new URL(Astro.request.url);
-const urlSearch = urlActual.search;
-const pathname = urlActual.pathname;
+import {
+  teVoluntariatActiu,
+} from "@utils/voluntariat/acceso";
+
+// ============================================================
+// CONTEXTO
+// ============================================================
 
 const usuario = Astro.props.usuario;
+
+const urlActual = new URL(Astro.request.url);
+const pathname = urlActual.pathname;
+const urlSearch = urlActual.search;
+
+// ============================================================
+// ESTADO DE NAVEGACIÓN
+// ============================================================
+
+const voluntariatSeleccionat =
+  pathname === "/perfil/voluntariat" ||
+  pathname.startsWith("/perfil/voluntariat/");
+
+const panellSeleccionat =
+  pathname === "/panell" ||
+  pathname.startsWith("/panell/");
+
+// ============================================================
+// ACCESO AL PANEL DE ADMINISTRACIÓN
+// ============================================================
+
+const mostrarPanell =
+  tienePermiso(usuario, "panell");
+
+// ============================================================
+// ACCESO AL VOLUNTARIADO
+// ============================================================
+
+/*
+ * No es comprueba únicamente el rol general.
+ *
+ * La función consulta las autorizaciones
+ * vigentes del usuario autenticado:
+ *
+ * - Formulario aprobado.
+ * - Validación aprobada.
+ * - Plaza confirmada.
+ * - Edición asociada al torneo.
+ *
+ * Si le cancelan todas las autorizaciones,
+ * el botón desaparecerá en la próxima carga.
+ */
+
+let mostrarVoluntariat = false;
+
+try {
+  mostrarVoluntariat =
+    await teVoluntariatActiu(Astro.cookies);
+} catch (error) {
+  console.error(
+    "No s'ha pogut comprovar l'accés al voluntariat:",
+    error,
+  );
+
+  mostrarVoluntariat = false;
+}
 ---
-<div class="w-56 h-screen overflow-x-hidden no-scrollbar flex flex-col bg-card border-r border-on-background">
-    <div class="w-full flex flex-row items-center place-content-around max-md:px-4 my-2">
-        <span class="btn-MenuDesktop max-md:block hidden w-max h-max  rounded-full cursor-pointer">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 fill-secondary" viewBox="0 -960 960 960">
-                <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224z"/>
-            </svg>
-        </span>
-        <div>
-            <div class="flex items-center gap-2">
-                <img src="/logo-temporal.png" class="h-10"/>
-                <p class="uppercase font-bold text-center text-lg text-secondary flex flex-col ">
-                    Esports
-                    <span class="text-sm font-semibold text-primary">IES Calvià</span>
-                </p>
-            </div>
-            <h2 class="text-azul-claro text-base max-md:text-sm font-semibold text-center">Portal d'usuari</h2>
-        </div>
-        <!-- <img src="/img/logo_torneo.png" alt="Logo" class="w-28 h-28 mx-auto my-4" /> -->
-         
+
+<div
+  class="flex h-screen w-56 flex-col overflow-x-hidden border-r border-on-background bg-card no-scrollbar"
+>
+  <!-- ========================================================
+       LOGOTIPO Y CABECERA
+       ======================================================== -->
+
+  <div
+    class="my-2 flex w-full flex-row items-center place-content-around max-md:px-4"
+  >
+    <span
+      class="btn-MenuDesktop hidden h-max w-max cursor-pointer rounded-full max-md:block"
+    >
+      <svg
+        viewBox="0 -960 960 960"
+        class="h-6 w-6 fill-secondary"
+        aria-hidden="true"
+      >
+        <path
+          d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224z"
+        />
+      </svg>
+    </span>
+
+    <div>
+      <div class="flex items-center gap-2">
+        <img
+          src="/logo-temporal.png"
+          alt="Esports IES Calvià"
+          class="h-10"
+        />
+
+        <p
+          class="flex flex-col text-center text-lg font-bold uppercase text-secondary"
+        >
+          Esports
+
+          <span class="text-sm font-semibold text-primary">
+            IES Calvià
+          </span>
+        </p>
+      </div>
+
+      <h2
+        class="text-center text-base font-semibold text-azul-claro max-md:text-sm"
+      >
+        Portal d'usuari
+      </h2>
     </div>
+  </div>
 
-    
-    <nav class=" p-2">
-        <div class={`bg-gray-500 mb-2 h-px w-full `}>&nbsp;</div>
-        <div class="flex flex-col gap-y-2">
-            {MENU_PERFIL.map((item) => (
-                <a 
-                    href={item.enlace + urlSearch} 
-                    class={`px-4 py-2 font-semibold relative flex flex-row items-center gap-2 transition hover:bg-secondary/50 ${pathname === item.enlace ? 'bg-secondary/15 text-secondary' : ''}`}
-                >
-                    <span>
-                        <svg xmlns="http://www.w3.org/2000/svg" class={`w-5 h-5 bg-transparent ${pathname === item.enlace ? 'fill-secondary' : 'fill-neutral'}`} viewBox="0 -960 960 960" set:html={item.icono}>
-                            
-                        </svg>
-                    </span>
-                    {item.nombre}
-                    <span class={`w-1 h-full absolute top-0 right-0 bg-secondary ${pathname === item.enlace ? 'block' : 'hidden'}`}>&nbsp;</span>
-                </a>
-            ))}
-        </div>
-    </nav>
+  <!-- ========================================================
+       MENÚ GENERAL DEL PERFIL
+       ======================================================== -->
 
-    {
-        tienePermiso(usuario, "panell") && (
-            <div class="mt-2 p-2">
-                <div class={`bg-gray-500 mb-4 h-px w-full `}>&nbsp;</div>
-                <a href="/panell" class="px-4 py-2 font-semibold relative flex flex-row items-center gap-2 transition hover:bg-secondary/50">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 fill-neutral" viewBox="0 -960 960 960">
-                        <path d="M722.5-297.5Q740-315 740-340t-17.5-42.5T680-400t-42.5 17.5T620-340t17.5 42.5T680-280t42.5-17.5M680-160q31 0 57-14.5t42-38.5q-22-13-47-20t-52-7-52 7-47 20q16 24 42 38.5t57 14.5M480-80q-139-35-229.5-159.5T160-516v-244l320-120 320 120v227q-19-8-39-14.5t-41-9.5v-147l-240-90-240 90v188q0 47 12.5 94t35 89.5T342-254t71 60q11 32 29 61t41 52q-1 0-1.5.5t-1.5.5m200 0q-83 0-141.5-58.5T480-280t58.5-141.5T680-480t141.5 58.5T880-280t-58.5 141.5T680-80M480-494"/>
-                    </svg>
-                    Panell d'administració
-                </a>
-            </div>
-        )
-    }
-    <div class="mt-5">
-        <CerrarSessio client:load/>
+  <nav
+    aria-label="Menú del perfil"
+    class="p-2"
+  >
+    <div class="mb-2 h-px w-full bg-gray-500"></div>
+
+    <div class="flex flex-col gap-y-2">
+      {
+        MENU_PERFIL.map((item) => {
+          const seleccionat =
+            pathname === item.enlace;
+
+          return (
+            <a
+              href={item.enlace + urlSearch}
+              aria-current={
+                seleccionat ? "page" : undefined
+              }
+              class:list={[
+                "relative flex items-center gap-2 px-4 py-2 font-semibold transition hover:bg-secondary/50",
+
+                seleccionat &&
+                  "bg-secondary/15 text-secondary",
+              ]}
+            >
+              <span>
+                <svg
+                  viewBox="0 -960 960 960"
+                  aria-hidden="true"
+                  class:list={[
+                    "h-5 w-5 bg-transparent",
+
+                    seleccionat
+                      ? "fill-secondary"
+                      : "fill-neutral",
+                  ]}
+                  set:html={item.icono}
+                />
+              </span>
+
+              <span>{item.nombre}</span>
+
+              <span
+                aria-hidden="true"
+                class:list={[
+                  "absolute right-0 top-0 h-full w-1 bg-secondary",
+
+                  seleccionat
+                    ? "block"
+                    : "hidden",
+                ]}
+              />
+            </a>
+          );
+        })
+      }
     </div>
-        
-    
+  </nav>
 
-    <!-- <div class="mt-auto border-t border-gray-400 p-2 text-sm flex flex-col gap-y-1">
-        <p>Usuari: {usuario.nombre}</p>
-        <p>Rol: {usuario.rango}</p>
-        <a href="/" class="text-primary hover:underline text-center">
-            Sortir del panell
+  <!-- ========================================================
+       ACCESO AL VOLUNTARIADO
+       ======================================================== -->
+
+  {
+    mostrarVoluntariat && (
+      <div class="mt-2 p-2">
+        <div
+          class="mb-4 h-px w-full bg-gray-500"
+        />
+
+        <a
+          href="/perfil/voluntariat"
+          aria-current={
+            voluntariatSeleccionat
+              ? "page"
+              : undefined
+          }
+          class:list={[
+            "relative flex items-center gap-2 rounded-lg px-4 py-3 font-semibold transition hover:bg-secondary/50",
+
+            voluntariatSeleccionat
+              ? "bg-secondary/15 text-secondary"
+              : "text-neutral",
+          ]}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="h-5 w-5 shrink-0"
+            aria-hidden="true"
+          >
+            <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z" />
+            <path d="M9 12h6M12 9v6" />
+          </svg>
+
+          <span class="flex-1">
+            Voluntariat
+          </span>
+
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="h-4 w-4 shrink-0 opacity-60"
+            aria-hidden="true"
+          >
+            <path d="m9 18 6-6-6-6" />
+          </svg>
+
+          <span
+            aria-hidden="true"
+            class:list={[
+              "absolute right-0 top-0 h-full w-1 bg-secondary",
+
+              voluntariatSeleccionat
+                ? "block"
+                : "hidden",
+            ]}
+          />
         </a>
-    </div> -->
+      </div>
+    )
+  }
+
+  <!-- ========================================================
+       ACCESO AL PANEL DE ADMINISTRACIÓN
+       ======================================================== -->
+
+  {
+    mostrarPanell && (
+      <div class="mt-2 p-2">
+        <div
+          class="mb-4 h-px w-full bg-gray-500"
+        />
+
+        <a
+          href="/panell"
+          aria-current={
+            panellSeleccionat
+              ? "page"
+              : undefined
+          }
+          class:list={[
+            "relative flex items-center gap-2 rounded-lg px-4 py-3 font-semibold transition hover:bg-secondary/50",
+
+            panellSeleccionat
+              ? "bg-secondary/15 text-secondary"
+              : "text-neutral",
+          ]}
+        >
+          <svg
+            viewBox="0 -960 960 960"
+            class="h-5 w-5 shrink-0 fill-current"
+            aria-hidden="true"
+          >
+            <path
+              d="M722.5-297.5Q740-315 740-340t-17.5-42.5T680-400t-42.5 17.5T620-340t17.5 42.5T680-280t42.5-17.5M680-160q31 0 57-14.5t42-38.5q-22-13-47-20t-52-7-52 7-47 20q16 24 42 38.5t57 14.5M480-80q-139-35-229.5-159.5T160-516v-244l320-120 320 120v227q-19-8-39-14.5t-41-9.5v-147l-240-90-240 90v188q0 47 12.5 94t35 89.5T342-254t71 60q11 32 29 61t41 52q-1 0-1.5.5t-1.5.5m200 0q-83 0-141.5-58.5T480-280t58.5-141.5T680-480t141.5 58.5T880-280t-58.5 141.5T680-80M480-494"
+            />
+          </svg>
+
+          <span class="flex-1">
+            Panell d'administració
+          </span>
+
+          <span
+            aria-hidden="true"
+            class:list={[
+              "absolute right-0 top-0 h-full w-1 bg-secondary",
+
+              panellSeleccionat
+                ? "block"
+                : "hidden",
+            ]}
+          />
+        </a>
+      </div>
+    )
+  }
+
+  <!-- ========================================================
+       CERRAR SESIÓN
+       ======================================================== -->
+
+  <div class="mt-5">
+    <CerrarSessio client:load />
+  </div>
 </div>

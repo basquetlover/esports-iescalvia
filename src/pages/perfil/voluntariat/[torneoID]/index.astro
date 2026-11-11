@@ -1,0 +1,651 @@
+
+---
+import LayoutPerfil from "@layouts/LayoutPerfil.astro";
+
+import {
+  ErrorAPI,
+  UUID,
+} from "@utils/inscripcio/equipBase";
+
+import {
+  obtenirEdicionsVoluntariat,
+  type AccesoEdicionVoluntariat,
+} from "@utils/voluntariat/acceso";
+
+export const prerender = false;
+
+// ============================================================
+// SEGURIDAD
+// ============================================================
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "private, no-store, no-cache, must-revalidate",
+);
+
+// ============================================================
+// PARÁMETROS
+// ============================================================
+
+const torneoID = (
+  Astro.params.torneoID ?? ""
+).trim().toLowerCase();
+
+const identificadorValido = UUID.test(torneoID);
+
+// ============================================================
+// COMPROBACIÓN DE ACCESO
+// ============================================================
+
+/*
+ * La comprobación se realiza en el servidor.
+ *
+ * No se aceptan IDs de usuario desde la URL.
+ *
+ * El controlador verifica:
+ * - La sesión.
+ * - La cuenta activa.
+ * - Los formularios aprobados.
+ * - La validación aprobada.
+ * - La plaza confirmada.
+ *
+ * Cada edición se filtra por el torneo solicitado.
+ */
+
+let accesos: AccesoEdicionVoluntariat[] = [];
+
+try {
+  accesos = await obtenirEdicionsVoluntariat(
+    Astro.cookies,
+  );
+} catch (error) {
+  if (
+    error instanceof ErrorAPI &&
+    error.estado === 401
+  ) {
+    return Astro.redirect(
+      "/iniciar-sessio",
+      303,
+    );
+  }
+
+  throw error;
+}
+
+// ============================================================
+// FILTRAR EDICIONES DEL TORNEO
+// ============================================================
+
+const accesosTorneo = identificadorValido
+  ? accesos.filter(
+      (acceso) =>
+        acceso.torneoID.toLowerCase() === torneoID,
+    )
+  : [];
+
+const torneo =
+  accesosTorneo[0]?.torneo ?? null;
+
+const autorizado = Boolean(torneo);
+
+// No revelar información de torneos sin acceso.
+if (!autorizado) {
+  Astro.response.status = 404;
+}
+
+// ============================================================
+// TIPOS
+// ============================================================
+
+type Edicion = {
+  id: string;
+  nombre: string;
+  estado: string | null;
+  fechaInicio: string | null;
+  activa: boolean;
+};
+
+// ============================================================
+// UTILIDADES
+// ============================================================
+
+function esActiva(
+  estado: string | null,
+): boolean {
+  const valor = estado
+    ?.trim()
+    .toUpperCase();
+
+  return (
+    valor === "ACTIVA" ||
+    valor === "ACTIVO" ||
+    valor === "ACTIU"
+  );
+}
+
+function textoEstado(
+  estado: string | null,
+): string {
+  switch (estado?.trim().toUpperCase()) {
+    case "ACTIVA":
+    case "ACTIVO":
+    case "ACTIU":
+      return "Activa";
+
+    case "FINALIZADA":
+    case "FINALIZADO":
+    case "FINALITZADA":
+      return "Finalitzada";
+
+    case "BORRADOR":
+      return "En preparació";
+
+    case "CANCELADA":
+    case "CANCELADO":
+      return "Cancel·lada";
+
+    default:
+      return "Edició";
+  }
+}
+
+function formatearFecha(
+  valor: string | null,
+): string | null {
+  if (!valor) {
+    return null;
+  }
+
+  const fecha = new Date(valor);
+
+  if (Number.isNaN(fecha.getTime())) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat(
+    "ca-ES",
+    {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      timeZone: "Europe/Madrid",
+    },
+  ).format(fecha);
+}
+
+function nombreDeporte(
+  deporte: string | null,
+): string {
+  switch (deporte?.trim().toUpperCase()) {
+    case "VOLEIBOL":
+      return "Voleibol";
+
+    case "FUTBOL":
+      return "Futbol";
+
+    case "BALONCESTO":
+    case "BASQUET":
+      return "Bàsquet";
+
+    default:
+      return "Competició esportiva";
+  }
+}
+
+// ============================================================
+// PREPARAR EDICIONES
+// ============================================================
+
+const mapaEdiciones = new Map<string, Edicion>();
+
+for (const acceso of accesosTorneo) {
+  const edicion = acceso.edicion;
+
+  if (mapaEdiciones.has(edicion.id)) {
+    continue;
+  }
+
+  mapaEdiciones.set(edicion.id, {
+    id: edicion.id,
+    nombre: edicion.nombre,
+    estado: edicion.estado,
+    fechaInicio: edicion.fechaInicio,
+    activa: esActiva(edicion.estado),
+  });
+}
+
+// ============================================================
+// ORDENACIÓN
+// ============================================================
+
+const ediciones = [
+  ...mapaEdiciones.values(),
+].sort((a, b) => {
+  // Primero las activas.
+  if (a.activa !== b.activa) {
+    return a.activa ? -1 : 1;
+  }
+
+  // Después por fecha más reciente.
+  const diferenciaFecha = (
+    b.fechaInicio ?? ""
+  ).localeCompare(
+    a.fechaInicio ?? "",
+  );
+
+  if (diferenciaFecha !== 0) {
+    return diferenciaFecha;
+  }
+
+  return a.nombre.localeCompare(
+    b.nombre,
+    "ca",
+    { numeric: true },
+  );
+});
+
+const edicionesActivas = ediciones.filter(
+  (edicion) => edicion.activa,
+);
+
+const otrasEdiciones = ediciones.filter(
+  (edicion) => !edicion.activa,
+);
+
+const grupos = [
+  {
+    titulo: "Edicions actives",
+    descripcion:
+      "Edicions que actualment estan en curs.",
+    ediciones: edicionesActivas,
+  },
+  {
+    titulo: "Altres edicions",
+    descripcion:
+      "Edicions anteriors o que no estan actives.",
+    ediciones: otrasEdiciones,
+  },
+].filter(
+  (grupo) => grupo.ediciones.length > 0,
+);
+
+const tituloPagina = autorizado
+  ? `Voluntariat · ${torneo?.nombre}`
+  : "Torneig no disponible";
+---
+
+<LayoutPerfil title={tituloPagina}>
+  <div
+    class="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 pb-12 sm:p-6"
+  >
+    <!-- ======================================================
+         NAVEGACIÓN
+         ====================================================== -->
+
+    <nav
+      aria-label="Ruta de navegació"
+      class="flex flex-wrap items-center gap-2 text-xs font-medium"
+    >
+      <a
+        href="/perfil"
+        class="text-neutral transition hover:text-primary"
+      >
+        El meu perfil
+      </a>
+
+      <span class="text-neutral/50">/</span>
+
+      <a
+        href="/perfil/voluntariat"
+        class="text-neutral transition hover:text-primary"
+      >
+        Voluntariat
+      </a>
+
+      {
+        autorizado && (
+          <>
+            <span class="text-neutral/50">/</span>
+
+            <span class="font-semibold text-primary">
+              {torneo?.nombre}
+            </span>
+          </>
+        )
+      }
+    </nav>
+
+    <!-- ======================================================
+         ACCESO DENEGADO
+         ====================================================== -->
+
+    {
+      !autorizado ? (
+        <section
+          class="mx-auto w-full max-w-xl rounded-2xl border border-border bg-card p-6 text-center shadow-sm sm:p-10"
+        >
+          <div
+            class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="h-8 w-8"
+              aria-hidden="true"
+            >
+              <path d="m12 3 8 3v6c0 4-3 7-8 9-5-2-8-5-8-9V6l8-3Z" />
+              <path d="M9 9l6 6M15 9l-6 6" />
+            </svg>
+          </div>
+
+          <h1
+            class="mt-5 text-2xl font-bold text-neutral-titulos"
+          >
+            Torneig no disponible
+          </h1>
+
+          <p
+            class="mx-auto mt-3 max-w-md text-sm leading-6 text-neutral"
+          >
+            No s'ha trobat el torneig sol·licitat
+            entre els teus voluntariats autoritzats.
+            És possible que l'accés hagi estat
+            cancel·lat.
+          </p>
+
+          <a
+            href="/perfil/voluntariat"
+            class="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
+          >
+            Tornar als meus tornejos
+          </a>
+        </section>
+      ) : (
+        <>
+          <!-- =================================================
+               CABECERA DEL TORNEO
+               ================================================= -->
+
+          <header
+            class="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6"
+          >
+            <div
+              class="flex flex-col gap-5 sm:flex-row sm:items-center"
+            >
+              <div
+                class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border bg-background p-3"
+              >
+                {
+                  torneo?.logo ? (
+                    <img
+                      src={torneo.logo}
+                      alt={`Escut de ${torneo.nombre}`}
+                      class="h-full w-full object-contain"
+                    />
+                  ) : (
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.7"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      class="h-10 w-10 text-primary"
+                      aria-hidden="true"
+                    >
+                      <path d="M8 21h8M12 17v4M7 3h10v7a5 5 0 0 1-10 0V3Z" />
+                      <path d="M7 5H4v3a4 4 0 0 0 4 4M17 5h3v3a4 4 0 0 1-4 4" />
+                    </svg>
+                  )
+                }
+              </div>
+
+              <div class="min-w-0 flex-1">
+                <p
+                  class="text-xs font-bold uppercase tracking-[0.14em] text-primary"
+                >
+                  {nombreDeporte(torneo?.deporte ?? null)}
+                </p>
+
+                <h1
+                  class="mt-2 break-words text-2xl font-bold tracking-tight text-neutral-titulos sm:text-3xl"
+                >
+                  {torneo?.nombre}
+                </h1>
+
+                <p class="mt-2 text-sm leading-6 text-neutral">
+                  Selecciona una edició per consultar
+                  les teves designacions i activitats
+                  com a voluntari.
+                </p>
+              </div>
+            </div>
+          </header>
+
+          <!-- =================================================
+               RESUMEN
+               ================================================= -->
+
+          <section
+            aria-label="Resum del torneig"
+            class="grid grid-cols-2 gap-3"
+          >
+            <div
+              class="rounded-2xl border border-border bg-card p-4 shadow-sm"
+            >
+              <p class="text-xs font-semibold text-neutral">
+                Edicions autoritzades
+              </p>
+
+              <p
+                class="mt-2 text-3xl font-bold tabular-nums text-neutral-titulos"
+              >
+                {ediciones.length}
+              </p>
+            </div>
+
+            <div
+              class="rounded-2xl border border-border bg-card p-4 shadow-sm"
+            >
+              <p class="text-xs font-semibold text-neutral">
+                Edicions actives
+              </p>
+
+              <p
+                class="mt-2 text-3xl font-bold tabular-nums text-neutral-titulos"
+              >
+                {edicionesActivas.length}
+              </p>
+            </div>
+          </section>
+
+          <!-- =================================================
+               SELECTOR DE EDICIONES
+               ================================================= -->
+
+          {
+            grupos.map((grupo) => (
+              <section class="space-y-4">
+                <div
+                  class="flex flex-wrap items-end justify-between gap-3"
+                >
+                  <div>
+                    <h2
+                      class="text-xl font-bold text-neutral-titulos"
+                    >
+                      {grupo.titulo}
+                    </h2>
+
+                    <p
+                      class="mt-1 text-sm text-neutral"
+                    >
+                      {grupo.descripcion}
+                    </p>
+                  </div>
+
+                  <span
+                    class="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-neutral"
+                  >
+                    {grupo.ediciones.length}
+                    {grupo.ediciones.length === 1
+                      ? " edició"
+                      : " edicions"}
+                  </span>
+                </div>
+
+                <div
+                  class="grid grid-cols-1 gap-4 lg:grid-cols-2"
+                >
+                  {
+                    grupo.ediciones.map((edicion) => (
+                      <article
+                        class="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition hover:border-primary/40 hover:shadow-md"
+                      >
+                        <div class="flex-1 p-5">
+                          <div
+                            class="flex flex-wrap items-start justify-between gap-3"
+                          >
+                            <div class="flex min-w-0 items-center gap-3">
+                              <div
+                                class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
+                              >
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  stroke-width="1.8"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  class="h-5 w-5"
+                                  aria-hidden="true"
+                                >
+                                  <rect x="3" y="5" width="18" height="16" rx="2" />
+                                  <path d="M7 3v4M17 3v4M3 10h18" />
+                                </svg>
+                              </div>
+
+                              <h3
+                                class="min-w-0 break-words text-lg font-bold text-neutral-titulos"
+                              >
+                                {edicion.nombre}
+                              </h3>
+                            </div>
+
+                            <span
+                              class:list={[
+                                "shrink-0 rounded-lg px-2.5 py-1 text-xs font-semibold",
+
+                                edicion.activa
+                                  ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                                  : "bg-background text-neutral",
+                              ]}
+                            >
+                              {textoEstado(edicion.estado)}
+                            </span>
+                          </div>
+
+                          <div
+                            class="mt-5 flex flex-col gap-2 border-t border-border pt-4"
+                          >
+                            <p
+                              class="text-xs font-semibold text-neutral"
+                            >
+                              Data de l'edició
+                            </p>
+
+                            <p
+                              class="text-sm font-medium capitalize text-neutral-titulos"
+                            >
+                              {formatearFecha(
+                                edicion.fechaInicio,
+                              ) ?? "Data pendent"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div
+                          class="border-t border-border bg-background/40 p-4"
+                        >
+                          <a
+                            href={`/perfil/voluntariat/${encodeURIComponent(torneoID)}/${encodeURIComponent(edicion.id)}`}
+                            class="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white transition hover:opacity-90"
+                          >
+                            Accedir a l'edició
+
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="1.8"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              class="h-4 w-4"
+                              aria-hidden="true"
+                            >
+                              <path d="M5 12h14M13 6l6 6-6 6" />
+                            </svg>
+                          </a>
+                        </div>
+                      </article>
+                    ))
+                  }
+                </div>
+              </section>
+            ))
+          }
+
+          <!-- =================================================
+               INFORMACIÓN DE SEGURIDAD
+               ================================================= -->
+
+          <aside
+            class="rounded-2xl border border-border bg-card p-4 sm:p-5"
+          >
+            <div class="flex items-start gap-3">
+              <div
+                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="h-5 w-5"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 11v5M12 8h.01" />
+                </svg>
+              </div>
+
+              <div>
+                <h2
+                  class="text-sm font-bold text-neutral-titulos"
+                >
+                  Accés al voluntariat
+                </h2>
+
+                <p
+                  class="mt-1 text-sm leading-6 text-neutral"
+                >
+                  Només es mostren les edicions
+                  en què tens una autorització
+                  vigent. Si es cancel·la el teu
+                  accés a una edició, deixaràs
+                  de poder consultar-ne les
+                  pàgines protegides.
+                </p>
+              </div>
+            </div>
+          </aside>
+        </>
+      )
+    }
+  </div>
+</LayoutPerfil>

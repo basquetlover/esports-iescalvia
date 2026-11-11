@@ -48,9 +48,9 @@ if (!usuario) {
 }
 
 // Sin acceso general: página independiente, sin el layout del panel.
-if (!tienePermiso(usuario, "panell", "ver")) {
-  return Astro.rewrite("/acces-denegat");
-}
+// if (!tienePermiso(usuario, "panell", "ver")) {
+//   return Astro.rewrite("/acces-denegat");
+// }
 
 const usuarioAutenticado = usuario;
 

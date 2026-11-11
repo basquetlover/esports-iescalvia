@@ -1,0 +1,150 @@
+
+---
+import LayoutPerfil from "@layouts/LayoutPerfil.astro";
+
+import DetallPartit from
+  "@components/perfil/voluntariat/DetallPartit";
+
+import {
+  ErrorAPI,
+} from "@utils/inscripcio/equipBase";
+
+import {
+  exigirPartidoDesignadoVoluntariat,
+} from "@utils/voluntariat/acceso";
+
+export const prerender = false;
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "private, no-store, no-cache, must-revalidate",
+);
+
+const torneoID = (
+  Astro.params.torneoID ?? ""
+).trim().toLowerCase();
+
+const edicionID = (
+  Astro.params.edicionID ?? ""
+).trim().toLowerCase();
+
+const partidoID = (
+  Astro.params.partidoID ?? ""
+).trim().toLowerCase();
+
+let autorizado = false;
+let errorAcceso = "";
+
+let titulo = "Designació del partit";
+
+try {
+  const contexto =
+    await exigirPartidoDesignadoVoluntariat(
+      Astro.cookies,
+      torneoID,
+      edicionID,
+      partidoID,
+    );
+
+  autorizado = true;
+
+  titulo =
+    `Designació · ${
+      contexto.edicion.nombre ?? "Edició"
+    }`;
+} catch (error) {
+  if (error instanceof ErrorAPI) {
+    if (error.estado === 401) {
+      return Astro.redirect(
+        `/iniciar-sessio?redirect=${encodeURIComponent(Astro.url.pathname)}`,
+        303,
+      );
+    }
+
+    Astro.response.status =
+      error.estado === 400 ? 404 : error.estado;
+
+    errorAcceso = error.message;
+  } else {
+    throw error;
+  }
+}
+
+const rutaPartidos =
+  `/perfil/voluntariat/${encodeURIComponent(torneoID)}` +
+  `/${encodeURIComponent(edicionID)}/partits`;
+---
+
+<LayoutPerfil title={titulo}>
+  <div
+    class="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 pb-12 sm:p-6"
+  >
+    <nav
+      aria-label="Ruta de navegació"
+      class="flex flex-wrap items-center gap-2 text-xs font-medium"
+    >
+      <a
+        href="/perfil"
+        class="text-neutral hover:text-primary"
+      >
+        Perfil
+      </a>
+
+      <span>/</span>
+
+      <a
+        href="/perfil/voluntariat"
+        class="text-neutral hover:text-primary"
+      >
+        Voluntariat
+      </a>
+
+      <span>/</span>
+
+      <a
+        href={rutaPartidos}
+        class="text-neutral hover:text-primary"
+      >
+        Partits
+      </a>
+
+      <span>/</span>
+
+      <span class="font-semibold text-primary">
+        Designació
+      </span>
+    </nav>
+
+    {
+      autorizado ? (
+        <DetallPartit
+          client:load
+          torneoID={torneoID}
+          edicionID={edicionID}
+          partidoID={partidoID}
+        />
+      ) : (
+        <section
+          class="rounded-2xl border border-border bg-card p-8 text-center"
+        >
+          <h1
+            class="text-xl font-bold text-neutral-titulos"
+          >
+            No tens accés a aquesta designació
+          </h1>
+
+          <p class="mt-3 text-sm text-neutral">
+            {errorAcceso}
+          </p>
+
+          <a
+            href={rutaPartidos}
+            class="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white"
+          >
+            Tornar als meus partits
+          </a>
+        </section>
+      )
+    }
+  </div>
+</LayoutPerfil>

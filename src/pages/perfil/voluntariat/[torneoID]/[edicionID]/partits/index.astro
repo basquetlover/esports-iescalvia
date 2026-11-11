@@ -1,0 +1,91 @@
+
+---
+import LayoutPerfil from "@layouts/LayoutPerfil.astro";
+
+import PartitsDesignats from
+  "@components/perfil/voluntariat/PartitsDesignats";
+
+import { ErrorAPI } from "@utils/inscripcio/equipBase";
+import { exigirAccesoVoluntariat } from "@utils/voluntariat/acceso";
+
+export const prerender = false;
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "private, no-store, no-cache, must-revalidate",
+);
+
+const torneoID = Astro.params.torneoID ?? "";
+const edicionID = Astro.params.edicionID ?? "";
+
+let autoritzat = false;
+let missatge = "No tens accés a aquesta edició.";
+
+try {
+  await exigirAccesoVoluntariat(
+    Astro.cookies,
+    torneoID,
+    edicionID,
+  );
+
+  autoritzat = true;
+} catch (error) {
+  if (!(error instanceof ErrorAPI)) throw error;
+
+  Astro.response.status =
+    error.estado === 401 ? 401 :
+    error.estado === 400 ? 404 :
+    error.estado;
+
+  missatge = error.message;
+}
+
+const rutaEdicion =
+  `/perfil/voluntariat/${encodeURIComponent(torneoID)}` +
+  `/${encodeURIComponent(edicionID)}`;
+---
+
+<LayoutPerfil title="Partits designats · Voluntariat">
+  <div class="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 pb-12 sm:p-6">
+    <nav class="flex flex-wrap items-center gap-2 text-xs font-medium">
+      <a href="/perfil" class="text-neutral hover:text-primary">
+        Perfil
+      </a>
+      <span>/</span>
+      <a href="/perfil/voluntariat" class="text-neutral hover:text-primary">
+        Voluntariat
+      </a>
+      <span>/</span>
+      <a href={rutaEdicion} class="text-neutral hover:text-primary">
+        Edició
+      </a>
+      <span>/</span>
+      <span class="font-bold text-primary">Partits</span>
+    </nav>
+
+    {
+      autoritzat ? (
+        <PartitsDesignats
+          client:load
+          torneoID={torneoID}
+          edicionID={edicionID}
+        />
+      ) : (
+        <section class="rounded-2xl border border-border bg-card p-8 text-center">
+          <h1 class="text-xl font-bold text-neutral-titulos">
+            Accés no autoritzat
+          </h1>
+          <p class="mt-3 text-sm text-neutral">
+            {missatge}
+          </p>
+          <a
+            href="/perfil/voluntariat"
+            class="mt-5 inline-flex rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white"
+          >
+            Tornar als meus tornejos
+          </a>
+        </section>
+      )
+    }
+  </div>
+</LayoutPerfil>

@@ -1,0 +1,1253 @@
+
+---
+import LayoutPerfil from "@layouts/LayoutPerfil.astro";
+
+import { supabaseAdmin } from "@utils/supabase";
+
+import {
+  ErrorAPI,
+  UUID,
+} from "@utils/inscripcio/equipBase";
+
+import {
+  exigirAccesoVoluntariat,
+  type ContextoVoluntariat,
+  type FuncionVoluntariat,
+} from "@utils/voluntariat/acceso";
+
+export const prerender = false;
+
+// ============================================================
+// CACHÉ
+// ============================================================
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "private, no-store, no-cache, must-revalidate",
+);
+
+// ============================================================
+// TIPOS
+// ============================================================
+
+type DesignacionDB = {
+  id: string;
+  partido_id: string;
+  funcion: FuncionVoluntariat;
+};
+
+type PartidoDB = {
+  id: string;
+  edicion_id: string;
+  fase_id: string;
+  ronda_id: string | null;
+  codigo: string | null;
+  nombre: string | null;
+  fecha_hora: string | null;
+  pista: string | null;
+  estado: string | null;
+  finalizado_at: string | null;
+};
+
+type PlazaDB = {
+  partido_id: string | null;
+  lado: string | null;
+  origen_tipo: string | null;
+  equipo_origen_id: string | null;
+  equipo_resuelto_id: string | null;
+};
+
+type EstadoPartido =
+  | "EN_CURS"
+  | "PROPER"
+  | "FINALITZAT"
+  | "PENDENT";
+
+type PartidoVoluntariat = {
+  id: string;
+  codigo: string;
+  nombre: string;
+  fechaHora: string | null;
+  pista: string | null;
+  fase: string | null;
+  ronda: string | null;
+  local: string;
+  visitante: string;
+  estado: EstadoPartido;
+  funciones: FuncionVoluntariat[];
+};
+
+type TorneoDB = {
+  id: string;
+  nombre: string | null;
+  deporte: string | null;
+  logo: string | null;
+};
+
+// ============================================================
+// PARÁMETROS
+// ============================================================
+
+const torneoID = (
+  Astro.params.torneoID ?? ""
+).trim().toLowerCase();
+
+const edicionID = (
+  Astro.params.edicionID ?? ""
+).trim().toLowerCase();
+
+// ============================================================
+// CONTROL DE ACCESO
+// ============================================================
+
+let contexto: ContextoVoluntariat | null = null;
+let errorAcceso: string | null = null;
+
+try {
+  if (
+    !UUID.test(torneoID) ||
+    !UUID.test(edicionID)
+  ) {
+    throw new ErrorAPI(
+      404,
+      "El torneig o l'edició no són vàlids.",
+    );
+  }
+
+  contexto = await exigirAccesoVoluntariat(
+    Astro.cookies,
+    torneoID,
+    edicionID,
+  );
+} catch (error) {
+  if (error instanceof ErrorAPI) {
+    if (error.estado === 401) {
+      return Astro.redirect(
+        "/iniciar-sessio",
+        303,
+      );
+    }
+
+    Astro.response.status =
+      error.estado === 400 ? 404 : error.estado;
+
+    errorAcceso = error.message;
+  } else {
+    throw error;
+  }
+}
+
+// ============================================================
+// UTILIDADES
+// ============================================================
+
+function lotes<T>(
+  valores: T[],
+  tamano = 150,
+): T[][] {
+  const resultado: T[][] = [];
+
+  for (let i = 0; i < valores.length; i += tamano) {
+    resultado.push(
+      valores.slice(i, i + tamano),
+    );
+  }
+
+  return resultado;
+}
+
+function unicos(
+  valores: Array<string | null | undefined>,
+): string[] {
+  return [
+    ...new Set(
+      valores.filter(
+        (valor): valor is string =>
+          typeof valor === "string" &&
+          valor.length > 0,
+      ),
+    ),
+  ];
+}
+
+function fechaValida(
+  valor: string | null,
+): Date | null {
+  if (!valor) return null;
+
+  const fecha = new Date(valor);
+
+  return Number.isNaN(fecha.getTime())
+    ? null
+    : fecha;
+}
+
+function formatearFecha(
+  valor: string | null,
+): string {
+  const fecha = fechaValida(valor);
+
+  if (!fecha) {
+    return "Data pendent";
+  }
+
+  return new Intl.DateTimeFormat(
+    "ca-ES",
+    {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      timeZone: "Europe/Madrid",
+    },
+  ).format(fecha);
+}
+
+function formatearHora(
+  valor: string | null,
+): string {
+  const fecha = fechaValida(valor);
+
+  if (!fecha) {
+    return "--:--";
+  }
+
+  return new Intl.DateTimeFormat(
+    "ca-ES",
+    {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone: "Europe/Madrid",
+    },
+  ).format(fecha);
+}
+
+function estadoPartido(
+  partido: PartidoDB,
+): EstadoPartido {
+  const estado = (
+    partido.estado ?? ""
+  ).trim().toUpperCase();
+
+  if (
+    partido.finalizado_at ||
+    [
+      "FINALIZADO",
+      "FINALIZADA",
+      "FINALITZAT",
+      "FINALITZADA",
+    ].includes(estado)
+  ) {
+    return "FINALITZAT";
+  }
+
+  if (
+    estado === "EN_CURSO" ||
+    estado === "EN_CURS"
+  ) {
+    return "EN_CURS";
+  }
+
+  const fecha = fechaValida(
+    partido.fecha_hora,
+  );
+
+  if (!fecha) {
+    return "PENDENT";
+  }
+
+  return fecha.getTime() >= Date.now()
+    ? "PROPER"
+    : "PENDENT";
+}
+
+function nombreEstado(
+  estado: EstadoPartido,
+): string {
+  switch (estado) {
+    case "EN_CURS":
+      return "En curs";
+
+    case "PROPER":
+      return "Programat";
+
+    case "FINALITZAT":
+      return "Finalitzat";
+
+    default:
+      return "Pendent de confirmació";
+  }
+}
+
+function clasesEstado(
+  estado: EstadoPartido,
+): string {
+  switch (estado) {
+    case "EN_CURS":
+      return "bg-emerald-500/10 text-emerald-700";
+
+    case "PROPER":
+      return "bg-primary/10 text-primary";
+
+    case "FINALITZAT":
+      return "bg-background text-neutral";
+
+    default:
+      return "bg-amber-500/10 text-amber-700";
+  }
+}
+
+function nombreFuncion(
+  funcion: FuncionVoluntariat,
+): string {
+  return funcion === "ARBITRE"
+    ? "Àrbitre"
+    : "Oficial de taula";
+}
+
+function clasesFuncion(
+  funcion: FuncionVoluntariat,
+): string {
+  return funcion === "ARBITRE"
+    ? "bg-primary/10 text-primary"
+    : "bg-secondary/10 text-secondary";
+}
+
+function nombreDeporte(
+  valor: string | null,
+): string {
+  switch (valor?.toUpperCase()) {
+    case "VOLEIBOL":
+      return "Voleibol";
+
+    case "FUTBOL":
+      return "Futbol";
+
+    case "BASQUET":
+    case "BALONCESTO":
+      return "Bàsquet";
+
+    default:
+      return "Competició esportiva";
+  }
+}
+
+// ============================================================
+// CONSULTA DE NOMBRES
+// ============================================================
+
+async function consultarNombres(
+  tabla:
+    | "equipos"
+    | "competicion_fases"
+    | "competicion_rondas",
+  ids: string[],
+): Promise<Map<string, string>> {
+  const mapa = new Map<string, string>();
+
+  for (const grupo of lotes(ids)) {
+    const { data, error } = await supabaseAdmin
+      .from(tabla)
+      .select("id,nombre")
+      .in("id", grupo);
+
+    if (error) {
+      throw error;
+    }
+
+    for (const registro of data ?? []) {
+      if (
+        typeof registro.nombre === "string"
+      ) {
+        mapa.set(
+          registro.id,
+          registro.nombre,
+        );
+      }
+    }
+  }
+
+  return mapa;
+}
+
+// ============================================================
+// DATOS PRINCIPALES
+// ============================================================
+
+let torneo: TorneoDB | null = null;
+
+let partidos: PartidoVoluntariat[] = [];
+
+if (contexto) {
+  // ==========================================================
+  // TORNEO AUTORIZADO
+  // ==========================================================
+
+  const { data, error } = await supabaseAdmin
+    .from("torneos")
+    .select("id,nombre,deporte,logo")
+    .eq("id", contexto.torneoID)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  torneo = data;
+
+  // ==========================================================
+  // DESIGNACIONES PROPIAS Y NO REVOCADAS
+  // ==========================================================
+
+  const designaciones: DesignacionDB[] = [];
+
+  for (let desde = 0; ; desde += 250) {
+    const { data, error } = await supabaseAdmin
+      .from("acta_designaciones")
+      .select("id,partido_id,funcion")
+      .eq("usuario_id", contexto.usuario.id)
+      .is("revocada_at", null)
+      .order("id")
+      .range(desde, desde + 249);
+
+    if (error) {
+      throw error;
+    }
+
+    const pagina =
+      (data ?? []) as DesignacionDB[];
+
+    designaciones.push(...pagina);
+
+    if (pagina.length < 250) {
+      break;
+    }
+  }
+
+  // ==========================================================
+  // PARTIDOS DE LAS DESIGNACIONES
+  // ==========================================================
+
+  const partidoIDs = unicos(
+    designaciones.map(
+      (designacion) => designacion.partido_id,
+    ),
+  );
+
+  const partidosDB: PartidoDB[] = [];
+
+  for (const grupo of lotes(partidoIDs)) {
+    const { data, error } = await supabaseAdmin
+      .from("competicion_partidos")
+      .select(
+        "id,edicion_id,fase_id,ronda_id,codigo,nombre,fecha_hora,pista,estado,finalizado_at",
+      )
+      .eq("edicion_id", contexto.edicionID)
+      .in("id", grupo);
+
+    if (error) {
+      throw error;
+    }
+
+    partidosDB.push(
+      ...((data ?? []) as PartidoDB[]),
+    );
+  }
+
+  // ==========================================================
+  // FUNCIONES POR PARTIDO
+  // ==========================================================
+
+  const funcionesPorPartido =
+    new Map<string, Set<FuncionVoluntariat>>();
+
+  const partidosAutorizados = new Set(
+    partidosDB.map((partido) => partido.id),
+  );
+
+  for (const designacion of designaciones) {
+    if (
+      !partidosAutorizados.has(
+        designacion.partido_id,
+      )
+    ) {
+      continue;
+    }
+
+    if (
+      designacion.funcion !== "ARBITRE" &&
+      designacion.funcion !== "OFICIAL_TAULA"
+    ) {
+      continue;
+    }
+
+    const funciones =
+      funcionesPorPartido.get(
+        designacion.partido_id,
+      ) ?? new Set<FuncionVoluntariat>();
+
+    funciones.add(designacion.funcion);
+
+    funcionesPorPartido.set(
+      designacion.partido_id,
+      funciones,
+    );
+  }
+
+  // ==========================================================
+  // FASES Y RONDAS
+  // ==========================================================
+
+  const [fases, rondas] = await Promise.all([
+    consultarNombres(
+      "competicion_fases",
+      unicos(
+        partidosDB.map(
+          (partido) => partido.fase_id,
+        ),
+      ),
+    ),
+
+    consultarNombres(
+      "competicion_rondas",
+      unicos(
+        partidosDB.map(
+          (partido) => partido.ronda_id,
+        ),
+      ),
+    ),
+  ]);
+
+  // ==========================================================
+  // EQUIPOS DE LOS PARTIDOS
+  // ==========================================================
+
+  const plazas: PlazaDB[] = [];
+
+  for (
+    const grupo of lotes(
+      partidosDB.map((partido) => partido.id),
+    )
+  ) {
+    const { data, error } = await supabaseAdmin
+      .from("competicion_plazas")
+      .select(
+        "partido_id,lado,origen_tipo,equipo_origen_id,equipo_resuelto_id",
+      )
+      .eq("edicion_id", contexto.edicionID)
+      .eq("destino_tipo", "PARTIDO")
+      .in("partido_id", grupo);
+
+    if (error) {
+      throw error;
+    }
+
+    plazas.push(...(data ?? []));
+  }
+
+  const obtenerEquipoID = (
+    plaza: PlazaDB,
+  ): string | null => {
+    if (plaza.equipo_resuelto_id) {
+      return plaza.equipo_resuelto_id;
+    }
+
+    return plaza.origen_tipo === "EQUIPO"
+      ? plaza.equipo_origen_id
+      : null;
+  };
+
+  const nombresEquipos = await consultarNombres(
+    "equipos",
+    unicos(plazas.map(obtenerEquipoID)),
+  );
+
+  const equiposPorPartido = new Map<
+    string,
+    {
+      local: string;
+      visitante: string;
+    }
+  >();
+
+  for (const plaza of plazas) {
+    if (!plaza.partido_id) {
+      continue;
+    }
+
+    const actual =
+      equiposPorPartido.get(
+        plaza.partido_id,
+      ) ?? {
+        local: "Per determinar",
+        visitante: "Per determinar",
+      };
+
+    const equipoID = obtenerEquipoID(plaza);
+
+    const nombreEquipo = equipoID
+      ? nombresEquipos.get(equipoID) ??
+        "Per determinar"
+      : "Per determinar";
+
+    if (plaza.lado === "LOCAL") {
+      actual.local = nombreEquipo;
+    }
+
+    if (plaza.lado === "VISITANTE") {
+      actual.visitante = nombreEquipo;
+    }
+
+    equiposPorPartido.set(
+      plaza.partido_id,
+      actual,
+    );
+  }
+
+  // ==========================================================
+  // CONSTRUIR RESULTADO
+  // ==========================================================
+
+  partidos = partidosDB.map((partido) => {
+    const equipos = equiposPorPartido.get(
+      partido.id,
+    ) ?? {
+      local: "Per determinar",
+      visitante: "Per determinar",
+    };
+
+    return {
+      id: partido.id,
+      codigo:
+        partido.codigo ??
+        "Sense codi",
+
+      nombre:
+        partido.nombre?.trim() ||
+        `Partit ${partido.codigo ?? ""}`.trim(),
+
+      fechaHora: partido.fecha_hora,
+      pista: partido.pista,
+
+      fase:
+        fases.get(partido.fase_id) ??
+        null,
+
+      ronda: partido.ronda_id
+        ? rondas.get(partido.ronda_id) ??
+          null
+        : null,
+
+      local: equipos.local,
+      visitante: equipos.visitante,
+
+      estado: estadoPartido(partido),
+
+      funciones: [
+        ...(funcionesPorPartido.get(partido.id) ??
+          new Set<FuncionVoluntariat>()),
+      ],
+    };
+  });
+
+  // ==========================================================
+  // ORDENACIÓN
+  // ==========================================================
+
+  partidos.sort((a, b) => {
+    if (
+      a.estado === "EN_CURS" &&
+      b.estado !== "EN_CURS"
+    ) {
+      return -1;
+    }
+
+    if (
+      b.estado === "EN_CURS" &&
+      a.estado !== "EN_CURS"
+    ) {
+      return 1;
+    }
+
+    const fechaA =
+      fechaValida(a.fechaHora)?.getTime() ??
+      Number.POSITIVE_INFINITY;
+
+    const fechaB =
+      fechaValida(b.fechaHora)?.getTime() ??
+      Number.POSITIVE_INFINITY;
+
+    return (
+      fechaA - fechaB ||
+      a.codigo.localeCompare(
+        b.codigo,
+        "ca",
+        { numeric: true },
+      )
+    );
+  });
+}
+
+// ============================================================
+// RESUMEN
+// ============================================================
+
+const proximos = partidos.filter(
+  (partido) =>
+    partido.estado === "EN_CURS" ||
+    partido.estado === "PROPER",
+);
+
+const pendientes = partidos.filter(
+  (partido) => partido.estado === "PENDENT",
+);
+
+const finalizados = partidos.filter(
+  (partido) =>
+    partido.estado === "FINALITZAT",
+);
+
+const comoArbitro = partidos.filter(
+  (partido) =>
+    partido.funciones.includes("ARBITRE"),
+);
+
+const comoOficial = partidos.filter(
+  (partido) =>
+    partido.funciones.includes("OFICIAL_TAULA"),
+);
+
+const proximosDestacados = proximos.slice(
+  0,
+  4,
+);
+
+const estadisticas = [
+  {
+    titulo: "Partits designats",
+    valor: partidos.length,
+  },
+  {
+    titulo: "Pròxims / en curs",
+    valor: proximos.length,
+  },
+  {
+    titulo: "Com a àrbitre",
+    valor: comoArbitro.length,
+  },
+  {
+    titulo: "Oficial de taula",
+    valor: comoOficial.length,
+  },
+];
+
+const baseRuta =
+  `/perfil/voluntariat/${encodeURIComponent(torneoID)}` +
+  `/${encodeURIComponent(edicionID)}`;
+
+const tituloPagina = contexto
+  ? `Voluntariat · ${contexto.edicion.nombre ?? "Edició"}`
+  : "Accés al voluntariat";
+---
+
+<LayoutPerfil title={tituloPagina}>
+  <div
+    class="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 pb-12 sm:p-6"
+  >
+    <!-- ======================================================
+         NAVEGACIÓN
+         ====================================================== -->
+
+    <nav
+      aria-label="Ruta de navegació"
+      class="flex flex-wrap items-center gap-2 text-xs font-medium"
+    >
+      <a
+        href="/perfil"
+        class="text-neutral hover:text-primary"
+      >
+        Perfil
+      </a>
+
+      <span class="text-neutral/50">/</span>
+
+      <a
+        href="/perfil/voluntariat"
+        class="text-neutral hover:text-primary"
+      >
+        Voluntariat
+      </a>
+
+      {
+        contexto && (
+          <>
+            <span class="text-neutral/50">/</span>
+
+            <a
+              href={`/perfil/voluntariat/${encodeURIComponent(torneoID)}`}
+              class="text-neutral hover:text-primary"
+            >
+              {torneo?.nombre ?? "Torneig"}
+            </a>
+
+            <span class="text-neutral/50">/</span>
+
+            <span class="font-semibold text-primary">
+              {contexto.edicion.nombre ?? "Edició"}
+            </span>
+          </>
+        )
+      }
+    </nav>
+
+    <!-- ======================================================
+         ACCESO NO AUTORIZADO
+         ====================================================== -->
+
+    {
+      !contexto ? (
+        <section
+          class="mx-auto w-full max-w-xl rounded-2xl border border-border bg-card p-8 text-center shadow-sm"
+        >
+          <div
+            class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-red-500/10 text-red-600"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              class="h-8 w-8"
+              aria-hidden="true"
+            >
+              <path d="m12 3 8 3v6c0 4-3 7-8 9-5-2-8-5-8-9V6l8-3Z" />
+              <path d="M9 9l6 6M15 9l-6 6" />
+            </svg>
+          </div>
+
+          <h1
+            class="mt-5 text-xl font-bold text-neutral-titulos"
+          >
+            Accés no autoritzat
+          </h1>
+
+          <p
+            class="mt-3 text-sm leading-6 text-neutral"
+          >
+            {errorAcceso ??
+              "No tens accés a aquesta edició."}
+          </p>
+
+          <a
+            href="/perfil/voluntariat"
+            class="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white"
+          >
+            Tornar als meus tornejos
+          </a>
+        </section>
+      ) : (
+        <>
+          <!-- =================================================
+               CABECERA DE LA EDICIÓN
+               ================================================= -->
+
+          <header
+            class="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6"
+          >
+            <div
+              class="flex flex-col gap-4 sm:flex-row sm:items-center"
+            >
+              <div
+                class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border bg-background p-2"
+              >
+                {
+                  torneo?.logo ? (
+                    <img
+                      src={torneo.logo}
+                      alt={`Escut de ${torneo.nombre}`}
+                      class="h-full w-full object-contain"
+                    />
+                  ) : (
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      class="h-9 w-9 text-primary"
+                      aria-hidden="true"
+                    >
+                      <path d="M8 21h8M12 17v4M7 3h10v7a5 5 0 0 1-10 0V3Z" />
+                      <path d="M7 5H4v3a4 4 0 0 0 4 4M17 5h3v3a4 4 0 0 1-4 4" />
+                    </svg>
+                  )
+                }
+              </div>
+
+              <div class="min-w-0">
+                <p
+                  class="text-xs font-bold uppercase tracking-[0.12em] text-primary"
+                >
+                  {nombreDeporte(torneo?.deporte ?? null)}
+                </p>
+
+                <h1
+                  class="mt-1 text-2xl font-bold text-neutral-titulos sm:text-3xl"
+                >
+                  {contexto.edicion.nombre ?? "Edició"}
+                </h1>
+
+                <p class="mt-2 text-sm text-neutral">
+                  {torneo?.nombre ?? "Torneig"}
+                </p>
+              </div>
+            </div>
+
+            <div class="mt-5 border-t border-border pt-4">
+              <p class="text-sm leading-6 text-neutral">
+                Consulta les teves designacions
+                i les funcions que has de realitzar
+                en aquesta edició.
+              </p>
+            </div>
+          </header>
+
+          <!-- =================================================
+               ESTADÍSTICAS
+               ================================================= -->
+
+          <section
+            aria-label="Resum de les designacions"
+            class="grid grid-cols-2 gap-3 lg:grid-cols-4"
+          >
+            {
+              estadisticas.map((estadistica) => (
+                <div
+                  class="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5"
+                >
+                  <p class="text-xs text-neutral">
+                    {estadistica.titulo}
+                  </p>
+
+                  <p
+                    class="mt-2 text-3xl font-bold tabular-nums text-neutral-titulos"
+                  >
+                    {estadistica.valor}
+                  </p>
+                </div>
+              ))
+            }
+          </section>
+
+          <!-- =================================================
+               ACCESO A MIS PARTIDOS
+               ================================================= -->
+
+          <section
+            class="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div>
+              <h2
+                class="text-lg font-bold text-neutral-titulos"
+              >
+                Els meus partits
+              </h2>
+
+              <p
+                class="mt-1 text-sm leading-6 text-neutral"
+              >
+                Consulta totes les teves
+                designacions d'aquesta edició,
+                inclosos els partits pendents
+                i els finalitzats.
+              </p>
+            </div>
+
+            <a
+              href={`${baseRuta}/partits`}
+              class="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
+            >
+              Veure els meus partits
+
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                class="h-4 w-4"
+                aria-hidden="true"
+              >
+                <path d="M5 12h14M13 6l6 6-6 6" />
+              </svg>
+            </a>
+          </section>
+
+          <!-- =================================================
+               PRÓXIMAS DESIGNACIONES
+               ================================================= -->
+
+          <section class="space-y-4">
+            <div
+              class="flex flex-wrap items-end justify-between gap-3"
+            >
+              <div>
+                <h2
+                  class="text-xl font-bold text-neutral-titulos"
+                >
+                  Pròximes designacions
+                </h2>
+
+                <p
+                  class="mt-1 text-sm text-neutral"
+                >
+                  Els propers partits que tens assignats.
+                </p>
+              </div>
+
+              <span
+                class="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-neutral"
+              >
+                {proximos.length} partits
+              </span>
+            </div>
+
+            {
+              proximosDestacados.length === 0 ? (
+                <div
+                  class="rounded-2xl border border-border bg-card px-5 py-10 text-center shadow-sm"
+                >
+                  <h3
+                    class="text-base font-bold text-neutral-titulos"
+                  >
+                    No tens partits pròxims
+                  </h3>
+
+                  <p
+                    class="mt-2 text-sm leading-6 text-neutral"
+                  >
+                    Quan tinguis noves designacions,
+                    apareixeran en aquest apartat.
+                  </p>
+                </div>
+              ) : (
+                <div
+                  class="grid grid-cols-1 gap-4 xl:grid-cols-2"
+                >
+                  {
+                    proximosDestacados.map((partido) => (
+                      <article
+                        class="min-w-0 overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
+                      >
+                        <div class="p-4 sm:p-5">
+                          <div
+                            class="flex flex-wrap items-center justify-between gap-2"
+                          >
+                            <span
+                              class="text-xs font-bold text-primary"
+                            >
+                              {partido.codigo}
+                            </span>
+
+                            <span
+                              class:list={[
+                                "rounded-lg px-2.5 py-1 text-xs font-semibold",
+
+                                clasesEstado(partido.estado),
+                              ]}
+                            >
+                              {nombreEstado(partido.estado)}
+                            </span>
+                          </div>
+
+                          <h3
+                            class="mt-3 text-base font-bold text-neutral-titulos"
+                          >
+                            {partido.nombre}
+                          </h3>
+
+                          <p
+                            class="mt-2 text-sm font-medium text-neutral-titulos"
+                          >
+                            {partido.local}
+
+                            <span
+                              class="mx-2 font-bold text-primary"
+                            >
+                              —
+                            </span>
+
+                            {partido.visitante}
+                          </p>
+
+                          <div
+                            class="mt-3 flex flex-wrap gap-2"
+                          >
+                            {
+                              partido.funciones.map((funcion) => (
+                                <span
+                                  class:list={[
+                                    "rounded-lg px-2.5 py-1 text-xs font-semibold",
+
+                                    clasesFuncion(funcion),
+                                  ]}
+                                >
+                                  {nombreFuncion(funcion)}
+                                </span>
+                              ))
+                            }
+                          </div>
+
+                          <div
+                            class="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-4"
+                          >
+                            <div>
+                              <p
+                                class="text-xs font-semibold text-neutral"
+                              >
+                                Data i hora
+                              </p>
+
+                              <p
+                                class="mt-1 text-sm font-medium capitalize text-neutral-titulos"
+                              >
+                                {formatearFecha(partido.fechaHora)}
+                              </p>
+
+                              <p
+                                class="mt-1 text-sm font-bold text-primary"
+                              >
+                                {formatearHora(partido.fechaHora)}
+                              </p>
+                            </div>
+
+                            <div>
+                              <p
+                                class="text-xs font-semibold text-neutral"
+                              >
+                                Pista
+                              </p>
+
+                              <p
+                                class="mt-1 text-sm font-medium text-neutral-titulos"
+                              >
+                                {partido.pista ?? "Pendent"}
+                              </p>
+
+                              {
+                                partido.fase && (
+                                  <p
+                                    class="mt-2 text-xs text-neutral"
+                                  >
+                                    {partido.fase}
+                                  </p>
+                                )
+                              }
+
+                              {
+                                partido.ronda && (
+                                  <p
+                                    class="mt-1 text-xs text-neutral"
+                                  >
+                                    {partido.ronda}
+                                  </p>
+                                )
+                              }
+                            </div>
+                          </div>
+                        </div>
+
+                        <div
+                          class="border-t border-border bg-background/40 p-3"
+                        >
+                          <a
+                            href={`${baseRuta}/partits/${encodeURIComponent(partido.id)}`}
+                            class="flex min-h-10 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary/5"
+                          >
+                            Consultar designació
+
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="1.8"
+                              class="h-4 w-4"
+                              aria-hidden="true"
+                            >
+                              <path d="M5 12h14M13 6l6 6-6 6" />
+                            </svg>
+                          </a>
+                        </div>
+                      </article>
+                    ))
+                  }
+                </div>
+              )
+            }
+          </section>
+
+          <!-- =================================================
+               INFORMACIÓN ADICIONAL
+               ================================================= -->
+
+          {
+            (pendientes.length > 0 ||
+              finalizados.length > 0) && (
+              <section
+                class="grid grid-cols-1 gap-3 sm:grid-cols-2"
+              >
+                <div
+                  class="rounded-2xl border border-border bg-card p-5"
+                >
+                  <p
+                    class="text-sm font-semibold text-neutral"
+                  >
+                    Partits pendents de confirmació
+                  </p>
+
+                  <p
+                    class="mt-2 text-2xl font-bold text-neutral-titulos"
+                  >
+                    {pendientes.length}
+                  </p>
+                </div>
+
+                <div
+                  class="rounded-2xl border border-border bg-card p-5"
+                >
+                  <p
+                    class="text-sm font-semibold text-neutral"
+                  >
+                    Partits finalitzats
+                  </p>
+
+                  <p
+                    class="mt-2 text-2xl font-bold text-neutral-titulos"
+                  >
+                    {finalizados.length}
+                  </p>
+                </div>
+              </section>
+            )
+          }
+
+          <!-- =================================================
+               INFORMACIÓN
+               ================================================= -->
+
+          <aside
+            class="rounded-2xl border border-border bg-card p-4 sm:p-5"
+          >
+            <p class="text-sm leading-6 text-neutral">
+              Les designacions poden canviar
+              segons les necessitats de
+              l'organització. Les funcions i els
+              partits que es mostren corresponen
+              a les teves designacions actives
+              d'aquesta edició.
+            </p>
+          </aside>
+        </>
+      )
+    }
+  </div>
+</LayoutPerfil>

@@ -621,7 +621,7 @@ export async function obtenerAccesoActa(
   const habilitadoControlOrdinario =
     puedeConsultar &&
     !bloqueadoControl &&
-    (puedeEditarAdministrativamente || designadoOficial);
+    (puedeEditarAdministrativamente || designadoOficial || designadoArbitro);
 
   /**
    * Las revisiones excepcionales estan restringidas

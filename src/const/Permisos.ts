@@ -1070,27 +1070,52 @@ export function tienePermiso(
   accion = "ver",
   torneoID?: string,
 ): boolean {
-  if (!puedeEntrarPanel(usuario)) return false;
+  if (!puedeEntrarPanel(usuario)) {
+    return false;
+  }
 
   const rolGeneral = normalizarRol(usuario?.rol);
 
-  if (!rolGeneral) return false;
-
-  /**
-   * El acceso básico al panel es implícito,
-   * pero el acceso a un torneo requiere su contexto.
-   */
-  if (seccion === "panell" && accion === "ver") {
-    if (torneoID === undefined) {
-      return true;
-    }
-
-    return obtenerContextoTorneo(usuario, torneoID) !== null;
+  if (!rolGeneral) {
+    return false;
   }
 
-  /**
-   * Permisos generales.
-   */
+  // ==========================================================
+  // ACCESO AL PANEL
+  // ==========================================================
+
+  if (seccion === "panell" && accion === "ver") {
+    // Acceso general
+    if (torneoID === undefined) {
+      return resolverPermiso(
+        "general",
+        rolGeneral,
+        obtenerGlobales(usuario),
+        "panell",
+        "ver",
+      );
+    }
+
+    // Acceso a un torneo concreto
+    const contexto = obtenerContextoTorneo(usuario, torneoID);
+
+    if (!contexto) {
+      return false;
+    }
+
+    return resolverPermiso(
+      "torneo",
+      contexto.rol,
+      contexto.permisos,
+      "panell",
+      "ver",
+    );
+  }
+
+  // ==========================================================
+  // PERMISOS GENERALES
+  // ==========================================================
+
   if (torneoID === undefined) {
     if (!accionReconocida("general", seccion, accion)) {
       return false;
@@ -1105,16 +1130,19 @@ export function tienePermiso(
     );
   }
 
-  /**
-   * Permisos de torneo.
-   */
+  // ==========================================================
+  // PERMISOS DE TORNEO
+  // ==========================================================
+
   if (!accionReconocida("torneo", seccion, accion)) {
     return false;
   }
 
   const contexto = obtenerContextoTorneo(usuario, torneoID);
 
-  if (!contexto) return false;
+  if (!contexto) {
+    return false;
+  }
 
   return resolverPermiso(
     "torneo",
