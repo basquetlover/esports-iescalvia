@@ -1261,16 +1261,16 @@ export default function ActaVoleibol({
       {portalListo &&
         createPortal(
           <div
-            className="fixed inset-0 z-[2147483000] flex flex-col overflow-hidden bg-[radial-gradient(ellipse_at_50%_-20%,#0a3845_0%,#031c2b_40%,#020e1b_86%)] font-['Geist','Inter',system-ui,sans-serif] text-[14px] leading-[1.35] text-[#eff9ff] [&_button]:cursor-pointer [&_button:disabled]:cursor-not-allowed [&_button:disabled]:opacity-[0.42] [&_button:focus-visible]:outline-[3px] [&_button:focus-visible]:outline-[#ffd13a] [&_button:focus-visible]:outline-offset-2 [&_input:focus-visible]:outline-[3px] [&_input:focus-visible]:outline-[#ffd13a] [&_select:focus-visible]:outline-[3px] [&_select:focus-visible]:outline-[#ffd13a]"
+            className="fixed inset-0 z-2147483000 flex flex-col overflow-hidden bg-[radial-gradient(ellipse_at_50%_-20%,#0a3845_0%,#031c2b_40%,#020e1b_86%)] font-['Geist','Inter',system-ui,sans-serif] text-[14px] leading-[1.35] text-[#eff9ff] [&_button]:cursor-pointer [&_button:disabled]:cursor-not-allowed [&_button:disabled]:opacity-[0.42] [&_button:focus-visible]:outline-[3px] [&_button:focus-visible]:outline-[#ffd13a] [&_button:focus-visible]:outline-offset-2 [&_input:focus-visible]:outline-[3px] [&_input:focus-visible]:outline-[#ffd13a] [&_select:focus-visible]:outline-[3px] [&_select:focus-visible]:outline-[#ffd13a]"
             lang="ca"
           >
-            <header className="flex h-[76px] shrink-0 items-center gap-[25px] border-b border-[#117376] bg-[linear-gradient(100deg,#031423_30%,#062638_70%,#031a22)] px-[29px] max-[1180px]:gap-[13px] max-[1180px]:px-[13px] max-[900px]:h-[65px] max-[560px]:h-[59px] max-[560px]:gap-[7px] max-[560px]:px-[10px]">
+            <header className="flex h-19 shrink-0 items-center gap-6.25 border-b border-[#117376] bg-[linear-gradient(100deg,#031423_30%,#062638_70%,#031a22)] px-7.25 max-[1180px]:gap-3.25 max-[1180px]:px-3.25 max-[900px]:h-16.25 max-[560px]:h-14.75 max-[560px]:gap-1.75 max-[560px]:px-2.5">
               <div
-                className="flex shrink-0 items-center gap-[13px]"
+                className="flex shrink-0 items-center gap-3.25"
                 aria-label="IES Calvià Esports"
               >
                 <span
-                  className="flex h-10 w-[53px] items-center gap-[5px] [&_img]:h-full [&_img]:w-full [&_img]:object-contain max-[900px]:h-[29px] max-[900px]:w-[32px] max-[560px]:hidden"
+                  className="flex h-10 w-13.25 items-center gap-1.25 [&_img]:h-full [&_img]:w-full [&_img]:object-contain max-[900px]:h-7.25 max-[900px]:w-8 max-[560px]:hidden"
                   aria-hidden="true"
                 >
                   <img
@@ -1284,7 +1284,7 @@ export default function ActaVoleibol({
                 </div>
               </div>
               <div
-                className="h-[38px] w-px shrink-0 bg-[#b9dfe3]/70 max-[560px]:hidden"
+                className="h-9.5 w-px shrink-0 bg-[#b9dfe3]/70 max-[560px]:hidden"
                 aria-hidden="true"
               />
               <h1 className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[clamp(17px,2.2vw,32px)] font-black uppercase tracking-[0.2px] max-[900px]:text-[19px] max-[560px]:text-[14px]">
