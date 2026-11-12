@@ -1,6 +1,7 @@
-import type { APIRoute } from "astro";
+import type { APIRoute, AstroCookies } from "astro";
 
 import { tieneAccesoTorneo, tienePermiso } from "@const/Permisos";
+
 import { supabaseAdmin } from "@utils/supabase";
 
 import {
@@ -10,6 +11,10 @@ import {
   exigirUsuario,
   responder,
 } from "@utils/inscripcio/equipBase";
+
+import { exigirPartidoDesignadoVoluntariat } from "@utils/voluntariat/acceso";
+
+import { obtenerAccesoActa } from "@utils/acta/acceso";
 
 import {
   calcularEstadoVoleibol,
@@ -61,6 +66,7 @@ type ActaDB = {
 
   estado: string;
   estado_operativo: string;
+  bloqueada_at: string | null;
 
   controlador_id: string | null;
   control_token: string | null;
@@ -142,6 +148,12 @@ type ResultadoOperacion = {
   mensaje: string | null;
 };
 
+type PermisoActa = {
+  puedeConsultar: boolean;
+  puedeEditar: boolean;
+  puedeEscribir: boolean;
+};
+
 // ============================================================
 // CONSULTAS
 // ============================================================
@@ -151,7 +163,7 @@ const SELECT_PARTIDO = "id,edicion_id,estado,finalizado_at" as const;
 const SELECT_EDICION = "id,torneo_id" as const;
 
 const SELECT_ACTA =
-  "id,partido_id,torneo_id,edicion_id,deporte,estado,estado_operativo,controlador_id,control_token,control_generacion,secuencia_eventos,version,updated_at,configuracion_snapshot" as const;
+  "id,partido_id,torneo_id,edicion_id,deporte,estado,estado_operativo,bloqueada_at,controlador_id,control_token,control_generacion,secuencia_eventos,version,updated_at,configuracion_snapshot" as const;
 
 const SELECT_EVENTO =
   "id,acta_id,partido_id,torneo_id,edicion_id,deporte,cliente_evento_id,orden,tipo_evento,equipo_id,equipo_nombre,jugador_id,jugador_nombre,periodo,tiempo_juego_segundos,datos,estado,evento_relacionado_id,creado_por,creado_por_nombre,created_at,anulado_at,anulado_por,motivo_anulacion" as const;
@@ -391,11 +403,142 @@ function reglasVoleibolActa(acta: ActaDB): ConfiguracionVoleibol {
 }
 
 // ============================================================
-// CONTEXTO Y PERMISOS
+// AUTORIZACIÓN: ADMINISTRACIÓN O VOLUNTARIADO
+// ============================================================
+
+async function autorizarActa(
+  usuario: Usuario,
+  cookies: AstroCookies,
+  torneoID: string,
+  edicionID: string,
+  partidoID: string,
+  escritura: boolean,
+): Promise<PermisoActa> {
+  const administradorLector =
+    tieneAccesoTorneo(usuario, torneoID) &&
+    tienePermiso(usuario, "panell", "ver", torneoID) &&
+    tienePermiso(usuario, "partits", "ver", torneoID);
+
+  const administradorEditor =
+    administradorLector && tienePermiso(usuario, "partits", "editar", torneoID);
+
+  // Quien tiene permisos de edición del panel
+  // conserva el funcionamiento administrativo.
+
+  if (administradorEditor) {
+    return {
+      puedeConsultar: true,
+      puedeEditar: true,
+      puedeEscribir: true,
+    };
+  }
+
+  // Un administrador que solo puede consultar
+  // también podría estar designado como voluntario.
+  // Se comprueba esa posibilidad antes de devolver
+  // únicamente permisos de lectura.
+
+  try {
+    const designacion = await exigirPartidoDesignadoVoluntariat(
+      cookies,
+      torneoID,
+      edicionID,
+      partidoID,
+    );
+
+    if (
+      designacion.usuario.id !== usuario.id ||
+      !designacion.funciones.some(
+        (funcion) => funcion === "ARBITRE" || funcion === "OFICIAL_TAULA",
+      )
+    ) {
+      throw new ErrorAPI(
+        403,
+        "No tens cap designació activa en aquest partit.",
+      );
+    }
+
+    const acceso = await obtenerAccesoActa({
+      usuario,
+      torneoID,
+      edicionID,
+      partidoID,
+    });
+
+    if (
+      !acceso.voluntarioConfirmado ||
+      (!acceso.designadoArbitro && !acceso.designadoOficial)
+    ) {
+      throw new ErrorAPI(
+        403,
+        "Necessites una designació confirmada com a àrbitre o oficial de taula.",
+      );
+    }
+
+    if (!acceso.puedeConsultar || acceso.bloqueadoAcceso) {
+      throw new ErrorAPI(403, "No tens permís per consultar aquesta acta.");
+    }
+
+    if (escritura) {
+      if (acceso.bloqueadoControl) {
+        throw new ErrorAPI(
+          423,
+          "El control de l'acta està bloquejat per l'organització.",
+        );
+      }
+
+      if (acceso.actaFinalizada || acceso.revisionActiva) {
+        throw new ErrorAPI(
+          409,
+          "L'acta no està disponible per registrar jugades.",
+        );
+      }
+
+      if (!acceso.puedeEscribir) {
+        throw new ErrorAPI(
+          403,
+          "No tens el control necessari per modificar aquesta acta.",
+        );
+      }
+    }
+
+    return {
+      puedeConsultar: true,
+      puedeEditar: acceso.puedeControlar,
+      puedeEscribir: acceso.puedeEscribir,
+    };
+  } catch (error) {
+    // Un administrador con permiso de lectura
+    // no pierde ese permiso si carece de
+    // designación de voluntariado.
+    //
+    // No se utiliza esta excepción para
+    // concederle permiso de escritura.
+
+    if (
+      administradorLector &&
+      !escritura &&
+      error instanceof ErrorAPI &&
+      error.estado === 403
+    ) {
+      return {
+        puedeConsultar: true,
+        puedeEditar: false,
+        puedeEscribir: false,
+      };
+    }
+
+    throw error;
+  }
+}
+
+// ============================================================
+// CONTEXTO DEL PARTIDO Y DEL ACTA
 // ============================================================
 
 async function obtenerContexto(
   usuario: Usuario,
+  cookies: AstroCookies,
   partidoID: string,
   escritura: boolean,
 ) {
@@ -405,7 +548,9 @@ async function obtenerContexto(
     .eq("id", partidoID)
     .maybeSingle();
 
-  if (errorPartido) throw errorPartido;
+  if (errorPartido) {
+    throw errorPartido;
+  }
 
   const partido = partidoData as PartidoDB | null;
 
@@ -419,7 +564,9 @@ async function obtenerContexto(
     .eq("id", partido.edicion_id)
     .maybeSingle();
 
-  if (errorEdicion) throw errorEdicion;
+  if (errorEdicion) {
+    throw errorEdicion;
+  }
 
   const edicion = edicionData as EdicionDB | null;
 
@@ -429,15 +576,20 @@ async function obtenerContexto(
 
   const torneoID = identificador(edicion.torneo_id, "torneig");
 
-  if (
-    !tieneAccesoTorneo(usuario, torneoID) ||
-    !tienePermiso(usuario, "panell", "ver", torneoID) ||
-    !tienePermiso(usuario, "partits", "ver", torneoID)
-  ) {
+  const permisos = await autorizarActa(
+    usuario,
+    cookies,
+    torneoID,
+    edicion.id,
+    partidoID,
+    escritura,
+  );
+
+  if (!permisos.puedeConsultar) {
     throw new ErrorAPI(403, "No tens permís per consultar aquesta acta.");
   }
 
-  if (escritura && !tienePermiso(usuario, "partits", "editar", torneoID)) {
+  if (escritura && !permisos.puedeEscribir) {
     throw new ErrorAPI(403, "No tens permís per modificar aquesta acta.");
   }
 
@@ -447,7 +599,9 @@ async function obtenerContexto(
     .eq("partido_id", partidoID)
     .maybeSingle();
 
-  if (errorActa) throw errorActa;
+  if (errorActa) {
+    throw errorActa;
+  }
 
   const acta = actaData as ActaDB | null;
 
@@ -468,6 +622,7 @@ async function obtenerContexto(
     partido,
     edicion,
     acta,
+    permisos,
   };
 }
 
@@ -489,7 +644,7 @@ function exigirControl(
     throw new ErrorAPI(409, "Aquest partit no admet més jugades.");
   }
 
-  if (acta.estado_operativo === "BLOQUEADA") {
+  if (acta.estado_operativo === "BLOQUEADA" || acta.bloqueada_at !== null) {
     throw new ErrorAPI(423, "L'acta està bloquejada per l'organització.");
   }
 
@@ -513,7 +668,7 @@ function exigirControl(
 }
 
 // ============================================================
-// REVALIDAR CONTRA SUPABASE
+// REVALIDACIÓN CONTRA SUPABASE
 // ============================================================
 
 async function verificarControlActual(
@@ -525,13 +680,15 @@ async function verificarControlActual(
   const { data, error } = await supabaseAdmin
     .from("acta_partidos")
     .select(
-      "id,estado,estado_operativo,controlador_id,control_token,control_generacion,version",
+      "id,estado,estado_operativo,bloqueada_at,controlador_id,control_token,control_generacion,version",
     )
     .eq("id", acta.id)
     .eq("partido_id", partido.id)
     .maybeSingle();
 
-  if (error) throw error;
+  if (error) {
+    throw error;
+  }
 
   if (!data) {
     throw new ErrorAPI(404, "L'acta ja no està disponible.");
@@ -603,7 +760,9 @@ async function obtenerEventos(actaID: string): Promise<EventoDB[]> {
       ascending: true,
     });
 
-  if (error) throw error;
+  if (error) {
+    throw error;
+  }
 
   return (data ?? []) as EventoDB[];
 }
@@ -619,7 +778,9 @@ async function obtenerEventoPorCliente(
     .eq("cliente_evento_id", clienteEventoID)
     .maybeSingle();
 
-  if (error) throw error;
+  if (error) {
+    throw error;
+  }
 
   return data as EventoDB | null;
 }
@@ -637,7 +798,9 @@ async function obtenerParticipantesPartido(
     .eq("destino_tipo", "PARTIDO")
     .eq("partido_id", partidoID);
 
-  if (plazasError) throw plazasError;
+  if (plazasError) {
+    throw plazasError;
+  }
 
   const plazas = (plazasData ?? []) as PlazaDB[];
 
@@ -718,7 +881,9 @@ async function obtenerOrdenMaximo(acta: ActaDB): Promise<number> {
     .limit(1)
     .maybeSingle();
 
-  if (error) throw error;
+  if (error) {
+    throw error;
+  }
 
   return Math.max(
     typeof data?.orden === "number" ? data.orden : 0,
@@ -835,8 +1000,8 @@ async function insertarEvento(
 
   const equipoID = identificador(entrada.equipoID, "equip");
 
-  // Se mantiene la atribución al jugador,
-  // incluidos los errores.
+  // Se conserva la atribución del jugador,
+  // también para las jugadas de error.
 
   const jugadorID = identificador(entrada.jugadorID, "jugador");
 
@@ -896,7 +1061,8 @@ async function insertarEvento(
 
     const orden = ultimoOrden + 1;
 
-    // Revalidar antes de cada intento.
+    // Revalidación del bloqueo y del token.
+
     await verificarControlActual(usuario, partido, acta, controlToken);
 
     const { data, error } = await supabaseAdmin
@@ -961,9 +1127,8 @@ async function insertarEvento(
 
       ultimoOrden = await obtenerOrdenMaximo(acta);
 
-      // En voleibol se vuelve a consultar
-      // el historial para no calcular
-      // un set sobre datos obsoletos.
+      // Refrescar el historial de voleibol
+      // para calcular el set correcto.
 
       if (deporte === "VOLEIBOL") {
         eventos.clear();
@@ -1037,10 +1202,27 @@ async function anularEvento(
     })
     .eq("id", evento.id)
     .eq("acta_id", acta.id)
+    .eq("estado", "ACTIVO")
     .select(SELECT_EVENTO)
-    .single();
+    .maybeSingle();
 
-  if (error) throw error;
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    const actual = await obtenerEventoPorCliente(acta.id, clienteEventoID);
+
+    if (actual?.estado === "ANULADO") {
+      return {
+        evento: actual,
+        reutilizado: true,
+        modificado: false,
+      };
+    }
+
+    throw new ErrorAPI(409, "La jugada ha canviat mentre s'anul·lava.");
+  }
 
   return {
     evento: data as EventoDB,
@@ -1050,7 +1232,7 @@ async function anularEvento(
 }
 
 // ============================================================
-// MENSAJES DE ERROR POR OPERACIÓN
+// ERRORES DE OPERACIÓN
 // ============================================================
 
 function mensajeErrorOperacion(error: unknown): string {
@@ -1076,19 +1258,30 @@ export const GET: APIRoute = async ({ cookies, url }) => {
       "partit",
     );
 
-    const { torneoID, acta } = await obtenerContexto(usuario, partidoID, false);
+    const { partido, acta, permisos } = await obtenerContexto(
+      usuario,
+      cookies,
+      partidoID,
+      false,
+    );
 
     const eventos = await obtenerEventos(acta.id);
 
-    const puedeEditar = tienePermiso(usuario, "partits", "editar", torneoID);
-
     const esControlador = acta.controlador_id === usuario.id;
 
+    const bloqueada = Boolean(
+      acta.estado_operativo === "BLOQUEADA" || acta.bloqueada_at !== null,
+    );
+
     const puedeEscribir = Boolean(
-      puedeEditar &&
+      permisos.puedeEscribir &&
       esControlador &&
       acta.estado === "EN_CURSO" &&
       ["CONTROLADA", "EN_SUPERVISION"].includes(acta.estado_operativo) &&
+      !bloqueada &&
+      partido.estado !== "FINALIZADO" &&
+      partido.estado !== "CANCELADO" &&
+      !partido.finalizado_at &&
       acta.control_token,
     );
 
@@ -1099,6 +1292,7 @@ export const GET: APIRoute = async ({ cookies, url }) => {
 
       acta: {
         id: acta.id,
+
         estado: acta.estado,
         estadoOperativo: acta.estado_operativo,
 
@@ -1178,9 +1372,16 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
       );
     }
 
-    const { partido, acta } = await obtenerContexto(usuario, partidoID, true);
+    // ========================================================
+    // AUTORIZACIÓN ADMINISTRATIVA O POR DESIGNACIÓN
+    // ========================================================
 
-    // Comprobación inicial del control.
+    const { torneoID, edicion, partido, acta } = await obtenerContexto(
+      usuario,
+      cookies,
+      partidoID,
+      true,
+    );
 
     exigirControl(usuario, partido, acta, controlToken);
 
@@ -1211,9 +1412,9 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
     // CREAR antes de ANULAR.
     //
     // Voleibol:
-    // ANULAR primero los puntos ya existentes.
+    // ANULAR primero los puntos existentes.
     //
-    // Crear y anular una jugada dentro del
+    // Una jugada creada y anulada en el
     // mismo lote conserva CREAR -> ANULAR.
 
     const existentesAntesDelLote = new Set(eventos.keys());
@@ -1244,11 +1445,9 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
     // ========================================================
 
     for (const entrada of operaciones) {
-      // Revalidación general antes de
-      // procesar cada operación.
-      //
-      // Si un gestor bloquea el acta,
-      // no se continúa con el lote.
+      // Comprobar que el gestor no haya
+      // bloqueado el acta ni cambiado
+      // su controlador o generación.
 
       await verificarControlActual(usuario, partido, acta, controlToken);
 
@@ -1274,7 +1473,7 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
         accion = leerAccion(entrada.accion);
 
         // ====================================================
-        // CREAR EVENTO
+        // CREAR
         // ====================================================
 
         if (accion === "CREAR") {
@@ -1320,7 +1519,7 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
         }
 
         // ====================================================
-        // ANULAR EVENTO
+        // ANULAR
         // ====================================================
 
         clienteEventoID = identificador(
@@ -1371,6 +1570,21 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
     let version = acta.version;
 
     if (huboCambios) {
+      // Volver a comprobar el permiso:
+      // también detecta una designación
+      // revocada durante el procesamiento.
+
+      await autorizarActa(
+        usuario,
+        cookies,
+        torneoID,
+        edicion.id,
+        partidoID,
+        true,
+      );
+
+      await verificarControlActual(usuario, partido, acta, controlToken);
+
       const { data, error } = await supabaseAdmin
         .from("acta_partidos")
         .update({
@@ -1381,12 +1595,14 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
           updated_at: new Date().toISOString(),
         })
         .eq("id", acta.id)
+        .eq("partido_id", partidoID)
         .eq("controlador_id", usuario.id)
         .eq("control_token", controlToken)
         .eq("estado", "EN_CURSO")
         .eq("estado_operativo", acta.estado_operativo)
         .eq("control_generacion", acta.control_generacion)
         .eq("version", acta.version)
+        .is("bloqueada_at", null)
         .select("version,secuencia_eventos")
         .maybeSingle();
 
@@ -1415,7 +1631,7 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
     ).length;
 
     // ========================================================
-    // RESPUESTA
+    // RESPUESTA COMPATIBLE CON LOS EDITORES
     // ========================================================
 
     return responder({
@@ -1440,12 +1656,9 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
   } catch (error) {
     return responderError(error);
   } finally {
-    // Si se ha conseguido guardar alguna
-    // jugada, se notifica el cambio incluso
-    // cuando el resto del lote falla.
-    //
-    // Los clientes volverán a consultar
-    // el estado oficial de Supabase.
+    // Notificar si se han escrito jugadas,
+    // incluso cuando ha fallado una operación
+    // posterior del mismo lote.
 
     if (huboCambios && destinoRealtime) {
       await notificarCambios(

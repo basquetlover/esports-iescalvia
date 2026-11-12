@@ -1,7 +1,9 @@
 import type { APIRoute } from "astro";
 
 import { tieneAccesoTorneo, tienePermiso } from "@const/Permisos";
+
 import { supabaseAdmin } from "@utils/supabase";
+
 import {
   comprobarOrigen,
   ErrorAPI,
@@ -10,6 +12,11 @@ import {
   leerJSON,
   responder,
 } from "@utils/inscripcio/equipBase";
+
+import { exigirPartidoDesignadoVoluntariat } from "@utils/voluntariat/acceso";
+
+import { obtenerAccesoActa } from "@utils/acta/acceso";
+
 import { verificarPassword } from "../../sesiones/iniciar";
 
 export const prerender = false;
@@ -97,18 +104,25 @@ type ActaDB = {
   id: string;
   partido_id: string;
   estado: string;
+  estado_operativo: string;
+
   nivel_estadisticas: string;
-  /** Reglas congeladas al iniciar; nunca se sustituyen por la edición actual. */
   configuracion_snapshot: Registro | null;
+
   operador_id: string | null;
   controlador_id: string | null;
   control_token: string | null;
+  control_generacion: number;
+
   iniciada_at: string | null;
+
   bloqueada_por: string | null;
   bloqueada_at: string | null;
   motivo_bloqueo: string | null;
+
   finalizada_por: string | null;
   finalizada_at: string | null;
+
   secuencia_eventos: number;
   version: number;
   created_at: string;
@@ -116,33 +130,51 @@ type ActaDB = {
 };
 
 // ============================================================
-// SELECTS (sin modificar columnas de las otras entidades)
+// CONSULTAS
 // ============================================================
 
-const SELECT_TORNEO = "id,nombre,deporte,logo";
-const SELECT_EDICION = "id,torneo_id,nombre,estado,sede,fecha_inicio,fecha_fin";
+const SELECT_TORNEO = "id,nombre,deporte,logo" as const;
+
+const SELECT_EDICION =
+  "id,torneo_id,nombre,estado,sede,fecha_inicio,fecha_fin" as const;
+
 const SELECT_PARTIDO =
-  "id,edicion_id,fase_id,fase_tipo,tipo,grupo_id,ronda_id,codigo,nombre,orden,jornada,estado,fecha_hora,pista_id,pista,duracion_estimada_min,publicado,finalizado_at,created_at,updated_at";
-const SELECT_FASE = "id,nombre,tipo,orden,estado,publicada";
-const SELECT_GRUPO = "id,fase_id,nombre,orden,estado";
-const SELECT_RONDA = "id,fase_id,tipo,nombre,orden";
+  "id,edicion_id,fase_id,fase_tipo,tipo,grupo_id,ronda_id,codigo,nombre,orden,jornada,estado,fecha_hora,pista_id,pista,duracion_estimada_min,publicado,finalizado_at,created_at,updated_at" as const;
+
+const SELECT_FASE = "id,nombre,tipo,orden,estado,publicada" as const;
+
+const SELECT_GRUPO = "id,fase_id,nombre,orden,estado" as const;
+
+const SELECT_RONDA = "id,fase_id,tipo,nombre,orden" as const;
+
 const SELECT_PARTICIPANTE =
-  "id,equipo_id,nombre,apellido1,apellido2,tipo_participante,validacion_estado,orden,activo";
-const SELECT_EQUIPO = "id,nombre,escudo";
+  "id,equipo_id,nombre,apellido1,apellido2,tipo_participante,validacion_estado,orden,activo" as const;
+
+const SELECT_EQUIPO = "id,nombre,escudo" as const;
+
 const SELECT_PLAZA =
-  "id,lado,origen_tipo,equipo_origen_id,origen_grupo_id,origen_fase_id,origen_posicion,origen_partido_id,equipo_resuelto_id";
+  "id,lado,origen_tipo,equipo_origen_id,origen_grupo_id,origen_fase_id,origen_posicion,origen_partido_id,equipo_resuelto_id" as const;
+
 const SELECT_ACTA =
-  "id,partido_id,estado,nivel_estadisticas,configuracion_snapshot,operador_id,controlador_id,control_token,iniciada_at,bloqueada_por,bloqueada_at,motivo_bloqueo,finalizada_por,finalizada_at,secuencia_eventos,version,created_at,updated_at";
+  "id,partido_id,estado,estado_operativo,nivel_estadisticas,configuracion_snapshot,operador_id,controlador_id,control_token,control_generacion,iniciada_at,bloqueada_por,bloqueada_at,motivo_bloqueo,finalizada_por,finalizada_at,secuencia_eventos,version,created_at,updated_at" as const;
 
 // ============================================================
-// ERRORES Y VALIDACIÓN
+// RESPUESTAS Y VALIDACIÓN
 // ============================================================
 
-function responderError(error: unknown) {
+function responderError(error: unknown): Response {
   if (error instanceof ErrorAPI) {
-    return responder({ success: false, mensaje: error.message }, error.estado);
+    return responder(
+      {
+        success: false,
+        mensaje: error.message,
+      },
+      error.estado,
+    );
   }
+
   console.error("Error en l'acta digital:", error);
+
   return responder(
     {
       success: false,
@@ -156,10 +188,13 @@ function identificador(valor: unknown, nombre: string): string {
   if (typeof valor !== "string") {
     throw new ErrorAPI(400, `L'identificador de ${nombre} no és vàlid.`);
   }
+
   const limpio = valor.trim().toLowerCase();
+
   if (!UUID.test(limpio)) {
     throw new ErrorAPI(400, `L'identificador de ${nombre} no és vàlid.`);
   }
+
   return limpio;
 }
 
@@ -171,48 +206,166 @@ function leerParametros(url: URL) {
   };
 }
 
+function esAdministradorLector(usuario: Usuario, torneoID: string): boolean {
+  return (
+    tieneAccesoTorneo(usuario, torneoID) &&
+    tienePermiso(usuario, "panell", "ver", torneoID) &&
+    tienePermiso(usuario, "partits", "ver", torneoID)
+  );
+}
+
+function esAdministradorEditor(usuario: Usuario, torneoID: string): boolean {
+  return (
+    esAdministradorLector(usuario, torneoID) &&
+    tienePermiso(usuario, "partits", "editar", torneoID)
+  );
+}
+
 // ============================================================
-// CONTEXTO: MISMA SEGURIDAD QUE EL ARCHIVO ORIGINAL
+// CONSULTAR TORNEO Y EDICIÓN
 // ============================================================
 
-async function exigirContexto(
-  usuario: Usuario,
-  torneoID: string,
-  edicionID: string,
-) {
-  if (
-    !tieneAccesoTorneo(usuario, torneoID) ||
-    !tienePermiso(usuario, "panell", "ver", torneoID)
-  ) {
-    throw new ErrorAPI(403, "No tens accés a aquest torneig.");
-  }
-  if (!tienePermiso(usuario, "partits", "ver", torneoID)) {
-    throw new ErrorAPI(403, "No tens permís per consultar aquest partit.");
-  }
-
+async function obtenerContexto(torneoID: string, edicionID: string) {
   const [respuestaTorneo, respuestaEdicion] = await Promise.all([
     supabaseAdmin
       .from("torneos")
       .select(SELECT_TORNEO)
       .eq("id", torneoID)
       .maybeSingle(),
+
     supabaseAdmin
       .from("ediciones")
       .select(SELECT_EDICION)
       .eq("id", edicionID)
       .maybeSingle(),
   ]);
-  if (respuestaTorneo.error) throw respuestaTorneo.error;
-  if (respuestaEdicion.error) throw respuestaEdicion.error;
+
+  if (respuestaTorneo.error) {
+    throw respuestaTorneo.error;
+  }
+
+  if (respuestaEdicion.error) {
+    throw respuestaEdicion.error;
+  }
 
   const torneo = respuestaTorneo.data as TorneoDB | null;
+
   const edicion = respuestaEdicion.data as EdicionDB | null;
-  if (!torneo) throw new ErrorAPI(404, "No s'ha trobat el torneig.");
+
+  if (!torneo) {
+    throw new ErrorAPI(404, "No s'ha trobat el torneig.");
+  }
+
   if (!edicion || edicion.torneo_id?.trim().toLowerCase() !== torneoID) {
     throw new ErrorAPI(404, "L'edició no pertany al torneig seleccionat.");
   }
-  return { torneo, edicion };
+
+  return {
+    torneo,
+    edicion,
+  };
 }
+
+// ============================================================
+// AUTORIZACIÓN ADMINISTRATIVA
+// ============================================================
+
+async function exigirContextoAdministrador(
+  usuario: Usuario,
+  torneoID: string,
+  edicionID: string,
+) {
+  if (!esAdministradorLector(usuario, torneoID)) {
+    throw new ErrorAPI(
+      403,
+      "No tens permisos administratius per accedir a aquest torneig.",
+    );
+  }
+
+  return obtenerContexto(torneoID, edicionID);
+}
+
+// ============================================================
+// AUTORIZACIÓN DE LECTURA: PANEL O VOLUNTARIADO
+// ============================================================
+
+async function autorizarLecturaActa(
+  usuario: Usuario,
+  cookies: Parameters<typeof exigirPartidoDesignadoVoluntariat>[0],
+  torneoID: string,
+  edicionID: string,
+  partidoID: string,
+) {
+  const administrador = esAdministradorLector(usuario, torneoID);
+
+  const administradorEditor = esAdministradorEditor(usuario, torneoID);
+
+  // Un administrador autorizado conserva
+  // el acceso que ya tenía antes.
+  if (administrador) {
+    return {
+      administrador: true,
+      administradorEditor,
+      puedeControlar: administradorEditor,
+      puedeSolicitarControl: administradorEditor,
+      puedeEscribir: administradorEditor,
+      bloqueadoControl: false,
+      actaFinalizada: false,
+      revisionActiva: false,
+    };
+  }
+
+  // ========================================================
+  // VOLUNTARIO: DESIGNACIÓN REAL Y CONFIRMADA
+  // ========================================================
+
+  const designacion = await exigirPartidoDesignadoVoluntariat(
+    cookies,
+    torneoID,
+    edicionID,
+    partidoID,
+  );
+
+  if (designacion.usuario.id !== usuario.id) {
+    throw new ErrorAPI(403, "La designació no correspon a l'usuari actual.");
+  }
+
+  const acceso = await obtenerAccesoActa({
+    usuario,
+    torneoID,
+    edicionID,
+    partidoID,
+  });
+
+  if (
+    !acceso.voluntarioConfirmado ||
+    (!acceso.designadoArbitro && !acceso.designadoOficial)
+  ) {
+    throw new ErrorAPI(
+      403,
+      "Necessites una designació confirmada com a àrbitre o oficial de taula.",
+    );
+  }
+
+  if (!acceso.puedeConsultar || acceso.bloqueadoAcceso) {
+    throw new ErrorAPI(403, "No tens autorització per consultar aquesta acta.");
+  }
+
+  return {
+    administrador: false,
+    administradorEditor: false,
+    puedeControlar: acceso.puedeControlar,
+    puedeSolicitarControl: acceso.puedeSolicitarControl,
+    puedeEscribir: acceso.puedeEscribir,
+    bloqueadoControl: acceso.bloqueadoControl,
+    actaFinalizada: acceso.actaFinalizada,
+    revisionActiva: acceso.revisionActiva,
+  };
+}
+
+// ============================================================
+// PARTIDO
+// ============================================================
 
 async function obtenerPartido(
   partidoID: string,
@@ -224,13 +377,18 @@ async function obtenerPartido(
     .eq("id", partidoID)
     .eq("edicion_id", edicionID)
     .maybeSingle();
+
   if (error) throw error;
-  if (!data) throw new ErrorAPI(404, "No s'ha trobat el partit.");
+
+  if (!data) {
+    throw new ErrorAPI(404, "No s'ha trobat el partit.");
+  }
+
   return data as PartidoDB;
 }
 
 // ============================================================
-// ESTRUCTURA DE LA COMPETICIÓN
+// ESTRUCTURA DEL PARTIDO
 // ============================================================
 
 async function obtenerEstructura(partido: PartidoDB) {
@@ -240,7 +398,10 @@ async function obtenerEstructura(partido: PartidoDB) {
         .select(SELECT_FASE)
         .eq("id", partido.fase_id)
         .maybeSingle()
-    : Promise.resolve({ data: null, error: null });
+    : Promise.resolve({
+        data: null,
+        error: null,
+      });
 
   const grupoPromesa = partido.grupo_id
     ? supabaseAdmin
@@ -248,7 +409,10 @@ async function obtenerEstructura(partido: PartidoDB) {
         .select(SELECT_GRUPO)
         .eq("id", partido.grupo_id)
         .maybeSingle()
-    : Promise.resolve({ data: null, error: null });
+    : Promise.resolve({
+        data: null,
+        error: null,
+      });
 
   const rondaPromesa = partido.ronda_id
     ? supabaseAdmin
@@ -256,16 +420,29 @@ async function obtenerEstructura(partido: PartidoDB) {
         .select(SELECT_RONDA)
         .eq("id", partido.ronda_id)
         .maybeSingle()
-    : Promise.resolve({ data: null, error: null });
+    : Promise.resolve({
+        data: null,
+        error: null,
+      });
 
   const [respuestaFase, respuestaGrupo, respuestaRonda] = await Promise.all([
     fasePromesa,
     grupoPromesa,
     rondaPromesa,
   ]);
-  if (respuestaFase.error) throw respuestaFase.error;
-  if (respuestaGrupo.error) throw respuestaGrupo.error;
-  if (respuestaRonda.error) throw respuestaRonda.error;
+
+  if (respuestaFase.error) {
+    throw respuestaFase.error;
+  }
+
+  if (respuestaGrupo.error) {
+    throw respuestaGrupo.error;
+  }
+
+  if (respuestaRonda.error) {
+    throw respuestaRonda.error;
+  }
+
   return {
     fase: respuestaFase.data,
     grupo: respuestaGrupo.data,
@@ -274,7 +451,7 @@ async function obtenerEstructura(partido: PartidoDB) {
 }
 
 // ============================================================
-// JUGADORES Y EQUIPOS: CONTRATO SIN CAMBIOS
+// JUGADORES
 // ============================================================
 
 async function obtenerJugadores(equipoID: string): Promise<ParticipanteActa[]> {
@@ -285,21 +462,35 @@ async function obtenerJugadores(equipoID: string): Promise<ParticipanteActa[]> {
     .eq("tipo_participante", "JUGADOR")
     .eq("activo", true)
     .order("orden");
+
   if (error) throw error;
+
   return (data ?? []) as ParticipanteActa[];
 }
+
+// ============================================================
+// EQUIPO
+// ============================================================
 
 async function obtenerEquipo(
   equipoID: string | null,
 ): Promise<EquipoActa | null> {
-  if (!equipoID) return null;
+  if (!equipoID) {
+    return null;
+  }
+
   const { data, error } = await supabaseAdmin
     .from("equipos")
     .select(SELECT_EQUIPO)
     .eq("id", equipoID)
     .maybeSingle();
+
   if (error) throw error;
-  if (!data) return null;
+
+  if (!data) {
+    return null;
+  }
+
   return {
     id: data.id,
     nombre: data.nombre ?? "Equip sense nom",
@@ -308,6 +499,10 @@ async function obtenerEquipo(
   };
 }
 
+// ============================================================
+// EQUIPOS DEL PARTIDO
+// ============================================================
+
 async function obtenerEquiposPartido(partidoID: string) {
   const { data, error } = await supabaseAdmin
     .from("competicion_plazas")
@@ -315,13 +510,18 @@ async function obtenerEquiposPartido(partidoID: string) {
     .eq("destino_tipo", "PARTIDO")
     .eq("partido_id", partidoID)
     .order("orden");
+
   if (error) throw error;
 
   const plazas = (data ?? []) as PlazaPartido[];
+
   const local = plazas.find((plaza) => plaza.lado === "LOCAL") ?? null;
+
   const visitante = plazas.find((plaza) => plaza.lado === "VISITANTE") ?? null;
+
   const [equipoLocal, equipoVisitante] = await Promise.all([
     obtenerEquipo(local?.equipo_resuelto_id ?? null),
+
     obtenerEquipo(visitante?.equipo_resuelto_id ?? null),
   ]);
 
@@ -332,6 +532,7 @@ async function obtenerEquiposPartido(partidoID: string) {
       plaza: local,
       equipo: equipoLocal,
     },
+
     visitante: {
       lado: "VISITANTE" as const,
       resuelto: Boolean(equipoVisitante),
@@ -342,7 +543,7 @@ async function obtenerEquiposPartido(partidoID: string) {
 }
 
 // ============================================================
-// ACTA: CONSERVAR SNAPSHOT ORIGINAL
+// ACTA
 // ============================================================
 
 async function obtenerActa(partidoID: string): Promise<ActaDB | null> {
@@ -351,7 +552,9 @@ async function obtenerActa(partidoID: string): Promise<ActaDB | null> {
     .select(SELECT_ACTA)
     .eq("partido_id", partidoID)
     .maybeSingle();
+
   if (error) throw error;
+
   return data as ActaDB | null;
 }
 
@@ -359,67 +562,158 @@ function actaPublica(acta: ActaDB) {
   return {
     id: acta.id,
     partido_id: acta.partido_id,
+
     estado: acta.estado,
+    estado_operativo: acta.estado_operativo,
+
     nivel_estadisticas: acta.nivel_estadisticas,
+
     configuracion_snapshot: acta.configuracion_snapshot,
+
     operador_id: acta.operador_id,
+
     controlador_id: acta.controlador_id,
+
+    control_generacion: acta.control_generacion,
+
     iniciada_at: acta.iniciada_at,
+
     bloqueada_por: acta.bloqueada_por,
+
     bloqueada_at: acta.bloqueada_at,
+
     motivo_bloqueo: acta.motivo_bloqueo,
+
     finalizada_por: acta.finalizada_por,
+
     finalizada_at: acta.finalizada_at,
+
+    secuencia_eventos: acta.secuencia_eventos,
+
     version: acta.version,
+
     created_at: acta.created_at,
+
     updated_at: acta.updated_at,
   };
 }
 
 // ============================================================
-// GET: ESTADO OFICIAL PARA EL GESTOR DEL ACTA
+// GET — PANEL Y VOLUNTARIADO
 // ============================================================
 
 export const GET: APIRoute = async ({ cookies, url }) => {
   try {
     const usuario = await exigirUsuario(cookies);
+
     const { torneoID, edicionID, partidoID } = leerParametros(url);
-    const contexto = await exigirContexto(usuario, torneoID, edicionID);
+
+    // ======================================================
+    // AUTORIZACIÓN
+    // ======================================================
+
+    const permisos = await autorizarLecturaActa(
+      usuario,
+      cookies,
+      torneoID,
+      edicionID,
+      partidoID,
+    );
+
+    // ======================================================
+    // DATOS DEL PARTIDO
+    // ======================================================
+
+    const contexto = await obtenerContexto(torneoID, edicionID);
+
     const partido = await obtenerPartido(partidoID, edicionID);
+
     const [estructura, equipos, acta] = await Promise.all([
       obtenerEstructura(partido),
       obtenerEquiposPartido(partidoID),
       obtenerActa(partidoID),
     ]);
 
-    const puedeEditar = tienePermiso(usuario, "partits", "editar", torneoID);
+    // ======================================================
+    // COMPROBAR ESTADO DEL CONTROL
+    // ======================================================
+
     const esControlador = Boolean(acta && acta.controlador_id === usuario.id);
-    const puedeEscribir = Boolean(
-      puedeEditar && acta && esControlador && acta.estado === "EN_CURSO",
+
+    const estadoOperativoValido = Boolean(
+      acta && ["CONTROLADA", "EN_SUPERVISION"].includes(acta.estado_operativo),
     );
+
+    const bloqueada = Boolean(
+      acta &&
+      (acta.estado_operativo === "BLOQUEADA" || acta.bloqueada_at !== null),
+    );
+
+    const partidoFinalizado = Boolean(
+      partido.estado === "FINALIZADO" ||
+      partido.estado === "CANCELADO" ||
+      partido.finalizado_at,
+    );
+
+    const puedeEscribir = Boolean(
+      permisos.puedeEscribir &&
+      esControlador &&
+      acta &&
+      acta.estado === "EN_CURSO" &&
+      estadoOperativoValido &&
+      !bloqueada &&
+      !partidoFinalizado &&
+      !permisos.bloqueadoControl &&
+      !permisos.actaFinalizada &&
+      !permisos.revisionActiva &&
+      acta.control_token,
+    );
+
+    const puedeSolicitarControl = Boolean(
+      permisos.puedeSolicitarControl &&
+      !bloqueada &&
+      !partidoFinalizado &&
+      !permisos.bloqueadoControl &&
+      !permisos.actaFinalizada &&
+      !permisos.revisionActiva,
+    );
+
+    // ======================================================
+    // MISMO CONTRATO QUE UTILIZA EL GESTOR REACT
+    // ======================================================
 
     const respuesta = responder({
       success: true,
+
       torneo: contexto.torneo,
       edicion: contexto.edicion,
       partido,
       estructura,
       equipos,
+
       acta: acta ? actaPublica(acta) : null,
+
       control: {
-        puedeEditar,
-        puedeEliminarActa: puedeEditar && Boolean(acta),
+        puedeEditar: permisos.puedeControlar,
+
+        // Exclusivamente para administradores.
+        puedeEliminarActa: permisos.administradorEditor && Boolean(acta),
+
         esControlador,
         puedeEscribir,
+        puedeSolicitarControl,
+
+        // Solo se devuelve al controlador
+        // con permiso efectivo de escritura.
         controlToken: puedeEscribir ? (acta?.control_token ?? null) : null,
       },
     });
 
-    // La respuesta contiene datos privados y un token de control.
     respuesta.headers.set(
       "Cache-Control",
       "private, no-store, no-cache, must-revalidate",
     );
+
     return respuesta;
   } catch (error) {
     return responderError(error);
@@ -427,7 +721,7 @@ export const GET: APIRoute = async ({ cookies, url }) => {
 };
 
 // ============================================================
-// COMPROBAR CONTRASEÑA ANTES DE ELIMINAR
+// CONTRASEÑA ADMINISTRATIVA
 // ============================================================
 
 async function exigirPasswordUsuario(usuario: Usuario, contrasena: unknown) {
@@ -438,21 +732,28 @@ async function exigirPasswordUsuario(usuario: Usuario, contrasena: unknown) {
   ) {
     throw new ErrorAPI(400, "Introdueix la teva contrasenya.");
   }
+
   const { data, error } = await supabaseAdmin
     .from("users")
     .select("id,activa,contrasena")
     .eq("id", usuario.id)
     .maybeSingle();
+
   if (error) throw error;
+
   if (!data || data.activa !== true) {
     throw new ErrorAPI(403, "El teu compte no està actiu.");
   }
+
   const valido = await verificarPassword(contrasena, data.contrasena);
-  if (!valido) throw new ErrorAPI(401, "La contrasenya no és correcta.");
+
+  if (!valido) {
+    throw new ErrorAPI(401, "La contrasenya no és correcta.");
+  }
 }
 
 // ============================================================
-// PROTEGER EL BRACKET ANTES DE ELIMINAR ACTAS
+// PROTEGER BRACKET ANTES DE ELIMINAR ACTAS
 // ============================================================
 
 async function limpiarDependencias(partidoID: string) {
@@ -460,6 +761,7 @@ async function limpiarDependencias(partidoID: string) {
     .from("competicion_plazas")
     .select("id,partido_id,origen_tipo")
     .eq("origen_partido_id", partidoID);
+
   if (error) throw error;
 
   const dependencias = (
@@ -477,19 +779,34 @@ async function limpiarDependencias(partidoID: string) {
 
   for (const plaza of dependencias) {
     const partidoDestinoID = plaza.partido_id as string;
+
     const [actaDestino, resultadoDestino] = await Promise.all([
       supabaseAdmin
         .from("acta_partidos")
-        .select("id", { count: "exact", head: true })
+        .select("id", {
+          count: "exact",
+          head: true,
+        })
         .eq("partido_id", partidoDestinoID),
+
       supabaseAdmin
         .from("competicion_resultados")
-        .select("id", { count: "exact", head: true })
+        .select("id", {
+          count: "exact",
+          head: true,
+        })
         .eq("partido_id", partidoDestinoID)
         .eq("confirmado", true),
     ]);
-    if (actaDestino.error) throw actaDestino.error;
-    if (resultadoDestino.error) throw resultadoDestino.error;
+
+    if (actaDestino.error) {
+      throw actaDestino.error;
+    }
+
+    if (resultadoDestino.error) {
+      throw resultadoDestino.error;
+    }
+
     if ((actaDestino.count ?? 0) > 0 || (resultadoDestino.count ?? 0) > 0) {
       throw new ErrorAPI(
         409,
@@ -499,33 +816,55 @@ async function limpiarDependencias(partidoID: string) {
   }
 
   if (!dependencias.length) return;
+
   const ids = dependencias.map((plaza) => plaza.id);
+
   const { error: errorLimpiar } = await supabaseAdmin
     .from("competicion_plazas")
-    .update({ equipo_resuelto_id: null, resuelta_at: null })
+    .update({
+      equipo_resuelto_id: null,
+      resuelta_at: null,
+    })
     .in("id", ids);
-  if (errorLimpiar) throw errorLimpiar;
+
+  if (errorLimpiar) {
+    throw errorLimpiar;
+  }
 }
 
 // ============================================================
-// DELETE: MISMO PROCESO DE ELIMINACIÓN CON CONTRASEÑA
+// DELETE — SOLO ADMINISTRADORES
 // ============================================================
 
 export const DELETE: APIRoute = async ({ request, cookies, url }) => {
   try {
     comprobarOrigen(request, url);
+
     const usuario = await exigirUsuario(cookies);
+
     const { torneoID, edicionID, partidoID } = leerParametros(url);
-    await exigirContexto(usuario, torneoID, edicionID);
-    if (!tienePermiso(usuario, "partits", "editar", torneoID)) {
+
+    // IMPORTANTE:
+    // La autorización del voluntariado
+    // NO se utiliza en este método.
+
+    await exigirContextoAdministrador(usuario, torneoID, edicionID);
+
+    if (!esAdministradorEditor(usuario, torneoID)) {
       throw new ErrorAPI(403, "No tens permís per eliminar actes.");
     }
 
     const entrada = await leerJSON(request);
+
     await exigirPasswordUsuario(usuario, entrada.contrasena);
+
     const partido = await obtenerPartido(partidoID, edicionID);
+
     const acta = await obtenerActa(partidoID);
-    if (!acta) throw new ErrorAPI(404, "Aquest partit no té cap acta.");
+
+    if (!acta) {
+      throw new ErrorAPI(404, "Aquest partit no té cap acta.");
+    }
 
     await limpiarDependencias(partido.id);
 
@@ -533,44 +872,66 @@ export const DELETE: APIRoute = async ({ request, cookies, url }) => {
       .from("competicion_estadisticas_individuales")
       .delete()
       .eq("partido_id", partido.id);
-    if (errorIndividuales) throw errorIndividuales;
+
+    if (errorIndividuales) {
+      throw errorIndividuales;
+    }
 
     const { error: errorEquipo } = await supabaseAdmin
       .from("competicion_estadisticas_equipo")
       .delete()
       .eq("partido_id", partido.id);
-    if (errorEquipo) throw errorEquipo;
+
+    if (errorEquipo) {
+      throw errorEquipo;
+    }
 
     const { error: errorResultados } = await supabaseAdmin
       .from("competicion_resultados")
       .delete()
       .eq("partido_id", partido.id)
       .eq("edicion_id", edicionID);
-    if (errorResultados) throw errorResultados;
+
+    if (errorResultados) {
+      throw errorResultados;
+    }
 
     const { error: errorEventos } = await supabaseAdmin
       .from("acta_eventos")
       .delete()
       .eq("acta_id", acta.id);
-    if (errorEventos) throw errorEventos;
+
+    if (errorEventos) {
+      throw errorEventos;
+    }
 
     const { error: errorActa } = await supabaseAdmin
       .from("acta_partidos")
       .delete()
       .eq("id", acta.id)
       .eq("partido_id", partido.id);
-    if (errorActa) throw errorActa;
+
+    if (errorActa) {
+      throw errorActa;
+    }
 
     const nuevoEstado = partido.publicado ? "PROGRAMADO" : "BORRADOR";
+
     const { data: partidoActualizado, error: errorPartido } =
       await supabaseAdmin
         .from("competicion_partidos")
-        .update({ estado: nuevoEstado, finalizado_at: null })
+        .update({
+          estado: nuevoEstado,
+          finalizado_at: null,
+        })
         .eq("id", partido.id)
         .eq("edicion_id", edicionID)
         .select(SELECT_PARTIDO)
         .single();
-    if (errorPartido) throw errorPartido;
+
+    if (errorPartido) {
+      throw errorPartido;
+    }
 
     return responder({
       success: true,

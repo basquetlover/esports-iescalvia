@@ -1,6 +1,9 @@
-import type { APIRoute } from "astro";
+import type { APIRoute, AstroCookies } from "astro";
+
 import { tieneAccesoTorneo, tienePermiso } from "@const/Permisos";
+
 import { supabaseAdmin } from "@utils/supabase";
+
 import {
   comprobarOrigen,
   ErrorAPI,
@@ -8,6 +11,11 @@ import {
   exigirUsuario,
   responder,
 } from "@utils/inscripcio/equipBase";
+
+import { exigirPartidoDesignadoVoluntariat } from "@utils/voluntariat/acceso";
+
+import { obtenerAccesoActa } from "@utils/acta/acceso";
+
 import {
   calcularEstadoVoleibol,
   evaluarCierreVoleibol,
@@ -18,6 +26,10 @@ import {
 } from "@utils/acta/voleibol";
 
 export const prerender = false;
+
+// ============================================================
+// TIPOS
+// ============================================================
 
 type Usuario = Awaited<ReturnType<typeof exigirUsuario>>;
 type Registro = Record<string, unknown>;
@@ -42,12 +54,20 @@ type ActaDB = {
   torneo_id: string;
   edicion_id: string;
   deporte: string;
+
   estado: string;
+  estado_operativo: string;
+
   controlador_id: string | null;
   control_token: string | null;
+  control_generacion: number;
+
+  bloqueada_at: string | null;
   finalizada_at: string | null;
+
   secuencia_eventos: number;
   version: number;
+
   configuracion_snapshot: Registro | null;
 };
 
@@ -100,21 +120,32 @@ type ResultadoCalculado = {
   volei: EstadoVoleibol | null;
 };
 
+// ============================================================
+// CONSULTAS
+// ============================================================
+
 const SELECT_PARTIDO = "id,edicion_id,estado,finalizado_at";
+
 const SELECT_EDICION = "id,torneo_id";
 
 const SELECT_ACTA =
-  "id,partido_id,torneo_id,edicion_id,deporte,estado,controlador_id,control_token,finalizada_at,secuencia_eventos,version,configuracion_snapshot";
+  "id,partido_id,torneo_id,edicion_id,deporte,estado,estado_operativo,controlador_id,control_token,control_generacion,bloqueada_at,finalizada_at,secuencia_eventos,version,configuracion_snapshot";
 
 const SELECT_EVENTOS =
   "id,cliente_evento_id,orden,tipo_evento,equipo_id,jugador_id,periodo,estado";
 
 const SELECT_PLAZAS = "lado,equipo_resuelto_id";
+
 const SELECT_DEPENDENCIAS = "id,origen_tipo,equipo_resuelto_id";
+
 const SELECT_ESTADISTICAS = "id,codigo,ambito,activa";
 
 const SELECT_RESULTADO =
   "id,marcador_local,marcador_visitante,ganador_equipo_id,resultado_tipo,confirmado,confirmado_at,observaciones";
+
+// ============================================================
+// CÓDIGOS DE ESTADÍSTICAS
+// ============================================================
 
 const CODIGOS_FUTBOL = {
   GOL: new Set(["gol", "goles", "gols"]),
@@ -189,14 +220,35 @@ const CODIGOS_VOLEIBOL = {
 type CodigoFutbol = keyof typeof CODIGOS_FUTBOL;
 type CodigoVoleibol = keyof typeof CODIGOS_VOLEIBOL;
 
-function responderError(error: unknown) {
+// ============================================================
+// RESPUESTAS
+// ============================================================
+
+function respuesta(datos: Record<string, unknown>, estado = 200): Response {
+  const res = responder(datos, estado);
+
+  res.headers.set(
+    "Cache-Control",
+    "private, no-store, no-cache, must-revalidate",
+  );
+
+  return res;
+}
+
+function responderError(error: unknown): Response {
   if (error instanceof ErrorAPI) {
-    return responder({ success: false, mensaje: error.message }, error.estado);
+    return respuesta(
+      {
+        success: false,
+        mensaje: error.message,
+      },
+      error.estado,
+    );
   }
 
   console.error("Error finalitzant l'acta:", error);
 
-  return responder(
+  return respuesta(
     {
       success: false,
       mensaje: "No s'ha pogut finalitzar el partit.",
@@ -204,6 +256,10 @@ function responderError(error: unknown) {
     500,
   );
 }
+
+// ============================================================
+// VALIDACIONES
+// ============================================================
 
 function esRegistro(valor: unknown): valor is Registro {
   return valor !== null && typeof valor === "object" && !Array.isArray(valor);
@@ -239,19 +295,27 @@ function leerDeporte(valor: string): Deporte {
 }
 
 function leerModoCierre(valor: unknown, deporte: Deporte): ModoCierreVoleibol {
-  if (deporte !== "VOLEIBOL") return "NORMAL";
+  if (deporte !== "VOLEIBOL") {
+    return "NORMAL";
+  }
 
   if (valor === undefined || valor === null || valor === "NORMAL") {
     return "NORMAL";
   }
 
-  if (valor === "FORZADO_PUNTOS") return valor;
+  if (valor === "FORZADO_PUNTOS") {
+    return valor;
+  }
 
   throw new ErrorAPI(
     400,
     "La modalitat de tancament de voleibol no és vàlida.",
   );
 }
+
+// ============================================================
+// REGLAS DE VOLEIBOL
+// ============================================================
 
 function reglasVoleibol(acta: ActaDB): ConfiguracionVoleibol {
   const snapshot = acta.configuracion_snapshot;
@@ -274,7 +338,9 @@ function reglasVoleibol(acta: ActaDB): ConfiguracionVoleibol {
   for (const campo of campos) {
     const valor = origen[campo];
 
-    if (valor === undefined || valor === null) continue;
+    if (valor === undefined || valor === null) {
+      continue;
+    }
 
     if (typeof valor !== "number") {
       throw new ErrorAPI(409, "Les regles guardades de l'acta no són vàlides.");
@@ -290,14 +356,114 @@ function reglasVoleibol(acta: ActaDB): ConfiguracionVoleibol {
   }
 }
 
-async function exigirContexto(usuario: Usuario, partidoID: string) {
+// ============================================================
+// AUTORIZACIÓN: ADMINISTRADOR O VOLUNTARIO
+// ============================================================
+
+async function exigirPermisoFinalizacion(
+  usuario: Usuario,
+  cookies: AstroCookies,
+  torneoID: string,
+  edicionID: string,
+  partidoID: string,
+  reintento: boolean,
+): Promise<void> {
+  const administrador =
+    tieneAccesoTorneo(usuario, torneoID) &&
+    tienePermiso(usuario, "panell", "ver", torneoID) &&
+    tienePermiso(usuario, "partits", "editar", torneoID);
+
+  if (administrador) {
+    return;
+  }
+
+  const designacion = await exigirPartidoDesignadoVoluntariat(
+    cookies,
+    torneoID,
+    edicionID,
+    partidoID,
+  );
+
+  if (
+    designacion.usuario.id !== usuario.id ||
+    !designacion.funciones.some(
+      (funcion) => funcion === "ARBITRE" || funcion === "OFICIAL_TAULA",
+    )
+  ) {
+    throw new ErrorAPI(
+      403,
+      "No tens una designació activa per finalitzar aquest partit.",
+    );
+  }
+
+  const acceso = await obtenerAccesoActa({
+    usuario,
+    torneoID,
+    edicionID,
+    partidoID,
+  });
+
+  if (
+    !acceso.voluntarioConfirmado ||
+    (!acceso.designadoArbitro && !acceso.designadoOficial)
+  ) {
+    throw new ErrorAPI(
+      403,
+      "Necessites una designació confirmada com a àrbitre o oficial de taula.",
+    );
+  }
+
+  if (!acceso.puedeConsultar || acceso.bloqueadoAcceso) {
+    throw new ErrorAPI(403, "No tens permís per consultar aquesta acta.");
+  }
+
+  if (acceso.bloqueadoControl || acceso.estadoOperativo === "BLOQUEADA") {
+    throw new ErrorAPI(423, "L'acta està bloquejada per l'organització.");
+  }
+
+  if (acceso.revisionActiva) {
+    throw new ErrorAPI(423, "L'acta està en revisió i no es pot finalitzar.");
+  }
+
+  // Cuando el acta ya se ha marcado como FINALIZADA
+  // pero falla una escritura posterior, permitimos
+  // que el mismo controlador repita la petición.
+  // El token se comprobará por separado.
+
+  if (reintento && acceso.esControlador && acceso.actaFinalizada) {
+    return;
+  }
+
+  if (acceso.actaFinalizada) {
+    throw new ErrorAPI(409, "L'acta ja està finalitzada.");
+  }
+
+  if (!acceso.esControlador || !acceso.puedeEscribir) {
+    throw new ErrorAPI(
+      403,
+      "No tens el control necessari per finalitzar aquesta acta.",
+    );
+  }
+}
+
+// ============================================================
+// CONTEXTO
+// ============================================================
+
+async function exigirContexto(
+  usuario: Usuario,
+  cookies: AstroCookies,
+  partidoID: string,
+) {
   const { data: partidoData, error: errorPartido } = await supabaseAdmin
     .from("competicion_partidos")
     .select(SELECT_PARTIDO)
     .eq("id", partidoID)
     .maybeSingle();
 
-  if (errorPartido) throw errorPartido;
+  if (errorPartido) {
+    throw errorPartido;
+  }
 
   const partido = partidoData as PartidoDB | null;
 
@@ -311,7 +477,9 @@ async function exigirContexto(usuario: Usuario, partidoID: string) {
     .eq("id", partido.edicion_id)
     .maybeSingle();
 
-  if (errorEdicion) throw errorEdicion;
+  if (errorEdicion) {
+    throw errorEdicion;
+  }
 
   const edicion = edicionData as EdicionDB | null;
 
@@ -321,24 +489,15 @@ async function exigirContexto(usuario: Usuario, partidoID: string) {
 
   const torneoID = identificador(edicion.torneo_id, "torneig");
 
-  if (
-    !tieneAccesoTorneo(usuario, torneoID) ||
-    !tienePermiso(usuario, "panell", "ver", torneoID)
-  ) {
-    throw new ErrorAPI(403, "No tens accés a aquest torneig.");
-  }
-
-  if (!tienePermiso(usuario, "partits", "editar", torneoID)) {
-    throw new ErrorAPI(403, "No tens permís per finalitzar aquest partit.");
-  }
-
   const { data: actaData, error: errorActa } = await supabaseAdmin
     .from("acta_partidos")
     .select(SELECT_ACTA)
     .eq("partido_id", partidoID)
     .maybeSingle();
 
-  if (errorActa) throw errorActa;
+  if (errorActa) {
+    throw errorActa;
+  }
 
   const acta = actaData as ActaDB | null;
 
@@ -354,16 +513,37 @@ async function exigirContexto(usuario: Usuario, partidoID: string) {
     throw new ErrorAPI(409, "L'acta no correspon al partit.");
   }
 
-  return { partido, acta };
+  const reintento = acta.estado === "FINALIZADA" && Boolean(acta.finalizada_at);
+
+  await exigirPermisoFinalizacion(
+    usuario,
+    cookies,
+    torneoID,
+    edicion.id,
+    partidoID,
+    reintento,
+  );
+
+  return {
+    torneoID,
+    edicion,
+    partido,
+    acta,
+  };
 }
 
-function exigirControl(usuario: Usuario, acta: ActaDB, controlToken: string) {
-  // Permite reintentos si la primera respuesta se perdió tras finalizar.
-  if (acta.estado !== "EN_CURSO" && acta.estado !== "FINALIZADA") {
-    throw new ErrorAPI(
-      423,
-      "L'acta no es pot finalitzar en el seu estat actual.",
-    );
+// ============================================================
+// CONTROL DEL ACTA
+// ============================================================
+
+function exigirControl(
+  usuario: Usuario,
+  partido: PartidoDB,
+  acta: ActaDB,
+  controlToken: string,
+): void {
+  if (acta.estado_operativo === "BLOQUEADA" || acta.bloqueada_at !== null) {
+    throw new ErrorAPI(423, "L'acta està bloquejada per l'organització.");
   }
 
   if (acta.controlador_id !== usuario.id) {
@@ -376,7 +556,107 @@ function exigirControl(usuario: Usuario, acta: ActaDB, controlToken: string) {
   ) {
     throw new ErrorAPI(409, "El control de l'acta ha canviat.");
   }
+
+  if (
+    !Number.isSafeInteger(acta.control_generacion) ||
+    acta.control_generacion < 0
+  ) {
+    throw new ErrorAPI(409, "La generació de control no és vàlida.");
+  }
+
+  // Reintento legítimo de una finalización
+  // parcialmente completada.
+
+  if (acta.estado === "FINALIZADA" && acta.finalizada_at) {
+    if (
+      !["FINALIZADA", "CONTROLADA", "EN_SUPERVISION"].includes(
+        acta.estado_operativo,
+      )
+    ) {
+      throw new ErrorAPI(
+        423,
+        "L'estat de l'acta no permet completar la finalització.",
+      );
+    }
+
+    return;
+  }
+
+  if (
+    partido.estado === "FINALIZADO" ||
+    partido.estado === "CANCELADO" ||
+    partido.finalizado_at
+  ) {
+    throw new ErrorAPI(409, "Aquest partit ja no admet modificacions.");
+  }
+
+  if (
+    acta.estado !== "EN_CURSO" ||
+    !["CONTROLADA", "EN_SUPERVISION"].includes(acta.estado_operativo)
+  ) {
+    throw new ErrorAPI(
+      423,
+      "L'acta no es pot finalitzar en el seu estat actual.",
+    );
+  }
+
+  if (acta.finalizada_at !== null) {
+    throw new ErrorAPI(409, "L'acta té una finalització inconsistent.");
+  }
 }
+
+// ============================================================
+// REVALIDAR CONTROL OFICIAL
+// ============================================================
+
+async function verificarControlActual(
+  usuario: Usuario,
+  partido: PartidoDB,
+  acta: ActaDB,
+  controlToken: string,
+): Promise<void> {
+  const { data, error } = await supabaseAdmin
+    .from("acta_partidos")
+    .select(
+      "id,estado,estado_operativo,controlador_id,control_token,control_generacion,bloqueada_at,finalizada_at,secuencia_eventos,version",
+    )
+    .eq("id", acta.id)
+    .eq("partido_id", partido.id)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    throw new ErrorAPI(404, "L'acta ja no està disponible.");
+  }
+
+  if (
+    data.version !== acta.version ||
+    data.secuencia_eventos !== acta.secuencia_eventos ||
+    data.control_generacion !== acta.control_generacion
+  ) {
+    throw new ErrorAPI(
+      409,
+      "L'acta ha canviat al servidor. Actualitza les jugades.",
+    );
+  }
+
+  exigirControl(
+    usuario,
+    partido,
+    {
+      ...acta,
+      ...data,
+    },
+    controlToken,
+  );
+}
+
+// ============================================================
+// EQUIPOS
+// ============================================================
 
 async function obtenerEquipos(partidoID: string): Promise<Equipos> {
   const { data, error } = await supabaseAdmin
@@ -385,7 +665,9 @@ async function obtenerEquipos(partidoID: string): Promise<Equipos> {
     .eq("destino_tipo", "PARTIDO")
     .eq("partido_id", partidoID);
 
-  if (error) throw error;
+  if (error) {
+    throw error;
+  }
 
   const plazas = (data ?? []) as PlazaDB[];
 
@@ -399,20 +681,35 @@ async function obtenerEquipos(partidoID: string): Promise<Equipos> {
     throw new ErrorAPI(409, "El partit no té resolts dos equips diferents.");
   }
 
-  return { local, visitante };
+  return {
+    local,
+    visitante,
+  };
 }
+
+// ============================================================
+// EVENTOS
+// ============================================================
 
 async function obtenerEventos(actaID: string): Promise<EventoDB[]> {
   const { data, error } = await supabaseAdmin
     .from("acta_eventos")
     .select(SELECT_EVENTOS)
     .eq("acta_id", actaID)
-    .order("orden", { ascending: true });
+    .order("orden", {
+      ascending: true,
+    });
 
-  if (error) throw error;
+  if (error) {
+    throw error;
+  }
 
   return (data ?? []) as EventoDB[];
 }
+
+// ============================================================
+// RESULTADO DE FÚTBOL
+// ============================================================
 
 function calcularMarcadorFutbol(eventos: EventoDB[], equipoID: string): number {
   return eventos.reduce((total, evento) => {
@@ -429,6 +726,10 @@ function calcularMarcadorFutbol(eventos: EventoDB[], equipoID: string): number {
   }, 0);
 }
 
+// ============================================================
+// CALCULAR RESULTADO
+// ============================================================
+
 function calcularResultado(
   deporte: Deporte,
   acta: ActaDB,
@@ -444,12 +745,14 @@ function calcularResultado(
     return {
       local,
       visitante,
+
       ganadorEquipoID:
         local === visitante
           ? null
           : local > visitante
             ? equipos.local
             : equipos.visitante,
+
       observaciones: null,
       modoCierre: null,
       volei: null,
@@ -480,9 +783,9 @@ function calcularResultado(
     throw new ErrorAPI(409, evaluacion.mensaje);
   }
 
-  // La columna observaciones es TEXT.
-  // JSON serializado conserva los sets y la modalidad sin
-  // crear tablas ni asumir nuevos valores del enum resultado_tipo.
+  // Conservamos los sets y la modalidad
+  // en las observaciones existentes.
+
   const observaciones = JSON.stringify({
     deporte: "VOLEIBOL",
     modoCierre: modo,
@@ -507,7 +810,9 @@ function calcularResultado(
         : null,
 
     puntosTotalesLocal: estado.puntosTotalesLocal,
+
     puntosTotalesVisitante: estado.puntosTotalesVisitante,
+
     ganadorEquipoID: evaluacion.ganadorEquipoID,
   });
 
@@ -520,6 +825,10 @@ function calcularResultado(
     volei: estado,
   };
 }
+
+// ============================================================
+// RECONOCER ESTADÍSTICAS
+// ============================================================
 
 function reconocerCodigoFutbol(valor: string): CodigoFutbol | null {
   const codigo = normalizar(valor);
@@ -580,15 +889,20 @@ function sumarEstadisticaVoleibol(
     }
 
     if (codigo === "PUNTOS") {
-      // Un error no acredita un punto al jugador que lo cometió.
       return total + (evento.tipo_evento !== "ERROR" ? 1 : 0);
     }
 
-    if (codigo === "SETS") return total;
+    if (codigo === "SETS") {
+      return total;
+    }
 
     return total + (evento.tipo_evento === codigo ? 1 : 0);
   }, 0);
 }
+
+// ============================================================
+// GUARDAR ESTADÍSTICAS
+// ============================================================
 
 async function guardarEstadisticas(
   partidoID: string,
@@ -604,7 +918,9 @@ async function guardarEstadisticas(
     .eq("edicion_id", edicionID)
     .eq("activa", true);
 
-  if (error) throw error;
+  if (error) {
+    throw error;
+  }
 
   for (const definicion of (data ?? []) as EstadisticaDB[]) {
     const codigoF =
@@ -615,9 +931,14 @@ async function guardarEstadisticas(
         ? reconocerCodigoVoleibol(definicion.codigo)
         : null;
 
-    if (!codigoF && !codigoV) continue;
+    if (!codigoF && !codigoV) {
+      continue;
+    }
 
-    // Estadísticas por equipo.
+    // ========================================================
+    // ESTADÍSTICAS POR EQUIPO
+    // ========================================================
+
     if (definicion.ambito === "EQUIPO") {
       const filas = [equipos.local, equipos.visitante].map((equipoID) => {
         let valor: number;
@@ -662,12 +983,17 @@ async function guardarEstadisticas(
           onConflict: "partido_id,equipo_id,estadistica_id",
         });
 
-      if (errorUpsert) throw errorUpsert;
+      if (errorUpsert) {
+        throw errorUpsert;
+      }
 
       continue;
     }
 
-    // Estadísticas por jugador.
+    // ========================================================
+    // ESTADÍSTICAS INDIVIDUALES
+    // ========================================================
+
     if (definicion.ambito !== "INDIVIDUAL" || codigoV === "SETS") {
       continue;
     }
@@ -678,7 +1004,9 @@ async function guardarEstadisticas(
       .eq("partido_id", partidoID)
       .eq("estadistica_id", definicion.id);
 
-    if (errorDelete) throw errorDelete;
+    if (errorDelete) {
+      throw errorDelete;
+    }
 
     const participantes = new Map<string, string>();
 
@@ -688,7 +1016,7 @@ async function guardarEstadisticas(
       }
     }
 
-    const filas = [] as Array<{
+    const filas: Array<{
       partido_id: string;
       edicion_id: string;
       equipo_id: string;
@@ -696,7 +1024,7 @@ async function guardarEstadisticas(
       estadistica_id: string;
       ambito: string;
       valor: number;
-    }>;
+    }> = [];
 
     for (const [participanteID, equipoID] of participantes) {
       const predicado = (e: EventoDB) => e.jugador_id === participanteID;
@@ -705,7 +1033,9 @@ async function guardarEstadisticas(
         ? sumarEstadisticaFutbol(codigoF, eventos, predicado)
         : sumarEstadisticaVoleibol(codigoV!, eventos, predicado);
 
-      if (valor === 0) continue;
+      if (valor === 0) {
+        continue;
+      }
 
       filas.push({
         partido_id: partidoID,
@@ -723,16 +1053,21 @@ async function guardarEstadisticas(
         .from("competicion_estadisticas_individuales")
         .insert(filas);
 
-      if (errorInsert) throw errorInsert;
+      if (errorInsert) {
+        throw errorInsert;
+      }
     }
   }
 }
 
-async function confirmarResultado(
+// ============================================================
+// COMPROBAR RESULTADO CONFIRMADO
+// ============================================================
+
+async function obtenerResultadoExistente(
   partidoID: string,
   edicionID: string,
-  resultado: ResultadoCalculado,
-): Promise<ResultadoDB> {
+): Promise<ResultadoDB | null> {
   const { data, error } = await supabaseAdmin
     .from("competicion_resultados")
     .select(SELECT_RESULTADO)
@@ -743,133 +1078,277 @@ async function confirmarResultado(
       ascending: false,
     });
 
-  if (error) throw error;
+  if (error) {
+    throw error;
+  }
 
-  const existentes = (data ?? []) as ResultadoDB[];
+  const resultados = (data ?? []) as ResultadoDB[];
 
-  if (existentes.length > 0) {
-    const actual = existentes[0];
+  return resultados[0] ?? null;
+}
 
-    if (
-      actual.marcador_local !== resultado.local ||
-      actual.marcador_visitante !== resultado.visitante ||
-      actual.ganador_equipo_id !== resultado.ganadorEquipoID ||
-      (resultado.observaciones !== null &&
-        actual.observaciones !== resultado.observaciones)
-    ) {
-      throw new ErrorAPI(
-        409,
-        "El partit ja té un resultat confirmat diferent del calculat per l'acta.",
-      );
-    }
+function verificarResultado(
+  actual: ResultadoDB,
+  calculado: ResultadoCalculado,
+): void {
+  if (
+    actual.marcador_local !== calculado.local ||
+    actual.marcador_visitante !== calculado.visitante ||
+    actual.ganador_equipo_id !== calculado.ganadorEquipoID ||
+    (calculado.observaciones !== null &&
+      actual.observaciones !== calculado.observaciones)
+  ) {
+    throw new ErrorAPI(
+      409,
+      "El partit ja té un resultat confirmat diferent del calculat per l'acta.",
+    );
+  }
+}
 
-    return actual;
+// ============================================================
+// CONFIRMAR RESULTADO
+// ============================================================
+
+async function confirmarResultado(
+  partidoID: string,
+  edicionID: string,
+  calculado: ResultadoCalculado,
+): Promise<ResultadoDB> {
+  const existente = await obtenerResultadoExistente(partidoID, edicionID);
+
+  if (existente) {
+    verificarResultado(existente, calculado);
+
+    return existente;
   }
 
   const ahora = new Date().toISOString();
 
-  const { data: nuevo, error: errorInsert } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from("competicion_resultados")
     .insert({
       partido_id: partidoID,
       edicion_id: edicionID,
-      marcador_local: resultado.local,
-      marcador_visitante: resultado.visitante,
-      ganador_equipo_id: resultado.ganadorEquipoID,
 
-      // Se conserva el valor aceptado por el sistema actual.
-      // El modo forzado está en observaciones.
+      marcador_local: calculado.local,
+
+      marcador_visitante: calculado.visitante,
+
+      ganador_equipo_id: calculado.ganadorEquipoID,
+
       resultado_tipo: "NORMAL",
 
       confirmado: true,
       confirmado_at: ahora,
-      observaciones: resultado.observaciones,
+
+      observaciones: calculado.observaciones,
     })
     .select(SELECT_RESULTADO)
     .single();
 
-  if (errorInsert) throw errorInsert;
+  if (error) {
+    if (error.code === "23505") {
+      const concurrente = await obtenerResultadoExistente(partidoID, edicionID);
 
-  return nuevo as ResultadoDB;
+      if (concurrente) {
+        verificarResultado(concurrente, calculado);
+
+        return concurrente;
+      }
+    }
+
+    throw error;
+  }
+
+  return data as ResultadoDB;
 }
 
-async function resolverSiguientePartido(
+// ============================================================
+// CONSULTAR PARTIDOS DEPENDIENTES
+// ============================================================
+
+async function obtenerDependencias(
   partidoID: string,
-  resultado: ResultadoDB,
-  equipos: Equipos,
-) {
+): Promise<PlazaDependienteDB[]> {
   const { data, error } = await supabaseAdmin
     .from("competicion_plazas")
     .select(SELECT_DEPENDENCIAS)
     .eq("origen_partido_id", partidoID)
     .in("origen_tipo", ["GANADOR_PARTIDO", "PERDEDOR_PARTIDO"]);
 
-  if (error) throw error;
-
-  const plazas = (data ?? []) as PlazaDependienteDB[];
-
-  if (plazas.length === 0) {
-    return {
-      plazasActualizadas: 0,
-      ganadorEquipoID: resultado.ganador_equipo_id,
-      perdedorEquipoID: null,
-    };
+  if (error) {
+    throw error;
   }
 
-  const ganadorEquipoID = resultado.ganador_equipo_id;
+  return (data ?? []) as PlazaDependienteDB[];
+}
 
-  if (!ganadorEquipoID) {
+// ============================================================
+// VALIDAR PROPAGACIÓN DEL BRACKET
+// ============================================================
+
+function validarDependencias(
+  plazas: PlazaDependienteDB[],
+  calculado: ResultadoCalculado,
+  equipos: Equipos,
+) {
+  const ganador = calculado.ganadorEquipoID;
+
+  if (plazas.length > 0 && !ganador) {
     throw new ErrorAPI(
       409,
       "El partit alimenta un altre partit però no té cap guanyador resolt.",
     );
   }
 
-  const perdedorEquipoID =
-    ganadorEquipoID === equipos.local
+  const perdedor =
+    ganador === equipos.local
       ? equipos.visitante
-      : ganadorEquipoID === equipos.visitante
+      : ganador === equipos.visitante
         ? equipos.local
         : null;
 
-  if (!perdedorEquipoID) {
+  if (plazas.length > 0 && !perdedor) {
     throw new ErrorAPI(
       409,
       "El guanyador no correspon a cap dels equips del partit.",
     );
   }
 
-  const ahora = new Date().toISOString();
+  for (const plaza of plazas) {
+    const esperado =
+      plaza.origen_tipo === "GANADOR_PARTIDO" ? ganador : perdedor;
 
-  for (const origen of ["GANADOR_PARTIDO", "PERDEDOR_PARTIDO"] as const) {
-    const ids = plazas
-      .filter((plaza) => plaza.origen_tipo === origen)
-      .map((plaza) => plaza.id);
-
-    if (ids.length === 0) continue;
-
-    const { error: errorUpdate } = await supabaseAdmin
-      .from("competicion_plazas")
-      .update({
-        equipo_resuelto_id:
-          origen === "GANADOR_PARTIDO" ? ganadorEquipoID : perdedorEquipoID,
-        resuelta_at: ahora,
-      })
-      .in("id", ids);
-
-    if (errorUpdate) throw errorUpdate;
+    if (plaza.equipo_resuelto_id && plaza.equipo_resuelto_id !== esperado) {
+      throw new ErrorAPI(
+        409,
+        "Una plaça del quadre eliminatori ja té assignat un equip diferent.",
+      );
+    }
   }
 
   return {
-    plazasActualizadas: plazas.length,
-    ganadorEquipoID,
-    perdedorEquipoID,
+    ganador,
+    perdedor,
   };
 }
+
+// ============================================================
+// PROPAGAR RESULTADO
+// ============================================================
+
+async function resolverSiguientePartido(
+  partidoID: string,
+  resultado: ResultadoDB,
+  equipos: Equipos,
+) {
+  const plazas = await obtenerDependencias(partidoID);
+
+  const { ganador, perdedor } = validarDependencias(
+    plazas,
+    {
+      local: resultado.marcador_local ?? 0,
+
+      visitante: resultado.marcador_visitante ?? 0,
+
+      ganadorEquipoID: resultado.ganador_equipo_id,
+
+      observaciones: resultado.observaciones,
+
+      modoCierre: null,
+      volei: null,
+    },
+    equipos,
+  );
+
+  if (plazas.length === 0) {
+    return {
+      plazasActualizadas: 0,
+      ganadorEquipoID: ganador,
+      perdedorEquipoID: null,
+    };
+  }
+
+  const ahora = new Date().toISOString();
+
+  let plazasActualizadas = 0;
+
+  for (const origen of ["GANADOR_PARTIDO", "PERDEDOR_PARTIDO"] as const) {
+    const destino = origen === "GANADOR_PARTIDO" ? ganador : perdedor;
+
+    const ids = plazas
+      .filter(
+        (plaza) =>
+          plaza.origen_tipo === origen && plaza.equipo_resuelto_id === null,
+      )
+      .map((plaza) => plaza.id);
+
+    if (ids.length === 0 || !destino) {
+      continue;
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("competicion_plazas")
+      .update({
+        equipo_resuelto_id: destino,
+
+        resuelta_at: ahora,
+      })
+      .in("id", ids)
+      .is("equipo_resuelto_id", null)
+      .select("id");
+
+    if (error) {
+      throw error;
+    }
+
+    plazasActualizadas += data?.length ?? 0;
+  }
+
+  const actuales = await obtenerDependencias(partidoID);
+
+  validarDependencias(
+    actuales,
+    {
+      local: resultado.marcador_local ?? 0,
+
+      visitante: resultado.marcador_visitante ?? 0,
+
+      ganadorEquipoID: resultado.ganador_equipo_id,
+
+      observaciones: resultado.observaciones,
+
+      modoCierre: null,
+      volei: null,
+    },
+    equipos,
+  );
+
+  if (actuales.some((plaza) => plaza.equipo_resuelto_id === null)) {
+    throw new ErrorAPI(
+      409,
+      "No s'han pogut resoldre totes les places dependents.",
+    );
+  }
+
+  return {
+    plazasActualizadas,
+    ganadorEquipoID: ganador,
+    perdedorEquipoID: perdedor,
+  };
+}
+
+// ============================================================
+// FINALIZAR ACTA CON CONTROL DE VERSIÓN
+// ============================================================
 
 async function finalizarActa(usuario: Usuario, acta: ActaDB): Promise<string> {
   if (acta.estado === "FINALIZADA" && acta.finalizada_at) {
     return acta.finalizada_at;
+  }
+
+  if (acta.estado !== "EN_CURSO") {
+    throw new ErrorAPI(409, "L'acta no està disponible per finalitzar.");
   }
 
   const ahora = new Date().toISOString();
@@ -878,28 +1357,47 @@ async function finalizarActa(usuario: Usuario, acta: ActaDB): Promise<string> {
     .from("acta_partidos")
     .update({
       estado: "FINALIZADA",
+      estado_operativo: "FINALIZADA",
+
       finalizada_por: usuario.id,
       finalizada_at: ahora,
+
       version: acta.version + 1,
       updated_at: ahora,
     })
     .eq("id", acta.id)
+    .eq("partido_id", acta.partido_id)
+    .eq("torneo_id", acta.torneo_id)
+    .eq("edicion_id", acta.edicion_id)
+    .eq("estado", "EN_CURSO")
+    .eq("estado_operativo", acta.estado_operativo)
+    .is("bloqueada_at", null)
+    .is("finalizada_at", null)
     .eq("controlador_id", usuario.id)
     .eq("control_token", acta.control_token)
+    .eq("control_generacion", acta.control_generacion)
+    .eq("secuencia_eventos", acta.secuencia_eventos)
+    .eq("version", acta.version)
     .select("id,estado,finalizada_at")
     .maybeSingle();
 
-  if (error) throw error;
+  if (error) {
+    throw error;
+  }
 
-  if (!data) {
+  if (!data?.finalizada_at) {
     throw new ErrorAPI(
       409,
       "El control de l'acta ha canviat mentre es finalitzava.",
     );
   }
 
-  return data.finalizada_at as string;
+  return data.finalizada_at;
 }
+
+// ============================================================
+// FINALIZAR PARTIDO
+// ============================================================
 
 async function finalizarPartidoDB(
   partido: PartidoDB,
@@ -917,19 +1415,82 @@ async function finalizarPartidoDB(
     })
     .eq("id", partido.id)
     .eq("edicion_id", partido.edicion_id)
+    .is("finalizado_at", null)
+    .neq("estado", "CANCELADO")
     .select("id,estado,finalizado_at")
     .maybeSingle();
 
-  if (error) throw error;
-
-  if (!data) {
-    throw new ErrorAPI(409, "No s'ha pogut marcar el partit com a finalitzat.");
+  if (error) {
+    throw error;
   }
 
-  return data.finalizado_at as string;
+  if (data?.finalizado_at) {
+    return data.finalizado_at;
+  }
+
+  const { data: actual, error: errorActual } = await supabaseAdmin
+    .from("competicion_partidos")
+    .select("estado,finalizado_at")
+    .eq("id", partido.id)
+    .eq("edicion_id", partido.edicion_id)
+    .maybeSingle();
+
+  if (errorActual) {
+    throw errorActual;
+  }
+
+  if (actual?.estado === "FINALIZADO" && actual.finalizado_at) {
+    return actual.finalizado_at;
+  }
+
+  throw new ErrorAPI(409, "No s'ha pogut marcar el partit com a finalitzat.");
 }
 
+// ============================================================
+// REALTIME
+// ============================================================
+
+async function notificarFinalizacion(
+  partidoID: string,
+  edicionID: string,
+): Promise<void> {
+  const canales = [
+    `acta-estat-partit-${partidoID}`,
+    `acta-jugades-partit-${partidoID}`,
+    `actes-actives-edicio-${edicionID}`,
+  ];
+
+  await Promise.all(
+    canales.map(async (nombre) => {
+      const canal = supabaseAdmin.channel(nombre);
+
+      try {
+        await canal.httpSend("actualitzada", {});
+      } catch (error) {
+        console.error(`Error notificant finalització (${nombre}):`, error);
+      } finally {
+        try {
+          await supabaseAdmin.removeChannel(canal);
+        } catch (error) {
+          console.error(`Error tancant canal (${nombre}):`, error);
+        }
+      }
+    }),
+  );
+}
+
+// ============================================================
+// POST — FINALIZAR EL PARTIDO
+// ============================================================
+
 export const POST: APIRoute = async ({ request, cookies, url }) => {
+  let inicioFinalizacion = false;
+
+  let destinoRealtime: {
+    partidoID: string;
+    edicionID: string;
+  } | null = null;
+
   try {
     comprobarOrigen(request, url);
 
@@ -951,9 +1512,17 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
 
     const controlToken = identificador(contenido.controlToken, "control");
 
-    const { partido, acta } = await exigirContexto(usuario, partidoID);
+    // ========================================================
+    // CONTEXTO Y AUTORIZACIÓN
+    // ========================================================
 
-    exigirControl(usuario, acta, controlToken);
+    const { torneoID, edicion, partido, acta } = await exigirContexto(
+      usuario,
+      cookies,
+      partidoID,
+    );
+
+    exigirControl(usuario, partido, acta, controlToken);
 
     const deporte = leerDeporte(acta.deporte);
 
@@ -970,12 +1539,18 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
       );
     }
 
-    // Nunca aceptar el marcador ni el ganador del navegador.
-    // El servidor vuelve a calcularlos desde las jugadas.
+    // ========================================================
+    // RESULTADO OFICIAL
+    // ========================================================
+
     const [equipos, eventos] = await Promise.all([
       obtenerEquipos(partidoID),
+
       obtenerEventos(acta.id),
     ]);
+
+    // Nunca aceptar marcador ni ganador
+    // proporcionados por el navegador.
 
     const calculado = calcularResultado(
       deporte,
@@ -984,6 +1559,59 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
       eventos,
       modoCierre,
     );
+
+    // ========================================================
+    // VALIDAR RESULTADO Y BRACKET ANTES DE ESCRIBIR
+    // ========================================================
+
+    const [resultadoExistente, dependencias] = await Promise.all([
+      obtenerResultadoExistente(partidoID, partido.edicion_id),
+
+      obtenerDependencias(partidoID),
+    ]);
+
+    if (resultadoExistente) {
+      verificarResultado(resultadoExistente, calculado);
+    }
+
+    validarDependencias(dependencias, calculado, equipos);
+
+    // ========================================================
+    // REVALIDAR PERMISOS Y TOKEN
+    // ========================================================
+
+    await exigirPermisoFinalizacion(
+      usuario,
+      cookies,
+      torneoID,
+      edicion.id,
+      partidoID,
+      acta.estado === "FINALIZADA" && Boolean(acta.finalizada_at),
+    );
+
+    await verificarControlActual(usuario, partido, acta, controlToken);
+
+    // ========================================================
+    // MARCAR ACTA COMO FINALIZADA
+    // ========================================================
+
+    // Esta escritura condicional impide
+    // confirmar usando una versión anterior
+    // a un bloqueo, transferencia de control
+    // o actualización de jugadas.
+
+    const finalizadaAt = await finalizarActa(usuario, acta);
+
+    inicioFinalizacion = true;
+
+    destinoRealtime = {
+      partidoID,
+      edicionID: partido.edicion_id,
+    };
+
+    // ========================================================
+    // MATERIALIZAR ESTADÍSTICAS
+    // ========================================================
 
     await guardarEstadisticas(
       partidoID,
@@ -994,11 +1622,19 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
       calculado.volei,
     );
 
+    // ========================================================
+    // CONFIRMAR RESULTADO
+    // ========================================================
+
     const resultado = await confirmarResultado(
       partidoID,
       partido.edicion_id,
       calculado,
     );
+
+    // ========================================================
+    // RESOLVER SIGUIENTES PARTIDOS
+    // ========================================================
 
     const propagacion = await resolverSiguientePartido(
       partidoID,
@@ -1006,13 +1642,21 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
       equipos,
     );
 
-    const finalizadaAt = await finalizarActa(usuario, acta);
+    // ========================================================
+    // MARCAR PARTIDO COMO FINALIZADO
+    // ========================================================
 
     const partidoFinalizadoAt = await finalizarPartidoDB(partido, finalizadaAt);
 
-    // Contrato requerido por eliminarActaLocalTrasFinalizacion().
-    // La copia local solo se elimina tras recibir esta confirmación.
-    return responder({
+    // ========================================================
+    // RESPUESTA PARA EL EDITOR REACT
+    // ========================================================
+
+    // El editor utiliza esta confirmación
+    // para eliminar la copia local solo
+    // después de completar la finalización.
+
+    return respuesta({
       success: true,
       finalizado: true,
       partidoID,
@@ -1029,18 +1673,26 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
 
       resultado: {
         estado: "CONFIRMADO",
+
         id: resultado.id,
+
         local: calculado.local,
         visitante: calculado.visitante,
+
         ganadorEquipoID: resultado.ganador_equipo_id,
 
         ...(calculado.volei
           ? {
               deporte: "VOLEIBOL",
+
               modoCierre: calculado.modoCierre,
+
               sets: calculado.volei.setsFinalizados,
+
               setEnCurso: calculado.volei.setActual,
+
               puntosTotalesLocal: calculado.volei.puntosTotalesLocal,
+
               puntosTotalesVisitante: calculado.volei.puntosTotalesVisitante,
             }
           : {}),
@@ -1050,5 +1702,12 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
     });
   } catch (error) {
     return responderError(error);
+  } finally {
+    if (inicioFinalizacion && destinoRealtime) {
+      await notificarFinalizacion(
+        destinoRealtime.partidoID,
+        destinoRealtime.edicionID,
+      );
+    }
   }
 };

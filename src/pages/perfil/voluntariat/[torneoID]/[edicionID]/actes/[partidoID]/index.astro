@@ -1,0 +1,1077 @@
+
+---
+import LayoutPerfil from "@layouts/LayoutPerfil.astro";
+
+import GestorAmbBloqueig from
+  "@components/perfil/voluntariat/acta/GestorAmbBloqueig";
+
+import { supabaseAdmin } from "@utils/supabase";
+
+import { ErrorAPI } from "@utils/inscripcio/equipBase";
+
+import {
+  exigirPartidoDesignadoVoluntariat,
+} from "@utils/voluntariat/acceso";
+
+import {
+  obtenerAccesoActa,
+} from "@utils/acta/acceso";
+
+export const prerender = false;
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "private, no-store, no-cache, must-revalidate",
+);
+
+// ============================================================
+// TIPOS
+// ============================================================
+
+type Equipo = {
+  id: string;
+  nombre: string;
+  escudo: string | null;
+};
+
+type Designacion = {
+  id: string;
+  usuarioID: string;
+  nombre: string;
+  funcion: "ARBITRE" | "OFICIAL_TAULA";
+  rol: string | null;
+  esActual: boolean;
+};
+
+type Vista = {
+  torneo: {
+    nombre: string;
+    deporte: string | null;
+    logo: string | null;
+  };
+
+  edicion: string;
+
+  partido: {
+    id: string;
+    codigo: string | null;
+    nombre: string | null;
+    estado: string;
+    fechaHora: string | null;
+    jornada: number | null;
+    pista: string | null;
+  };
+
+  fase: string | null;
+  grupo: string | null;
+  ronda: string | null;
+
+  local: Equipo | null;
+  visitante: Equipo | null;
+
+  designaciones: Designacion[];
+
+  acta: {
+    id: string;
+    estado: string;
+    estado_operativo: string;
+    motivo_bloqueo: string | null;
+    bloqueada_at: string | null;
+  } | null;
+
+  puedeIniciar: boolean;
+  puedeEscribir: boolean;
+  esControlador: boolean;
+  hayOtroControlador: boolean;
+  bloqueado: boolean;
+  finalizada: boolean;
+};
+
+type UsuarioDB = {
+  id: string;
+  nombre: string | null;
+  apellido1: string | null;
+  apellido2: string | null;
+  rol: string | null;
+};
+
+type EquipoDB = {
+  id: string;
+  nombre: string | null;
+  escudo: string | null;
+};
+
+type PlazaDB = {
+  lado: string | null;
+  origen_tipo: string | null;
+  equipo_origen_id: string | null;
+  equipo_resuelto_id: string | null;
+};
+
+type DesignacionDB = {
+  id: string;
+  usuario_id: string;
+  funcion: string;
+};
+
+// ============================================================
+// PARÁMETROS
+// ============================================================
+
+const torneoID =
+  Astro.params.torneoID?.trim().toLowerCase() ?? "";
+
+const edicionID =
+  Astro.params.edicionID?.trim().toLowerCase() ?? "";
+
+const partidoID =
+  Astro.params.partidoID?.trim().toLowerCase() ?? "";
+
+const mostrarEditor =
+  Astro.url.searchParams.get("editor") === "1";
+
+const rutaBase =
+  `/perfil/voluntariat/${encodeURIComponent(torneoID)}` +
+  `/${encodeURIComponent(edicionID)}`;
+
+const rutaPartidos = `${rutaBase}/partits`;
+
+const rutaEditor =
+  `${rutaBase}/actes/${encodeURIComponent(partidoID)}?editor=1`;
+
+const parametrosInicio = new URLSearchParams({
+  torneoID,
+  edicionID,
+  partidoID,
+});
+
+const urlInicio =
+  `/api/panell/acta/iniciar?${parametrosInicio.toString()}`;
+
+// ============================================================
+// UTILIDADES
+// ============================================================
+
+async function consultarNombre(
+  tabla:
+    | "competicion_fases"
+    | "competicion_grupos"
+    | "competicion_rondas",
+  id: string | null,
+): Promise<string | null> {
+  if (!id) return null;
+
+  const { data, error } = await supabaseAdmin
+    .from(tabla)
+    .select("nombre")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  return data?.nombre ?? null;
+}
+
+function nombreCompleto(usuario: UsuarioDB): string {
+  return [
+    usuario.nombre,
+    usuario.apellido1,
+    usuario.apellido2,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .trim() || "Persona designada";
+}
+
+function fechaFormato(
+  valor: string | null,
+  opcion: "fecha" | "hora",
+): string {
+  if (!valor) return "Per determinar";
+
+  const fecha = new Date(valor);
+
+  if (Number.isNaN(fecha.getTime())) {
+    return "Per determinar";
+  }
+
+  if (opcion === "hora") {
+    return new Intl.DateTimeFormat("ca-ES", {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "Europe/Madrid",
+    }).format(fecha);
+  }
+
+  return new Intl.DateTimeFormat("ca-ES", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Europe/Madrid",
+  }).format(fecha);
+}
+
+function nombreFuncion(
+  funcion: Designacion["funcion"],
+): string {
+  return funcion === "ARBITRE"
+    ? "Àrbitre"
+    : "Oficial de taula";
+}
+
+function estadoActa(datos: Vista): string {
+  if (datos.bloqueado) return "Bloquejada";
+  if (datos.finalizada) return "Finalitzada";
+  if (!datos.acta) return "Pendent d'inici";
+  if (datos.acta.estado === "EN_CURSO") return "En curs";
+  return "En preparació";
+}
+
+function tituloBoton(datos: Vista): string {
+  if (datos.finalizada) return "Consultar acta";
+  if (datos.bloqueado) return "Veure acta bloquejada";
+  if (datos.puedeEscribir) return "Continuar acta";
+  if (datos.puedeIniciar && !datos.acta) return "Iniciar acta";
+  if (datos.puedeIniciar) return "Assumir el control";
+  return "Consultar acta";
+}
+
+// ============================================================
+// CARGAR DATOS AUTORIZADOS
+// ============================================================
+
+let vista: Vista | null = null;
+let errorAcceso = "";
+let codigoError = 500;
+
+try {
+  const contexto =
+    await exigirPartidoDesignadoVoluntariat(
+      Astro.cookies,
+      torneoID,
+      edicionID,
+      partidoID,
+    );
+
+  const acceso = await obtenerAccesoActa({
+    usuario: contexto.usuario,
+    torneoID,
+    edicionID,
+    partidoID,
+  });
+
+  if (
+    !acceso.puedeConsultar ||
+    acceso.bloqueadoAcceso ||
+    !acceso.voluntarioConfirmado ||
+    (!acceso.designadoArbitro && !acceso.designadoOficial)
+  ) {
+    throw new ErrorAPI(
+      403,
+      "No tens autorització per consultar aquesta acta.",
+    );
+  }
+
+  const [
+    torneoRes,
+    partidoRes,
+    plazasRes,
+    actaRes,
+    designacionesRes,
+  ] = await Promise.all([
+    supabaseAdmin
+      .from("torneos")
+      .select("nombre,deporte,logo")
+      .eq("id", torneoID)
+      .maybeSingle(),
+
+    supabaseAdmin
+      .from("competicion_partidos")
+      .select(
+        "id,codigo,nombre,estado,fecha_hora,jornada,pista,edicion_id,fase_id,grupo_id,ronda_id",
+      )
+      .eq("id", partidoID)
+      .eq("edicion_id", edicionID)
+      .maybeSingle(),
+
+    supabaseAdmin
+      .from("competicion_plazas")
+      .select(
+        "lado,origen_tipo,equipo_origen_id,equipo_resuelto_id",
+      )
+      .eq("destino_tipo", "PARTIDO")
+      .eq("partido_id", partidoID),
+
+    supabaseAdmin
+      .from("acta_partidos")
+      .select(
+        "id,estado,estado_operativo,motivo_bloqueo,bloqueada_at",
+      )
+      .eq("partido_id", partidoID)
+      .maybeSingle(),
+
+    supabaseAdmin
+      .from("acta_designaciones")
+      .select("id,usuario_id,funcion")
+      .eq("partido_id", partidoID)
+      .is("revocada_at", null),
+  ]);
+
+  for (const consulta of [
+    torneoRes,
+    partidoRes,
+    plazasRes,
+    actaRes,
+    designacionesRes,
+  ]) {
+    if (consulta.error) throw consulta.error;
+  }
+
+  if (!torneoRes.data || !partidoRes.data) {
+    throw new ErrorAPI(
+      404,
+      "No s'ha trobat el partit.",
+    );
+  }
+
+  // ==========================================================
+  // EQUIPOS Y ESCUDOS
+  // ==========================================================
+
+  const plazas = (plazasRes.data ?? []) as PlazaDB[];
+
+  const obtenerIDEquipo = (plaza: PlazaDB): string | null =>
+    plaza.equipo_resuelto_id ??
+    (plaza.origen_tipo === "EQUIPO"
+      ? plaza.equipo_origen_id
+      : null);
+
+  const idsEquipos = [
+    ...new Set(
+      plazas
+        .map(obtenerIDEquipo)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+
+  const equipos = new Map<string, Equipo>();
+
+  if (idsEquipos.length > 0) {
+    const { data, error } = await supabaseAdmin
+      .from("equipos")
+      .select("id,nombre,escudo")
+      .in("id", idsEquipos);
+
+    if (error) throw error;
+
+    for (const equipo of (data ?? []) as EquipoDB[]) {
+      equipos.set(equipo.id, {
+        id: equipo.id,
+        nombre: equipo.nombre ?? "Equip sense nom",
+        escudo: equipo.escudo,
+      });
+    }
+  }
+
+  const equipoLado = (lado: "LOCAL" | "VISITANTE") => {
+    const plaza = plazas.find((p) => p.lado === lado);
+
+    if (!plaza) return null;
+
+    const id = obtenerIDEquipo(plaza);
+
+    return id ? equipos.get(id) ?? null : null;
+  };
+
+  // ==========================================================
+  // PERSONAS DESIGNADAS
+  // ==========================================================
+
+  const designacionesDB =
+    ((designacionesRes.data ?? []) as DesignacionDB[])
+      .filter(
+        (designacion) =>
+          designacion.funcion === "ARBITRE" ||
+          designacion.funcion === "OFICIAL_TAULA",
+      );
+
+  const idsUsuarios = [
+    ...new Set(
+      designacionesDB.map((d) => d.usuario_id),
+    ),
+  ];
+
+  const usuarios = new Map<string, UsuarioDB>();
+
+  if (idsUsuarios.length > 0) {
+    const { data, error } = await supabaseAdmin
+      .from("users")
+      .select("id,nombre,apellido1,apellido2,rol")
+      .in("id", idsUsuarios);
+
+    if (error) throw error;
+
+    for (const usuario of (data ?? []) as UsuarioDB[]) {
+      usuarios.set(usuario.id, usuario);
+    }
+  }
+
+  const designaciones: Designacion[] =
+    designacionesDB
+      .map((designacion) => {
+        const usuario = usuarios.get(designacion.usuario_id);
+
+        return {
+          id: designacion.id,
+          usuarioID: designacion.usuario_id,
+          nombre: usuario
+            ? nombreCompleto(usuario)
+            : "Persona designada",
+          funcion: designacion.funcion as
+            "ARBITRE" | "OFICIAL_TAULA",
+          rol: usuario?.rol ?? null,
+          esActual:
+            designacion.usuario_id === contexto.usuario.id,
+        };
+      })
+      .sort((a, b) => {
+        if (a.funcion !== b.funcion) {
+          return a.funcion === "ARBITRE" ? -1 : 1;
+        }
+
+        return a.nombre.localeCompare(
+          b.nombre,
+          "ca",
+        );
+      });
+
+  // ==========================================================
+  // FASE Y RONDA
+  // ==========================================================
+
+  const [fase, grupo, ronda] = await Promise.all([
+    consultarNombre(
+      "competicion_fases",
+      partidoRes.data.fase_id,
+    ),
+    consultarNombre(
+      "competicion_grupos",
+      partidoRes.data.grupo_id,
+    ),
+    consultarNombre(
+      "competicion_rondas",
+      partidoRes.data.ronda_id,
+    ),
+  ]);
+
+  const acta = actaRes.data;
+
+  const bloqueado = Boolean(
+    acceso.bloqueadoControl ||
+    acta?.estado_operativo === "BLOQUEADA" ||
+    acta?.bloqueada_at,
+  );
+
+  const finalizada = Boolean(
+    acceso.actaFinalizada ||
+    acta?.estado === "FINALIZADA",
+  );
+
+  vista = {
+    torneo: {
+      nombre: torneoRes.data.nombre ?? "Torneig",
+      deporte: torneoRes.data.deporte,
+      logo: torneoRes.data.logo,
+    },
+
+    edicion: contexto.edicion.nombre ?? "Edició",
+
+    partido: {
+      id: partidoRes.data.id,
+      codigo: partidoRes.data.codigo,
+      nombre: partidoRes.data.nombre,
+      estado: partidoRes.data.estado,
+      fechaHora: partidoRes.data.fecha_hora,
+      jornada: partidoRes.data.jornada,
+      pista: partidoRes.data.pista,
+    },
+
+    fase,
+    grupo,
+    ronda,
+
+    local: equipoLado("LOCAL"),
+    visitante: equipoLado("VISITANTE"),
+
+    designaciones,
+
+    acta,
+
+    bloqueado,
+    finalizada,
+
+    puedeIniciar: Boolean(
+      acceso.puedeSolicitarControl &&
+      !bloqueado &&
+      !finalizada,
+    ),
+
+    puedeEscribir: Boolean(
+      acceso.puedeEscribir &&
+      !bloqueado &&
+      !finalizada,
+    ),
+
+    esControlador: acceso.esControlador,
+    hayOtroControlador: acceso.hayOtroControlador,
+  };
+} catch (error) {
+  if (error instanceof ErrorAPI) {
+    if (error.estado === 401) {
+      return Astro.redirect("/iniciar-sessio", 303);
+    }
+
+    codigoError =
+      error.estado === 400 ? 404 : error.estado;
+
+    errorAcceso = error.message;
+  } else {
+    console.error(
+      "Error carregant la portada de l'acta:",
+      error,
+    );
+
+    codigoError = 500;
+    errorAcceso = "No s'ha pogut carregar el partit.";
+  }
+
+  Astro.response.status = codigoError;
+}
+
+const requiereInicio = Boolean(
+  vista?.puedeIniciar && !vista?.puedeEscribir,
+);
+
+const puedeAbrir = Boolean(
+  vista && (vista.acta || vista.puedeIniciar),
+);
+---
+
+<LayoutPerfil title="Acta digital · Voluntariat">
+  {
+    !vista ? (
+      <main class="flex min-h-[75vh] items-center justify-center p-5">
+        <section class="w-full max-w-lg rounded-2xl border border-border bg-card p-8 text-center">
+          <h1 class="text-xl font-bold text-neutral-titulos">
+            No es pot obrir l'acta
+          </h1>
+
+          <p class="mt-4 text-sm text-neutral">
+            {errorAcceso}
+          </p>
+
+          <a
+            href={rutaPartidos}
+            class="mt-6 inline-flex rounded-xl bg-primary px-6 py-3 font-bold text-white"
+          >
+            Tornar als partits
+          </a>
+        </section>
+      </main>
+    ) : mostrarEditor ? (
+      <GestorAmbBloqueig
+        client:load
+        torneoID={torneoID}
+        edicionID={edicionID}
+        partidoID={partidoID}
+      />
+    ) : (
+      <main class="min-h-full w-full bg-background p-3 pb-12 sm:p-6">
+        <div class="mx-auto flex w-full max-w-6xl flex-col gap-5">
+
+          <!-- NAVEGACIÓN -->
+
+          <nav class="flex items-center justify-between gap-3">
+            <a
+              href={rutaPartidos}
+              class="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-neutral-titulos transition hover:bg-primary/5"
+            >
+              <span aria-hidden="true">←</span>
+              Tornar als partits
+            </a>
+
+            <span class="rounded-xl bg-primary/10 px-4 py-2 text-xs font-bold text-primary">
+              {estadoActa(vista)}
+            </span>
+          </nav>
+
+          <!-- CABECERA PRINCIPAL -->
+
+          <section class="overflow-hidden rounded-3xl bg-[#0B1C30] text-white shadow-lg">
+            <div class="bg-gradient-to-br from-[#0B1C30] via-[#123A4D] to-[#0F766E] p-5 sm:p-8 lg:p-10">
+
+              <div class="flex flex-wrap items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                  {
+                    vista.torneo.logo && (
+                      <img
+                        src={vista.torneo.logo}
+                        alt=""
+                        class="h-12 w-12 rounded-xl object-contain sm:h-14 sm:w-14"
+                      />
+                    )
+                  }
+
+                  <div>
+                    <p class="text-xs font-bold uppercase tracking-[0.2em] text-[#5FD3C7]">
+                      Acta digital
+                    </p>
+
+                    <h1 class="mt-1 text-lg font-bold sm:text-2xl">
+                      {vista.torneo.nombre}
+                    </h1>
+
+                    <p class="mt-1 text-sm text-white/65">
+                      {vista.edicion}
+                    </p>
+                  </div>
+                </div>
+
+                <span class="rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold">
+                  {vista.partido.codigo ?? "Partit"}
+                </span>
+              </div>
+
+              <!-- EQUIPOS -->
+
+              <div class="mt-9 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 sm:gap-8 lg:mt-12">
+
+                <!-- LOCAL -->
+
+                <div class="flex min-w-0 flex-col items-center gap-4 text-center">
+                  <div class="flex h-24 w-24 items-center justify-center rounded-3xl border border-white/15 bg-white/10 p-4 shadow-inner sm:h-36 sm:w-36 lg:h-44 lg:w-44">
+                    {
+                      vista.local?.escudo ? (
+                        <img
+                          src={vista.local.escudo}
+                          alt={`Escut de ${vista.local.nombre}`}
+                          class="h-full w-full object-contain"
+                        />
+                      ) : (
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.2"
+                          class="h-14 w-14 text-white/40"
+                          aria-hidden="true"
+                        >
+                          <path d="M12 2 4 5v6c0 5 3.5 8.5 8 11 4.5-2.5 8-6 8-11V5l-8-3Z" />
+                          <path d="m9 12 2 2 4-4" />
+                        </svg>
+                      )
+                    }
+                  </div>
+
+                  <div class="min-w-0">
+                    <p class="text-xs font-bold uppercase tracking-widest text-[#5FD3C7]">
+                      Local
+                    </p>
+
+                    <h2 class="mt-2 break-words text-base font-black leading-tight sm:text-2xl lg:text-3xl">
+                      {vista.local?.nombre ?? "Per determinar"}
+                    </h2>
+                  </div>
+                </div>
+
+                <!-- VS -->
+
+                <div class="flex flex-col items-center gap-2">
+                  <span class="text-3xl font-black tracking-tighter text-white/75 sm:text-5xl lg:text-6xl">
+                    VS
+                  </span>
+
+                  <span class="h-1 w-8 rounded-full bg-[#5FD3C7] sm:w-14"></span>
+                </div>
+
+                <!-- VISITANTE -->
+
+                <div class="flex min-w-0 flex-col items-center gap-4 text-center">
+                  <div class="flex h-24 w-24 items-center justify-center rounded-3xl border border-white/15 bg-white/10 p-4 shadow-inner sm:h-36 sm:w-36 lg:h-44 lg:w-44">
+                    {
+                      vista.visitante?.escudo ? (
+                        <img
+                          src={vista.visitante.escudo}
+                          alt={`Escut de ${vista.visitante.nombre}`}
+                          class="h-full w-full object-contain"
+                        />
+                      ) : (
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.2"
+                          class="h-14 w-14 text-white/40"
+                          aria-hidden="true"
+                        >
+                          <path d="M12 2 4 5v6c0 5 3.5 8.5 8 11 4.5-2.5 8-6 8-11V5l-8-3Z" />
+                          <path d="m9 12 2 2 4-4" />
+                        </svg>
+                      )
+                    }
+                  </div>
+
+                  <div class="min-w-0">
+                    <p class="text-xs font-bold uppercase tracking-widest text-[#5FD3C7]">
+                      Visitant
+                    </p>
+
+                    <h2 class="mt-2 break-words text-base font-black leading-tight sm:text-2xl lg:text-3xl">
+                      {vista.visitante?.nombre ?? "Per determinar"}
+                    </h2>
+                  </div>
+                </div>
+              </div>
+
+              <!-- INFORMACIÓN DEL PARTIDO -->
+
+              <div class="mt-10 grid gap-3 border-t border-white/15 pt-6 sm:grid-cols-3">
+                <div class="rounded-2xl bg-white/10 p-4">
+                  <p class="text-xs font-semibold uppercase tracking-wider text-[#5FD3C7]">
+                    Data i hora
+                  </p>
+
+                  <p class="mt-2 text-base font-bold capitalize">
+                    {fechaFormato(vista.partido.fechaHora, "fecha")}
+                  </p>
+
+                  <p class="mt-1 text-xl font-black">
+                    {fechaFormato(vista.partido.fechaHora, "hora")}
+                  </p>
+                </div>
+
+                <div class="rounded-2xl bg-white/10 p-4">
+                  <p class="text-xs font-semibold uppercase tracking-wider text-[#5FD3C7]">
+                    Pista
+                  </p>
+
+                  <p class="mt-2 text-lg font-bold">
+                    {vista.partido.pista ?? "Per determinar"}
+                  </p>
+                </div>
+
+                <div class="rounded-2xl bg-white/10 p-4">
+                  <p class="text-xs font-semibold uppercase tracking-wider text-[#5FD3C7]">
+                    Competició
+                  </p>
+
+                  <p class="mt-2 text-base font-bold">
+                    {
+                      [vista.fase, vista.grupo, vista.ronda]
+                        .filter(Boolean)
+                        .join(" · ") ||
+                      (
+                        vista.partido.jornada !== null
+                          ? `Jornada ${vista.partido.jornada}`
+                          : "Per determinar"
+                      )
+                    }
+                  </p>
+                </div>
+              </div>
+
+            </div>
+          </section>
+
+          <!-- DESIGNACIONES -->
+
+          <section class="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-primary">
+                  Designacions
+                </p>
+
+                <h2 class="mt-1 text-xl font-bold text-neutral-titulos sm:text-2xl">
+                  Equip arbitral i oficials de taula
+                </h2>
+              </div>
+
+              <span class="rounded-xl bg-background px-4 py-2 text-sm font-bold text-neutral">
+                {vista.designaciones.length} designacions
+              </span>
+            </div>
+
+            <div class="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {
+                vista.designaciones.map((designacion) => (
+                  <article
+                    class:list={[
+                      "rounded-2xl border p-4 transition",
+                      designacion.esActual
+                        ? "border-primary bg-primary/5"
+                        : "border-border bg-background",
+                    ]}
+                  >
+                    <div class="flex items-start gap-3">
+                      <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.7"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          class="h-6 w-6"
+                          aria-hidden="true"
+                        >
+                          <circle cx="12" cy="8" r="4" />
+                          <path d="M4 21v-2a8 8 0 0 1 16 0v2" />
+                        </svg>
+                      </div>
+
+                      <div class="min-w-0 flex-1">
+                        <div class="flex flex-wrap items-center gap-2">
+                          <span class="text-xs font-bold uppercase tracking-wide text-primary">
+                            {nombreFuncion(designacion.funcion)}
+                          </span>
+
+                          {
+                            designacion.esActual && (
+                              <span class="rounded-md bg-primary px-2 py-0.5 text-[10px] font-bold text-white">
+                                TU
+                              </span>
+                            )
+                          }
+                        </div>
+
+                        <p class="mt-2 break-words text-base font-bold text-neutral-titulos">
+                          {designacion.nombre}
+                        </p>
+
+                        {
+                          designacion.rol &&
+                            designacion.rol !== "USUARIO" &&
+                            designacion.rol !== "VOLUNTARIO" && (
+                              <p class="mt-1 text-xs text-neutral">
+                                Rol: {designacion.rol}
+                              </p>
+                            )
+                        }
+                      </div>
+                    </div>
+                  </article>
+                ))
+              }
+            </div>
+
+            {
+              vista.designaciones.length === 0 && (
+                <p class="rounded-2xl bg-background p-5 text-sm text-neutral">
+                  Encara no hi ha designacions disponibles.
+                </p>
+              )
+            }
+          </section>
+
+          <!-- INICIAR O CONTINUAR -->
+
+          <section class="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-8">
+            <div class="mx-auto flex max-w-2xl flex-col items-center text-center">
+              <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="h-8 w-8"
+                  aria-hidden="true"
+                >
+                  <path d="M8 4h9a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7z" />
+                  <path d="M8 4v4H4" />
+                  <path d="m9 14 2 2 4-4" />
+                </svg>
+              </div>
+
+              <h2 class="mt-5 text-2xl font-black text-neutral-titulos sm:text-3xl">
+                {estadoActa(vista)}
+              </h2>
+
+              <p class="mt-3 text-sm leading-6 text-neutral">
+                {
+                  vista.bloqueado
+                    ? (
+                      vista.acta?.motivo_bloqueo ??
+                      "L'organització ha bloquejat temporalment aquesta acta."
+                    )
+                    : vista.finalizada
+                      ? "Aquest partit ja ha finalitzat. Pots consultar l'acta."
+                      : vista.hayOtroControlador
+                        ? "Una altra persona té el control de l'acta. Pots consultar-la sense modificar-la."
+                        : vista.puedeEscribir
+                          ? "Ja tens el control de l'acta. Pots continuar registrant les jugades."
+                          : vista.puedeIniciar
+                            ? "Comprova les dades del partit i les designacions abans de començar."
+                            : "No tens autorització per iniciar aquesta acta."
+                }
+              </p>
+
+              {
+                puedeAbrir ? (
+                  <button
+                    id="obrir-acta"
+                    type="button"
+                    data-requiere-inicio={requiereInicio ? "1" : "0"}
+                    data-url-inicio={urlInicio}
+                    data-ruta-editor={rutaEditor}
+                    class="mt-7 flex min-h-16 w-full max-w-xl items-center justify-center gap-3 rounded-2xl bg-primary px-7 py-4 text-center text-lg font-black text-white shadow-lg transition hover:brightness-110 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 sm:text-xl"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      class="h-6 w-6 shrink-0"
+                      aria-hidden="true"
+                    >
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+
+                    <span id="text-obrir-acta">
+                      {tituloBoton(vista)}
+                    </span>
+                  </button>
+                ) : (
+                  <div class="mt-7 w-full max-w-xl rounded-2xl bg-neutral/10 px-7 py-5 text-center text-lg font-bold text-neutral">
+                    Acta no disponible
+                  </div>
+                )
+              }
+
+              <p
+                id="error-obrir-acta"
+                role="alert"
+                aria-live="assertive"
+                class="mt-3 hidden text-sm font-semibold text-red-600"
+              ></p>
+
+              <p class="mt-5 text-xs leading-5 text-neutral">
+                L'acta s'obrirà a pantalla completa. Les jugades
+                i els resultats es gestionaran amb el mateix
+                sistema oficial que utilitza l'organització.
+              </p>
+            </div>
+          </section>
+
+        </div>
+      </main>
+    )
+  }
+</LayoutPerfil>
+
+<script>
+  const boton =
+    document.querySelector<HTMLButtonElement>(
+      "#obrir-acta",
+    );
+
+  boton?.addEventListener("click", async () => {
+    if (boton.disabled) return;
+
+    const requiereInicio =
+      boton.dataset.requiereInicio === "1";
+
+    const rutaEditor =
+      boton.dataset.rutaEditor;
+
+    const urlInicio =
+      boton.dataset.urlInicio;
+
+    if (!rutaEditor) return;
+
+    // Consultar o continuar:
+    // no hace falta crear un acta nueva.
+
+    if (!requiereInicio) {
+      window.location.assign(rutaEditor);
+      return;
+    }
+
+    // Iniciar o asumir el control:
+    // utilizar la API compartida del panel.
+
+    if (!urlInicio) return;
+
+    const texto =
+      document.getElementById(
+        "text-obrir-acta",
+      );
+
+    const mensaje =
+      document.getElementById(
+        "error-obrir-acta",
+      );
+
+    boton.disabled = true;
+
+    if (texto) {
+      texto.textContent =
+        "Preparant l'acta...";
+    }
+
+    if (mensaje) {
+      mensaje.classList.add("hidden");
+      mensaje.textContent = "";
+    }
+
+    try {
+      const respuesta = await fetch(urlInicio, {
+        method: "POST",
+        credentials: "same-origin",
+        cache: "no-store",
+
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+
+        body: JSON.stringify({}),
+      });
+
+      const contenido = await respuesta.json();
+
+      if (
+        !respuesta.ok ||
+        contenido.success !== true ||
+        contenido.iniciado !== true
+      ) {
+        throw new Error(
+          contenido.mensaje ??
+          "No s'ha pogut iniciar l'acta.",
+        );
+      }
+
+      // El servidor ha concedido el control.
+      // Abrimos el gestor React del perfil.
+
+      window.location.assign(rutaEditor);
+    } catch (error) {
+      if (mensaje) {
+        mensaje.textContent =
+          error instanceof Error
+            ? error.message
+            : "No s'ha pogut iniciar l'acta.";
+
+        mensaje.classList.remove("hidden");
+      }
+
+      if (texto) {
+        texto.textContent =
+          "Tornar a intentar";
+      }
+
+      boton.disabled = false;
+    }
+  });
+</script>
