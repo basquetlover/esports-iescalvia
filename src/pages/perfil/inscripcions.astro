@@ -532,30 +532,34 @@ if (
     // ========================================================
 
     const {
-        data:
-            formulariosPropiosData,
+    data:
+        formulariosPropiosData,
 
-        error:
-            errorFormulariosPropios,
-    } =
-        await supabaseAdmin
-            .from(
-                "formularios",
-            )
-            .select(
-                "id,edicion_id,tipo,estado,usuario_id,acceso_capitan,iniciado_at,enviado_at,completado_at,created_at,updated_at",
-            )
-            .eq(
-                "usuario_id",
-                usuario.id,
-            )
-            .in(
-                "tipo",
-                [
-                    "EQUIPO",
-                    "VOLUNTARIO",
-                ],
-            );
+    error:
+        errorFormulariosPropios,
+} =
+    await supabaseAdmin
+        .from(
+            "formularios",
+        )
+        .select(
+            "id,edicion_id,tipo,estado,usuario_id,acceso_capitan,iniciado_at,enviado_at,completado_at,created_at,updated_at",
+        )
+        .eq(
+            "usuario_id",
+            usuario.id,
+        )
+        .in(
+            "tipo",
+            [
+                "EQUIPO",
+                "VOLUNTARIO",
+            ],
+        )
+        .is(
+            "archivado_at",
+            null,
+        );
 
     if (
         errorFormulariosPropios
@@ -748,31 +752,35 @@ if (
                 0
             ) {
                 const {
-                    data:
-                        formulariosCapitanData,
+    data:
+        formulariosCapitanData,
 
-                    error:
-                        errorFormulariosCapitan,
-                } =
-                    await supabaseAdmin
-                        .from(
-                            "formularios",
-                        )
-                        .select(
-                            "id,edicion_id,estado,usuario_id,acceso_capitan,iniciado_at,enviado_at,completado_at,created_at,updated_at",
-                        )
-                        .in(
-                            "id",
-                            idsFormulariosCapitan,
-                        )
-                        .eq(
-                            "tipo",
-                            "EQUIPO",
-                        )
-                        .eq(
-                            "acceso_capitan",
-                            true,
-                        );
+    error:
+        errorFormulariosCapitan,
+} =
+    await supabaseAdmin
+        .from(
+            "formularios",
+        )
+        .select(
+            "id,edicion_id,estado,usuario_id,acceso_capitan,iniciado_at,enviado_at,completado_at,created_at,updated_at",
+        )
+        .in(
+            "id",
+            idsFormulariosCapitan,
+        )
+        .eq(
+            "tipo",
+            "EQUIPO",
+        )
+        .eq(
+            "acceso_capitan",
+            true,
+        )
+        .is(
+            "archivado_at",
+            null,
+        );
 
                 if (
                     errorFormulariosCapitan

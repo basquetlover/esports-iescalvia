@@ -36,12 +36,21 @@ const ESTADOS_FORMULARIO = [
   "DENEGADO",
 ] as const;
 
+// Estados que reservan participantes.
+// Los borradores y los formularios archivados no los reservan.
+
+export const ESTADOS_INSCRIPCION_REAL = [
+  "EN_REVISION",
+  "APROBADO",
+  "DENEGADO",
+] as const;
+
 // ============================================================
 // CAMPOS DB
 // ============================================================
 
 export const CAMPOS_FORMULARIO =
-  "id,edicion_id,tipo,estado,usuario_id,email_contacto,acceso_capitan,configuracion_snapshot,iniciado_at,enviado_at,completado_at,created_at,updated_at";
+  "id,edicion_id,tipo,estado,usuario_id,email_contacto,acceso_capitan,configuracion_snapshot,iniciado_at,enviado_at,completado_at,created_at,updated_at,archivado_at,archivado_por,estado_previo_archivado,motivo_archivado";
 
 const CAMPOS_EQUIPO =
   "id,formulario_id,nombre,escudo,capitan_id,validacion_estado,plaza_estado,posicion_lista_espera,nota_admin,created_at,updated_at";
@@ -171,6 +180,11 @@ export type FormularioDB = {
   completado_at: string | null;
   created_at: string;
   updated_at: string;
+
+  archivado_at?: string | null;
+  archivado_por?: string | null;
+  estado_previo_archivado?: string | null;
+  motivo_archivado?: string | null;
 };
 
 export type EquipoDB = {
@@ -339,6 +353,46 @@ export function estadoFormulario(valor: string | null): EstadoFormulario {
 
   return "BORRADOR";
 }
+
+// ============================================================
+// FORMULARIOS ARCHIVADOS
+// ============================================================
+
+export function esFormularioArchivado(
+  formulario: Pick<FormularioDB, "archivado_at">,
+): boolean {
+  return (
+    typeof formulario.archivado_at === "string" &&
+    formulario.archivado_at.trim() !== ""
+  );
+}
+
+export function exigirFormularioNoArchivado(
+  formulario: Pick<FormularioDB, "archivado_at">,
+) {
+  if (esFormularioArchivado(formulario)) {
+    throw new ErrorAPI(
+      409,
+      "Aquesta inscripció està arxivada i no es pot modificar.",
+    );
+  }
+}
+
+export function formularioReservaParticipantes(
+  formulario: Pick<FormularioDB, "estado" | "archivado_at">,
+): boolean {
+  if (esFormularioArchivado(formulario)) {
+    return false;
+  }
+
+  const estado = estadoFormulario(formulario.estado);
+
+  return ESTADOS_INSCRIPCION_REAL.some((estadoReal) => estadoReal === estado);
+}
+
+// ============================================================
+// ESTADO DE EDICIÓN
+// ============================================================
 
 function normalizarEstadoEdicion(estado: string | null) {
   return estado?.trim().toUpperCase() ?? "";
@@ -1060,6 +1114,8 @@ export async function cargarFormularioCompleto(formulario: FormularioDB) {
 
   const observaciones = await obtenerObservaciones(formulario.id);
 
+  const archivado = esFormularioArchivado(formulario);
+
   return {
     id: formulario.id,
 
@@ -1070,6 +1126,16 @@ export async function cargarFormularioCompleto(formulario: FormularioDB) {
     email_contacto: formulario.email_contacto ?? "",
 
     acceso_capitan: formulario.acceso_capitan === true,
+
+    archivado,
+
+    archivado_at: formulario.archivado_at ?? null,
+
+    archivado_por: formulario.archivado_por ?? null,
+
+    estado_previo_archivado: formulario.estado_previo_archivado ?? null,
+
+    motivo_archivado: formulario.motivo_archivado ?? null,
 
     equipo: {
       id: equipo?.id ?? null,
@@ -1109,6 +1175,7 @@ export async function obtenerFormularioPropietario(
     .eq("edicion_id", edicionID)
     .eq("usuario_id", usuarioID)
     .eq("tipo", "EQUIPO")
+    .is("archivado_at", null)
     .order("created_at", {
       ascending: true,
     })
@@ -1144,7 +1211,8 @@ export async function obtenerFormularioComoCapitan(
     .select(CAMPOS_FORMULARIO)
     .eq("edicion_id", edicionID)
     .eq("tipo", "EQUIPO")
-    .eq("acceso_capitan", true);
+    .eq("acceso_capitan", true)
+    .is("archivado_at", null);
 
   if (errorFormularios) {
     throw errorFormularios;
@@ -1226,24 +1294,27 @@ export async function obtenerFormularioComoCapitan(
 
 export function permisosFormulario(
   formulario: FormularioDB,
-
   propietario: boolean,
-
   capitan: boolean,
 ) {
   const estado = estadoFormulario(formulario.estado);
 
-  const puedeEditar = (propietario || capitan) && estado !== "EN_REVISION";
+  const archivado = esFormularioArchivado(formulario);
+
+  const puedeVer = (propietario || capitan) && !archivado;
+
+  const puedeEditar = puedeVer && estado !== "EN_REVISION";
 
   return {
     propietario,
     capitan,
 
-    puede_ver: propietario || capitan,
+    puede_ver: puedeVer,
 
     puede_editar: puedeEditar,
 
-    puede_cambiar_acceso_capitan: propietario && estado !== "EN_REVISION",
+    puede_cambiar_acceso_capitan:
+      propietario && estado !== "EN_REVISION" && !archivado,
   };
 }
 
@@ -1262,6 +1333,7 @@ export async function obtenerAccesoPorID(
     .eq("id", formularioID)
     .eq("edicion_id", edicionID)
     .eq("tipo", "EQUIPO")
+    .is("archivado_at", null)
     .maybeSingle();
 
   if (error) {
@@ -1273,6 +1345,11 @@ export async function obtenerAccesoPorID(
   }
 
   const formulario = data as FormularioDB;
+
+  // Protección adicional contra formularios archivados.
+  if (esFormularioArchivado(formulario)) {
+    throw new ErrorAPI(404, "No s'ha trobat la inscripció.");
+  }
 
   const equipo = await obtenerEquipoFormulario(formulario.id);
 
@@ -1286,11 +1363,7 @@ export async function obtenerAccesoPorID(
     equipo?.capitan_id &&
     usuario.email
   ) {
-    const {
-      data: participante,
-
-      error: errorParticipante,
-    } = await supabaseAdmin
+    const { data: participante, error: errorParticipante } = await supabaseAdmin
       .from("participantes_equipo")
       .select("id,email,activo")
       .eq("id", equipo.capitan_id)
@@ -1575,6 +1648,11 @@ export function validarEmailsRepetidos(participantes: ParticipanteEntrada[]) {
 // CURSO / GRUPO
 // ============================================================
 
+// El profesorado es el único tipo sin requisito de curso y grupo.
+export function necesitaCurso(tipo: TipoParticipante): boolean {
+  return tipo !== "PROFESOR";
+}
+
 function cursoValido(
   curso: string,
   grupo: string,
@@ -1675,21 +1753,23 @@ export function validarEstructuraParticipantes(
   }
 
   for (const participante of participantes) {
-    if (
-      participante.tipo_participante !== "JUGADOR" &&
-      participante.tipo_participante !== "PROFESOR" &&
-      participante.tipo_participante !== "ENTRENADOR"
-    ) {
+    if (!necesitaCurso(participante.tipo_participante)) {
       continue;
     }
 
+    // Un esborrany pot tenir el curs o el grup encara pendent.
     if (!participante.curso && !participante.grupo) {
       continue;
     }
 
+    const cursoConfigurado = configuracion.cursos.find(
+      (entrada) => entrada.curso === participante.curso,
+    );
+
     if (
-      !participante.curso ||
-      !cursoValido(participante.curso, participante.grupo, configuracion)
+      !cursoConfigurado ||
+      (participante.grupo !== "" &&
+        !cursoConfigurado.grupos.includes(participante.grupo))
     ) {
       throw new ErrorAPI(
         400,
@@ -1785,10 +1865,7 @@ export function validarEnvio(
       );
     }
 
-    if (
-      participante.tipo_participante === "JUGADOR" ||
-      participante.tipo_participante === "PROFESOR"
-    ) {
+    if (necesitaCurso(participante.tipo_participante)) {
       if (!participante.curso) {
         throw new ErrorAPI(400, `Indica el curs de ${participante.nombre}.`);
       }
@@ -1856,6 +1933,16 @@ export function validarEnvio(
 // ============================================================
 // DUPLICADOS EN LA MISMA EDICIÓN
 // ============================================================
+//
+// Solo reservan participantes los formularios enviados
+// que no estén archivados.
+//
+// Los formularios en borrador pueden contener participantes
+// que también aparezcan en otros borradores.
+//
+// Los equipos archivados conservan sus participantes,
+// pero dejan de bloquear nuevas inscripciones.
+// ============================================================
 
 export async function comprobarDuplicadosEdicion(
   edicionID: string,
@@ -1876,6 +1963,12 @@ export async function comprobarDuplicadosEdicion(
     return;
   }
 
+  const emailsBuscados = new Set(emails);
+
+  // ========================================================
+  // FORMULARIOS ACTIVOS Y ENVIADOS
+  // ========================================================
+
   const {
     data: formularios,
 
@@ -1884,7 +1977,9 @@ export async function comprobarDuplicadosEdicion(
     .from("formularios")
     .select("id")
     .eq("edicion_id", edicionID)
-    .eq("tipo", "EQUIPO");
+    .eq("tipo", "EQUIPO")
+    .is("archivado_at", null)
+    .in("estado", [...ESTADOS_INSCRIPCION_REAL]);
 
   if (errorFormularios) {
     throw errorFormularios;
@@ -1893,6 +1988,10 @@ export async function comprobarDuplicadosEdicion(
   if (!formularios || formularios.length === 0) {
     return;
   }
+
+  // ========================================================
+  // EQUIPOS QUE RESERVAN PARTICIPANTES
+  // ========================================================
 
   const {
     data: equipos,
@@ -1918,31 +2017,103 @@ export async function comprobarDuplicadosEdicion(
     return;
   }
 
-  const {
-    data: coincidencias,
+  // ========================================================
+  // PARTICIPANTES ACTIVOS
+  // ========================================================
+  //
+  // Se normalizan los correos en el servidor para detectar
+  // también registros antiguos con mayúsculas.
+  // Se realiza la consulta por bloques para evitar que
+  // el límite de filas de Supabase omita participantes.
+  // ========================================================
 
-    error: errorParticipantes,
-  } = await supabaseAdmin
-    .from("participantes_equipo")
-    .select("email,equipo_id")
-    .in("equipo_id", idsEquipos)
-    .eq("activo", true)
-    .in("email", emails);
+  const TAMANO_PAGINA = 500;
 
-  if (errorParticipantes) {
-    throw errorParticipantes;
-  }
+  let desde = 0;
 
-  const coincidencia = coincidencias?.find((participante) =>
-    emails.includes(normalizarEmail(participante.email ?? "")),
-  );
+  while (true) {
+    const {
+      data: coincidencias,
 
-  if (coincidencia?.email) {
-    throw new ErrorAPI(
-      409,
-      `La persona amb el correu ${normalizarEmail(coincidencia.email)} ja forma part d'un altre equip d'aquesta edició.`,
+      error: errorParticipantes,
+    } = await supabaseAdmin
+      .from("participantes_equipo")
+      .select("id,email,equipo_id")
+      .in("equipo_id", idsEquipos)
+      .eq("activo", true)
+      .order("id", {
+        ascending: true,
+      })
+      .range(desde, desde + TAMANO_PAGINA - 1);
+
+    if (errorParticipantes) {
+      throw errorParticipantes;
+    }
+
+    const filas = coincidencias ?? [];
+
+    const coincidencia = filas.find((participante) =>
+      emailsBuscados.has(normalizarEmail(participante.email ?? "")),
     );
+
+    if (coincidencia?.email) {
+      throw new ErrorAPI(
+        409,
+        `La persona amb el correu ${normalizarEmail(coincidencia.email)} ja forma part d'un altre equip d'aquesta edició.`,
+      );
+    }
+
+    if (filas.length < TAMANO_PAGINA) {
+      break;
+    }
+
+    desde += TAMANO_PAGINA;
   }
+}
+
+// ============================================================
+// COMPROBAR QUE EL EQUIPO NO ESTÁ ARCHIVADO
+// ============================================================
+
+export async function exigirEquipoNoArchivado(equipoID: string) {
+  const {
+    data: equipo,
+
+    error: errorEquipo,
+  } = await supabaseAdmin
+    .from("equipos")
+    .select("id,formulario_id")
+    .eq("id", equipoID)
+    .maybeSingle();
+
+  if (errorEquipo) {
+    throw errorEquipo;
+  }
+
+  if (!equipo) {
+    throw new ErrorAPI(404, "No s'ha trobat l'equip.");
+  }
+
+  const {
+    data: formulario,
+
+    error: errorFormulario,
+  } = await supabaseAdmin
+    .from("formularios")
+    .select("id,archivado_at")
+    .eq("id", equipo.formulario_id)
+    .eq("tipo", "EQUIPO")
+    .maybeSingle();
+
+  if (errorFormulario) {
+    throw errorFormulario;
+  }
+
+  if (!formulario) {
+    throw new ErrorAPI(404, "No s'ha trobat la inscripció de l'equip.");
+  }
+
+  exigirFormularioNoArchivado(formulario);
 }
 
 // ============================================================
@@ -1954,6 +2125,10 @@ export async function guardarParticipantes(
 
   participantes: ParticipanteEntrada[],
 ) {
+  // Los equipos archivados solo pueden consultarse.
+
+  await exigirEquipoNoArchivado(equipoID);
+
   const actuales = await obtenerParticipantes(equipoID);
 
   const mapaActuales = new Map(
@@ -1995,18 +2170,16 @@ export async function guardarParticipantes(
 
         email: participante.email || null,
 
-        curso:
-          participante.tipo_participante === "JUGADOR" ||
-          participante.tipo_participante === "PROFESOR" ||
-          participante.tipo_participante === "ENTRENADOR"
-            ? participante.curso || null
+        curso: necesitaCurso(participante.tipo_participante)
+          ? participante.curso || null
+          : actual.tipo_participante === "PROFESOR"
+            ? actual.curso
             : null,
 
-        grupo:
-          participante.tipo_participante === "JUGADOR" ||
-          participante.tipo_participante === "PROFESOR" ||
-          participante.tipo_participante === "ENTRENADOR"
-            ? participante.grupo || null
+        grupo: necesitaCurso(participante.tipo_participante)
+          ? participante.grupo || null
+          : actual.tipo_participante === "PROFESOR"
+            ? actual.grupo
             : null,
 
         genero: participante.genero,
@@ -2050,19 +2223,13 @@ export async function guardarParticipantes(
 
         email: participante.email || null,
 
-        curso:
-          participante.tipo_participante === "JUGADOR" ||
-          participante.tipo_participante === "PROFESOR" ||
-          participante.tipo_participante === "ENTRENADOR"
-            ? participante.curso || null
-            : null,
+        curso: necesitaCurso(participante.tipo_participante)
+          ? participante.curso || null
+          : null,
 
-        grupo:
-          participante.tipo_participante === "JUGADOR" ||
-          participante.tipo_participante === "PROFESOR" ||
-          participante.tipo_participante === "ENTRENADOR"
-            ? participante.grupo || null
-            : null,
+        grupo: necesitaCurso(participante.tipo_participante)
+          ? participante.grupo || null
+          : null,
 
         genero: participante.genero,
 
@@ -2111,15 +2278,36 @@ export async function guardarParticipantes(
 // ============================================================
 // SNAPSHOT
 // ============================================================
+//
+// Se mantiene la configuración original de la inscripción.
+//
+// Los cursos y grupos son dinámicos y se obtienen siempre
+// de la configuración actual de la edición.
+//
+// Los formularios archivados conservan la configuración
+// histórica siempre que exista un snapshot.
+// ============================================================
 
 export function configuracionFormulario(
   formulario: FormularioDB,
 
   actual: ConfiguracionEquipos,
-) {
+): ConfiguracionEquipos {
   const snapshot = normalizarConfiguracionEquipos(
     formulario.configuracion_snapshot,
   );
 
-  return snapshot ?? actual;
+  if (!snapshot) {
+    return actual;
+  }
+
+  if (esFormularioArchivado(formulario)) {
+    return snapshot;
+  }
+
+  return {
+    ...snapshot,
+
+    cursos: actual.cursos,
+  };
 }

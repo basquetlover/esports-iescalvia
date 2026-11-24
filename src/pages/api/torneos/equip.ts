@@ -95,11 +95,7 @@ type EquipoPublico = {
   escudo: string | null;
 };
 
-type ResultadoEquipo =
-  | "GANADO"
-  | "EMPATADO"
-  | "PERDIDO"
-  | "PENDIENTE";
+type ResultadoEquipo = "GANADO" | "EMPATADO" | "PERDIDO" | "PENDIENTE";
 
 type PartidoPublico = {
   id: string;
@@ -144,18 +140,11 @@ const UUID =
 // HELPERS
 // ============================================================
 
-function normalizarEstado(
-  valor: string | null | undefined,
-) {
+function normalizarEstado(valor: string | null | undefined) {
   return valor?.trim().toUpperCase() ?? "";
 }
 
-function nombreCompleto(
-  participante:
-    | ParticipanteDB
-    | null
-    | undefined,
-) {
+function nombreCompleto(participante: ParticipanteDB | null | undefined) {
   if (!participante) {
     return null;
   }
@@ -166,118 +155,51 @@ function nombreCompleto(
     participante.apellido2,
   ]
     .filter(
-      (
-        parte,
-      ): parte is string =>
-        typeof parte === "string" &&
-        Boolean(
-          parte.trim(),
-        ),
+      (parte): parte is string =>
+        typeof parte === "string" && Boolean(parte.trim()),
     )
-    .map(
-      parte =>
-        parte.trim(),
-    );
+    .map((parte) => parte.trim());
 
-  return partes.length > 0
-    ? partes.join(" ")
-    : null;
+  return partes.length > 0 ? partes.join(" ") : null;
 }
 
 // ============================================================
 // RESULTADOS
 // ============================================================
 
-function tiempoResultado(
-  resultado: ResultadoDB,
-) {
+function tiempoResultado(resultado: ResultadoDB) {
   const fecha =
-    resultado.updated_at ||
-    resultado.confirmado_at ||
-    resultado.created_at;
+    resultado.updated_at || resultado.confirmado_at || resultado.created_at;
 
-  const tiempo =
-    new Date(
-      fecha,
-    ).getTime();
+  const tiempo = new Date(fecha).getTime();
 
-  return Number.isFinite(
-    tiempo,
-  )
-    ? tiempo
-    : 0;
+  return Number.isFinite(tiempo) ? tiempo : 0;
 }
 
-function crearMapaResultados(
-  resultados:
-    ResultadoDB[],
-) {
-  const agrupados =
-    new Map<
-      string,
-      ResultadoDB[]
-    >();
+function crearMapaResultados(resultados: ResultadoDB[]) {
+  const agrupados = new Map<string, ResultadoDB[]>();
 
-  for (
-    const resultado
-    of resultados
-  ) {
-    const lista =
-      agrupados.get(
-        resultado.partido_id,
-      ) ?? [];
+  for (const resultado of resultados) {
+    const lista = agrupados.get(resultado.partido_id) ?? [];
 
-    lista.push(
-      resultado,
-    );
+    lista.push(resultado);
 
-    agrupados.set(
-      resultado.partido_id,
-      lista,
-    );
+    agrupados.set(resultado.partido_id, lista);
   }
 
-  const mapa =
-    new Map<
-      string,
-      ResultadoDB
-    >();
+  const mapa = new Map<string, ResultadoDB>();
 
-  for (
-    const [
-      partidoID,
-      lista,
-    ]
-    of agrupados
-  ) {
-    lista.sort(
-      (
-        a,
-        b,
-      ) => {
-        if (
-          a.confirmado !==
-          b.confirmado
-        ) {
-          return a.confirmado
-            ? -1
-            : 1;
-        }
+  for (const [partidoID, lista] of agrupados) {
+    lista.sort((a, b) => {
+      if (a.confirmado !== b.confirmado) {
+        return a.confirmado ? -1 : 1;
+      }
 
-        return (
-          tiempoResultado(b) -
-          tiempoResultado(a)
-        );
-      },
-    );
+      return tiempoResultado(b) - tiempoResultado(a);
+    });
 
-    if (
-      lista[0]
-    ) {
-      mapa.set(
-        partidoID,
-        lista[0],
-      );
+    if (lista[0]) {
+      mapa.set(partidoID, lista[0]);
     }
   }
 
@@ -288,141 +210,81 @@ function crearMapaResultados(
 // PLAZA
 // ============================================================
 
-function equipoDePlaza(
-  plaza:
-    PlazaDB |
-    null |
-    undefined,
-) {
-  return (
-    plaza
-      ?.equipo_resuelto_id ??
-    plaza
-      ?.equipo_origen_id ??
-    null
-  );
+function equipoDePlaza(plaza: PlazaDB | null | undefined) {
+  return plaza?.equipo_resuelto_id ?? plaza?.equipo_origen_id ?? null;
 }
 
 // ============================================================
 // TIEMPO PARTIDO
 // ============================================================
 
-function tiempoPartido(
-  partido:
-    PartidoDB,
-) {
-  if (
-    !partido.fecha_hora
-  ) {
+function tiempoPartido(partido: PartidoDB) {
+  if (!partido.fecha_hora) {
     return null;
   }
 
-  const tiempo =
-    new Date(
-      partido.fecha_hora,
-    ).getTime();
+  const tiempo = new Date(partido.fecha_hora).getTime();
 
-  return Number.isFinite(
-    tiempo,
-  )
-    ? tiempo
-    : null;
+  return Number.isFinite(tiempo) ? tiempo : null;
 }
 
 // ============================================================
 // GET
 // ============================================================
 
-export const GET: APIRoute =
-  async ({
-    url,
-  }) => {
-    try {
-      const torneoID =
-        url.searchParams.get(
-          "torneoID",
-        );
+export const GET: APIRoute = async ({ url }) => {
+  try {
+    const torneoID = url.searchParams.get("torneoID");
 
-      const edicionID =
-        url.searchParams.get(
-          "edicionID",
-        );
+    const edicionID = url.searchParams.get("edicionID");
 
-      const equipoID =
-        url.searchParams.get(
-          "equipoID",
-        );
+    const equipoID = url.searchParams.get("equipoID");
 
-      // ======================================================
-      // VALIDACIÓN
-      // ======================================================
+    // ======================================================
+    // VALIDACIÓN
+    // ======================================================
 
-      if (
-        !torneoID ||
-        !UUID.test(
-          torneoID,
-        )
-      ) {
-        return Response.json(
-          {
-            mensaje:
-              "L'identificador del torneig no és vàlid.",
-          },
-          {
-            status: 400,
-          },
-        );
-      }
+    if (!torneoID || !UUID.test(torneoID)) {
+      return Response.json(
+        {
+          mensaje: "L'identificador del torneig no és vàlid.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
 
-      if (
-        !edicionID ||
-        !UUID.test(
-          edicionID,
-        )
-      ) {
-        return Response.json(
-          {
-            mensaje:
-              "L'identificador de l'edició no és vàlid.",
-          },
-          {
-            status: 400,
-          },
-        );
-      }
+    if (!edicionID || !UUID.test(edicionID)) {
+      return Response.json(
+        {
+          mensaje: "L'identificador de l'edició no és vàlid.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
 
-      if (
-        !equipoID ||
-        !UUID.test(
-          equipoID,
-        )
-      ) {
-        return Response.json(
-          {
-            mensaje:
-              "L'identificador de l'equip no és vàlid.",
-          },
-          {
-            status: 400,
-          },
-        );
-      }
+    if (!equipoID || !UUID.test(equipoID)) {
+      return Response.json(
+        {
+          mensaje: "L'identificador de l'equip no és vàlid.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
 
-      // ======================================================
-      // EQUIPO
-      // ======================================================
+    // ======================================================
+    // EQUIPO
+    // ======================================================
 
-      const {
-        data:
-          equipoData,
-        error:
-          equipoError,
-      } =
-        await supabaseAdmin
-          .from(
-            "equipos",
-          )
-          .select(`
+    const { data: equipoData, error: equipoError } = await supabaseAdmin
+      .from("equipos")
+      .select(
+        `
             id,
             formulario_id,
             nombre,
@@ -430,197 +292,112 @@ export const GET: APIRoute =
             capitan_id,
             validacion_estado,
             plaza_estado
-          `)
-          .eq(
-            "id",
-            equipoID,
-          )
-          .eq(
-            "validacion_estado",
-            "APROBADO",
-          )
-          .eq(
-            "plaza_estado",
-            "CONFIRMADA",
-          )
-          .maybeSingle();
+          `,
+      )
+      .eq("id", equipoID)
+      .eq("validacion_estado", "APROBADO")
+      .eq("plaza_estado", "CONFIRMADA")
+      .maybeSingle();
 
-      if (
-        equipoError
-      ) {
-        throw equipoError;
-      }
+    if (equipoError) {
+      throw equipoError;
+    }
 
-      if (
-        !equipoData
-      ) {
-        return Response.json(
-          {
-            mensaje:
-              "No s'ha trobat l'equip.",
-          },
-          {
-            status: 404,
-          },
-        );
-      }
+    if (!equipoData) {
+      return Response.json(
+        {
+          mensaje: "No s'ha trobat l'equip.",
+        },
+        {
+          status: 404,
+        },
+      );
+    }
 
-      const equipo =
-        equipoData as EquipoDB;
+    const equipo = equipoData as EquipoDB;
 
-      // ======================================================
-      // FORMULARIO
-      // ======================================================
+    // ======================================================
+    // FORMULARIO
+    // ======================================================
 
-      const {
-        data:
-          formularioData,
-        error:
-          formularioError,
-      } =
-        await supabaseAdmin
-          .from(
-            "formularios",
-          )
-          .select(
-            "id,edicion_id,tipo,estado",
-          )
-          .eq(
-            "id",
-            equipo.formulario_id,
-          )
-          .eq(
-            "edicion_id",
-            edicionID,
-          )
-          .eq(
-            "tipo",
-            "EQUIPO",
-          )
-          .eq(
-            "estado",
-            "APROBADO",
-          )
-          .maybeSingle();
+    const { data: formularioData, error: formularioError } = await supabaseAdmin
+      .from("formularios")
+      .select("id,edicion_id,tipo,estado")
+      .eq("id", equipo.formulario_id)
+      .eq("edicion_id", edicionID)
+      .eq("tipo", "EQUIPO")
+      .eq("estado", "APROBADO")
+      .is("archivado_at", null)
+      .maybeSingle();
 
-      if (
-        formularioError
-      ) {
-        throw formularioError;
-      }
+    if (formularioError) {
+      throw formularioError;
+    }
 
-      if (
-        !formularioData
-      ) {
-        return Response.json(
-          {
-            mensaje:
-              "Aquest equip no pertany a l'edició indicada.",
-          },
-          {
-            status: 404,
-          },
-        );
-      }
+    if (!formularioData) {
+      return Response.json(
+        {
+          mensaje:
+            "Aquest equip no està disponible públicament en aquesta edició.",
+        },
+        {
+          status: 404,
+        },
+      );
+    }
 
-      // ======================================================
-      // TORNEO / EDICIÓN
-      // ======================================================
+    // ======================================================
+    // TORNEO / EDICIÓN
+    // ======================================================
 
-      const [
-        torneoRespuesta,
-        edicionRespuesta,
-      ] =
-        await Promise.all([
-          supabaseAdmin
-            .from(
-              "torneos",
-            )
-            .select(
-              "id,nombre,deporte,activo",
-            )
-            .eq(
-              "id",
-              torneoID,
-            )
-            .eq(
-              "activo",
-              true,
-            )
-            .maybeSingle(),
+    const [torneoRespuesta, edicionRespuesta] = await Promise.all([
+      supabaseAdmin
+        .from("torneos")
+        .select("id,nombre,deporte,activo")
+        .eq("id", torneoID)
+        .eq("activo", true)
+        .maybeSingle(),
 
-          supabaseAdmin
-            .from(
-              "ediciones",
-            )
-            .select(
-              "id,torneo_id,nombre,estado",
-            )
-            .eq(
-              "id",
-              edicionID,
-            )
-            .eq(
-              "torneo_id",
-              torneoID,
-            )
-            .maybeSingle(),
-        ]);
+      supabaseAdmin
+        .from("ediciones")
+        .select("id,torneo_id,nombre,estado")
+        .eq("id", edicionID)
+        .eq("torneo_id", torneoID)
+        .maybeSingle(),
+    ]);
 
-      if (
-        torneoRespuesta.error
-      ) {
-        throw torneoRespuesta.error;
-      }
+    if (torneoRespuesta.error) {
+      throw torneoRespuesta.error;
+    }
 
-      if (
-        edicionRespuesta.error
-      ) {
-        throw edicionRespuesta.error;
-      }
+    if (edicionRespuesta.error) {
+      throw edicionRespuesta.error;
+    }
 
-      if (
-        !torneoRespuesta.data ||
-        !edicionRespuesta.data
-      ) {
-        return Response.json(
-          {
-            mensaje:
-              "No s'ha trobat el torneig o l'edició.",
-          },
-          {
-            status: 404,
-          },
-        );
-      }
+    if (!torneoRespuesta.data || !edicionRespuesta.data) {
+      return Response.json(
+        {
+          mensaje: "No s'ha trobat el torneig o l'edició.",
+        },
+        {
+          status: 404,
+        },
+      );
+    }
 
-      const deporte =
-        torneoRespuesta.data
-          .deporte
-          ?.trim()
-          .toLowerCase() ??
-        "";
+    const deporte = torneoRespuesta.data.deporte?.trim().toLowerCase() ?? "";
 
-      const esFutbol =
-        deporte.includes(
-          "fut",
-        );
+    const esFutbol = deporte.includes("fut");
 
-      // ======================================================
-      // PLANTILLA
-      // ======================================================
+    // ======================================================
+    // PLANTILLA
+    // ======================================================
 
-      const {
-        data:
-          participantesData,
-        error:
-          participantesError,
-      } =
-        await supabaseAdmin
-          .from(
-            "participantes_equipo",
-          )
-          .select(`
+    const { data: participantesData, error: participantesError } =
+      await supabaseAdmin
+        .from("participantes_equipo")
+        .select(
+          `
             id,
             equipo_id,
             nombre,
@@ -630,87 +407,46 @@ export const GET: APIRoute =
             validacion_estado,
             orden,
             activo
-          `)
-          .eq(
-            "equipo_id",
-            equipoID,
-          )
-          .eq(
-            "activo",
-            true,
-          )
-          .eq(
-            "tipo_participante",
-            "JUGADOR",
-          )
-          .eq(
-            "validacion_estado",
-            "APROBADO",
-          )
-          .order(
-            "orden",
-            {
-              ascending:
-                true,
+          `,
+        )
+        .eq("equipo_id", equipoID)
+        .eq("activo", true)
+        .eq("tipo_participante", "JUGADOR")
+        .eq("validacion_estado", "APROBADO")
+        .order("orden", {
+          ascending: true,
 
-              nullsFirst:
-                false,
-            },
-          );
+          nullsFirst: false,
+        });
 
-      if (
-        participantesError
-      ) {
-        throw participantesError;
-      }
+    if (participantesError) {
+      throw participantesError;
+    }
 
-      const participantes =
-        (
-          participantesData ??
-          []
-        ) as ParticipanteDB[];
+    const participantes = (participantesData ?? []) as ParticipanteDB[];
 
-      const capitan =
-        participantes.find(
-          participante =>
-            participante.id ===
-            equipo.capitan_id,
-        ) ??
-        null;
+    const capitan =
+      participantes.find(
+        (participante) => participante.id === equipo.capitan_id,
+      ) ?? null;
 
-      const plantilla =
-        participantes.map(
-          participante => ({
-            id:
-              participante.id,
+    const plantilla = participantes.map((participante) => ({
+      id: participante.id,
 
-            nombre:
-              nombreCompleto(
-                participante,
-              ) ??
-              "Jugador",
+      nombre: nombreCompleto(participante) ?? "Jugador",
 
-            capitan:
-              participante.id ===
-              equipo.capitan_id,
-          }),
-        );
+      capitan: participante.id === equipo.capitan_id,
+    }));
 
-      // ======================================================
-      // GRUPOS DEL EQUIPO
-      // ======================================================
+    // ======================================================
+    // GRUPOS DEL EQUIPO
+    // ======================================================
 
-      const {
-        data:
-          plazasGrupoData,
-        error:
-          plazasGrupoError,
-      } =
-        await supabaseAdmin
-          .from(
-            "competicion_plazas",
-          )
-          .select(`
+    const { data: plazasGrupoData, error: plazasGrupoError } =
+      await supabaseAdmin
+        .from("competicion_plazas")
+        .select(
+          `
             destino_tipo,
             grupo_id,
             partido_id,
@@ -718,404 +454,223 @@ export const GET: APIRoute =
             orden,
             equipo_origen_id,
             equipo_resuelto_id
-          `)
-          .eq(
-            "edicion_id",
-            edicionID,
-          )
-          .eq(
-            "destino_tipo",
-            "GRUPO",
-          )
-          .or(
-            `equipo_resuelto_id.eq.${equipoID},equipo_origen_id.eq.${equipoID}`,
-          );
+          `,
+        )
+        .eq("edicion_id", edicionID)
+        .eq("destino_tipo", "GRUPO")
+        .or(
+          `equipo_resuelto_id.eq.${equipoID},equipo_origen_id.eq.${equipoID}`,
+        );
 
-      if (
-        plazasGrupoError
-      ) {
-        throw plazasGrupoError;
+    if (plazasGrupoError) {
+      throw plazasGrupoError;
+    }
+
+    const plazasGrupo = (plazasGrupoData ?? []) as PlazaDB[];
+
+    const gruposIDs = [
+      ...new Set(
+        plazasGrupo
+          .map((plaza) => plaza.grupo_id)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+
+    let grupo: {
+      id: string;
+      nombre: string;
+      faseID: string;
+      faseNombre: string;
+    } | null = null;
+
+    if (gruposIDs.length > 0) {
+      const { data: gruposData, error: gruposError } = await supabaseAdmin
+        .from("competicion_grupos")
+        .select("id,fase_id,nombre,orden,estado")
+        .in("id", gruposIDs);
+
+      if (gruposError) {
+        throw gruposError;
       }
 
-      const plazasGrupo =
-        (
-          plazasGrupoData ??
-          []
-        ) as PlazaDB[];
+      const grupos = (gruposData ?? []) as GrupoDB[];
 
-      const gruposIDs =
-        [
-          ...new Set(
-            plazasGrupo
-              .map(
-                plaza =>
-                  plaza.grupo_id,
-              )
-              .filter(
-                (
-                  id,
-                ): id is string =>
-                  Boolean(
-                    id,
-                  ),
-              ),
-          ),
-        ];
+      const fasesIDs = [...new Set(grupos.map((grupo) => grupo.fase_id))];
 
-      let grupo:
+      const { data: fasesData, error: fasesError } =
+        fasesIDs.length > 0
+          ? await supabaseAdmin
+              .from("competicion_fases")
+              .select("id,nombre,orden")
+              .in("id", fasesIDs)
+          : {
+              data: [],
+
+              error: null,
+            };
+
+      if (fasesError) {
+        throw fasesError;
+      }
+
+      const fases = (fasesData ?? []) as FaseDB[];
+
+      const fasesPorID = new Map(fases.map((fase) => [fase.id, fase]));
+
+      grupos.sort((a, b) => {
+        const faseA = fasesPorID.get(a.fase_id);
+
+        const faseB = fasesPorID.get(b.fase_id);
+
+        const ordenFase = (faseB?.orden ?? 0) - (faseA?.orden ?? 0);
+
+        if (ordenFase !== 0) {
+          return ordenFase;
+        }
+
+        return b.orden - a.orden;
+      });
+
+      const grupoSeleccionado = grupos[0];
+
+      if (grupoSeleccionado) {
+        const fase = fasesPorID.get(grupoSeleccionado.fase_id);
+
+        grupo = {
+          id: grupoSeleccionado.id,
+
+          nombre: grupoSeleccionado.nombre,
+
+          faseID: grupoSeleccionado.fase_id,
+
+          faseNombre: fase?.nombre ?? "Fase de grups",
+        };
+      }
+    }
+
+    // ======================================================
+    // PLAZAS DE PARTIDO DEL EQUIPO
+    // ======================================================
+
+    const { data: plazasEquipoData, error: plazasEquipoError } =
+      await supabaseAdmin
+        .from("competicion_plazas")
+        .select(
+          `
+            destino_tipo,
+            grupo_id,
+            partido_id,
+            lado,
+            orden,
+            equipo_origen_id,
+            equipo_resuelto_id
+          `,
+        )
+        .eq("edicion_id", edicionID)
+        .eq("destino_tipo", "PARTIDO")
+        .or(
+          `equipo_resuelto_id.eq.${equipoID},equipo_origen_id.eq.${equipoID}`,
+        );
+
+    if (plazasEquipoError) {
+      throw plazasEquipoError;
+    }
+
+    const plazasEquipo = (plazasEquipoData ?? []) as PlazaDB[];
+
+    const partidosIDs = [
+      ...new Set(
+        plazasEquipo
+          .map((plaza) => plaza.partido_id)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+
+    // ======================================================
+    // SIN PARTIDOS
+    // ======================================================
+
+    if (partidosIDs.length === 0) {
+      return Response.json(
         {
-          id: string;
-          nombre: string;
-          faseID: string;
-          faseNombre: string;
-        } |
-        null =
-        null;
+          data: {
+            torneo: {
+              id: torneoRespuesta.data.id,
 
-      if (
-        gruposIDs.length >
-        0
-      ) {
-        const {
-          data:
-            gruposData,
-          error:
-            gruposError,
-        } =
-          await supabaseAdmin
-            .from(
-              "competicion_grupos",
-            )
-            .select(
-              "id,fase_id,nombre,orden,estado",
-            )
-            .in(
-              "id",
-              gruposIDs,
-            );
+              nombre: torneoRespuesta.data.nombre,
 
-        if (
-          gruposError
-        ) {
-          throw gruposError;
-        }
+              deporte: torneoRespuesta.data.deporte,
+            },
 
-        const grupos =
-          (
-            gruposData ??
-            []
-          ) as GrupoDB[];
+            edicion: {
+              id: edicionRespuesta.data.id,
 
-        const fasesIDs =
-          [
-            ...new Set(
-              grupos.map(
-                grupo =>
-                  grupo.fase_id,
-              ),
-            ),
-          ];
+              nombre: edicionRespuesta.data.nombre,
+            },
 
-        const {
-          data:
-            fasesData,
-          error:
-            fasesError,
-        } =
-          fasesIDs.length >
-          0
-            ? await supabaseAdmin
-                .from(
-                  "competicion_fases",
-                )
-                .select(
-                  "id,nombre,orden",
-                )
-                .in(
-                  "id",
-                  fasesIDs,
-                )
-            : {
-                data:
-                  [],
+            equipo: {
+              id: equipo.id,
 
-                error:
-                  null,
-              };
+              nombre: equipo.nombre ?? "Equip",
 
-        if (
-          fasesError
-        ) {
-          throw fasesError;
-        }
+              escudo: equipo.escudo,
 
-        const fases =
-          (
-            fasesData ??
-            []
-          ) as FaseDB[];
+              capitan: nombreCompleto(capitan),
+            },
 
-        const fasesPorID =
-          new Map(
-            fases.map(
-              fase => [
-                fase.id,
-                fase,
-              ],
-            ),
-          );
+            esFutbol,
 
-        grupos.sort(
-          (
-            a,
-            b,
-          ) => {
-            const faseA =
-              fasesPorID.get(
-                a.fase_id,
-              );
+            grupo,
 
-            const faseB =
-              fasesPorID.get(
-                b.fase_id,
-              );
+            plantilla,
 
-            const ordenFase =
-              (
-                faseB?.orden ??
-                0
-              ) -
-              (
-                faseA?.orden ??
-                0
-              );
+            resumen: {
+              pj: 0,
 
-            if (
-              ordenFase !==
-              0
-            ) {
-              return ordenFase;
-            }
+              pg: 0,
 
-            return (
-              b.orden -
-              a.orden
-            );
-          },
-        );
+              pe: 0,
 
-        const grupoSeleccionado =
-          grupos[0];
+              pp: 0,
 
-        if (
-          grupoSeleccionado
-        ) {
-          const fase =
-            fasesPorID.get(
-              grupoSeleccionado.fase_id,
-            );
+              favor: 0,
 
-          grupo = {
-            id:
-              grupoSeleccionado.id,
+              contra: 0,
 
-            nombre:
-              grupoSeleccionado.nombre,
+              diferencia: 0,
+            },
 
-            faseID:
-              grupoSeleccionado.fase_id,
+            proximoPartido: null,
 
-            faseNombre:
-              fase?.nombre ??
-              "Fase de grups",
-          };
-        }
-      }
+            ultimosPartidos: [],
 
-      // ======================================================
-      // PLAZAS DE PARTIDO DEL EQUIPO
-      // ======================================================
+            maximosAnotadores: [],
 
-      const {
-        data:
-          plazasEquipoData,
-        error:
-          plazasEquipoError,
-      } =
-        await supabaseAdmin
-          .from(
-            "competicion_plazas",
-          )
-          .select(`
-            destino_tipo,
-            grupo_id,
-            partido_id,
-            lado,
-            orden,
-            equipo_origen_id,
-            equipo_resuelto_id
-          `)
-          .eq(
-            "edicion_id",
-            edicionID,
-          )
-          .eq(
-            "destino_tipo",
-            "PARTIDO",
-          )
-          .or(
-            `equipo_resuelto_id.eq.${equipoID},equipo_origen_id.eq.${equipoID}`,
-          );
+            disciplina: {
+              amarillas: 0,
 
-      if (
-        plazasEquipoError
-      ) {
-        throw plazasEquipoError;
-      }
-
-      const plazasEquipo =
-        (
-          plazasEquipoData ??
-          []
-        ) as PlazaDB[];
-
-      const partidosIDs =
-        [
-          ...new Set(
-            plazasEquipo
-              .map(
-                plaza =>
-                  plaza.partido_id,
-              )
-              .filter(
-                (
-                  id,
-                ): id is string =>
-                  Boolean(
-                    id,
-                  ),
-              ),
-          ),
-        ];
-
-      // ======================================================
-      // SIN PARTIDOS
-      // ======================================================
-
-      if (
-        partidosIDs.length ===
-        0
-      ) {
-        return Response.json(
-          {
-            data: {
-              torneo: {
-                id:
-                  torneoRespuesta.data.id,
-
-                nombre:
-                  torneoRespuesta.data.nombre,
-
-                deporte:
-                  torneoRespuesta.data.deporte,
-              },
-
-              edicion: {
-                id:
-                  edicionRespuesta.data.id,
-
-                nombre:
-                  edicionRespuesta.data.nombre,
-              },
-
-              equipo: {
-                id:
-                  equipo.id,
-
-                nombre:
-                  equipo.nombre ??
-                  "Equip",
-
-                escudo:
-                  equipo.escudo,
-
-                capitan:
-                  nombreCompleto(
-                    capitan,
-                  ),
-              },
-
-              esFutbol,
-
-              grupo,
-
-              plantilla,
-
-              resumen: {
-                pj:
-                  0,
-
-                pg:
-                  0,
-
-                pe:
-                  0,
-
-                pp:
-                  0,
-
-                favor:
-                  0,
-
-                contra:
-                  0,
-
-                diferencia:
-                  0,
-              },
-
-              proximoPartido:
-                null,
-
-              ultimosPartidos:
-                [],
-
-              maximosAnotadores:
-                [],
-
-              disciplina: {
-                amarillas:
-                  0,
-
-                rojas:
-                  0,
-              },
+              rojas: 0,
             },
           },
-          {
-            headers: {
-              "Cache-Control":
-                "no-store",
-            },
+        },
+        {
+          headers: {
+            "Cache-Control": "no-store",
           },
-        );
-      }
+        },
+      );
+    }
 
-      // ======================================================
-      // PARTIDOS / PLAZAS / RESULTADOS
-      // ======================================================
+    // ======================================================
+    // PARTIDOS / PLAZAS / RESULTADOS
+    // ======================================================
 
-      const [
-        partidosRespuesta,
-        plazasRespuesta,
-        resultadosRespuesta,
-      ] =
-        await Promise.all([
-          supabaseAdmin
-            .from(
-              "competicion_partidos",
-            )
-            .select(`
+    const [partidosRespuesta, plazasRespuesta, resultadosRespuesta] =
+      await Promise.all([
+        supabaseAdmin
+          .from("competicion_partidos")
+          .select(
+            `
               id,
               tipo,
               grupo_id,
@@ -1127,17 +682,14 @@ export const GET: APIRoute =
               fecha_hora,
               pista,
               finalizado_at
-            `)
-            .in(
-              "id",
-              partidosIDs,
-            ),
+            `,
+          )
+          .in("id", partidosIDs),
 
-          supabaseAdmin
-            .from(
-              "competicion_plazas",
-            )
-            .select(`
+        supabaseAdmin
+          .from("competicion_plazas")
+          .select(
+            `
               destino_tipo,
               grupo_id,
               partido_id,
@@ -1145,25 +697,16 @@ export const GET: APIRoute =
               orden,
               equipo_origen_id,
               equipo_resuelto_id
-            `)
-            .eq(
-              "edicion_id",
-              edicionID,
-            )
-            .eq(
-              "destino_tipo",
-              "PARTIDO",
-            )
-            .in(
-              "partido_id",
-              partidosIDs,
-            ),
+            `,
+          )
+          .eq("edicion_id", edicionID)
+          .eq("destino_tipo", "PARTIDO")
+          .in("partido_id", partidosIDs),
 
-          supabaseAdmin
-            .from(
-              "competicion_resultados",
-            )
-            .select(`
+        supabaseAdmin
+          .from("competicion_resultados")
+          .select(
+            `
               id,
               partido_id,
               marcador_local,
@@ -1173,853 +716,452 @@ export const GET: APIRoute =
               confirmado_at,
               created_at,
               updated_at
-            `)
-            .eq(
-              "edicion_id",
-              edicionID,
-            )
-            .in(
-              "partido_id",
-              partidosIDs,
-            ),
-        ]);
+            `,
+          )
+          .eq("edicion_id", edicionID)
+          .in("partido_id", partidosIDs),
+      ]);
 
-      if (
-        partidosRespuesta.error
-      ) {
-        throw partidosRespuesta.error;
+    if (partidosRespuesta.error) {
+      throw partidosRespuesta.error;
+    }
+
+    if (plazasRespuesta.error) {
+      throw plazasRespuesta.error;
+    }
+
+    if (resultadosRespuesta.error) {
+      throw resultadosRespuesta.error;
+    }
+
+    const partidos = (partidosRespuesta.data ?? []) as PartidoDB[];
+
+    const plazasPartido = (plazasRespuesta.data ?? []) as PlazaDB[];
+
+    const resultados = (resultadosRespuesta.data ?? []) as ResultadoDB[];
+
+    const resultadosPorPartido = crearMapaResultados(resultados);
+
+    // ======================================================
+    // EQUIPOS RIVALES
+    // ======================================================
+
+    const equiposIDs = new Set<string>();
+
+    equiposIDs.add(equipoID);
+
+    for (const plaza of plazasPartido) {
+      const id = equipoDePlaza(plaza);
+
+      if (id) {
+        equiposIDs.add(id);
       }
+    }
 
-      if (
-        plazasRespuesta.error
-      ) {
-        throw plazasRespuesta.error;
-      }
+    const { data: equiposData, error: equiposError } = await supabaseAdmin
+      .from("equipos")
+      .select("id,nombre,escudo")
+      .in("id", Array.from(equiposIDs));
 
-      if (
-        resultadosRespuesta.error
-      ) {
-        throw resultadosRespuesta.error;
-      }
+    if (equiposError) {
+      throw equiposError;
+    }
 
-      const partidos =
-        (
-          partidosRespuesta.data ??
-          []
-        ) as PartidoDB[];
+    const equiposPorID = new Map<string, EquipoPublico>(
+      (equiposData ?? []).map((item) => [
+        item.id,
 
-      const plazasPartido =
-        (
-          plazasRespuesta.data ??
-          []
-        ) as PlazaDB[];
+        {
+          id: item.id,
 
-      const resultados =
-        (
-          resultadosRespuesta.data ??
-          []
-        ) as ResultadoDB[];
+          nombre: item.nombre ?? "Equip",
 
-      const resultadosPorPartido =
-        crearMapaResultados(
-          resultados,
-        );
+          escudo: item.escudo ?? null,
+        },
+      ]),
+    );
 
-      // ======================================================
-      // EQUIPOS RIVALES
-      // ======================================================
+    // ======================================================
+    // CONVERTIR PARTIDOS
+    // ======================================================
 
-      const equiposIDs =
-        new Set<string>();
-
-      equiposIDs.add(
-        equipoID,
+    const partidosPublicos: PartidoPublico[] = partidos.map((partido) => {
+      const plazaLocal = plazasPartido.find(
+        (plaza) => plaza.partido_id === partido.id && plaza.lado === "LOCAL",
       );
 
-      for (
-        const plaza
-        of plazasPartido
-      ) {
-        const id =
-          equipoDePlaza(
-            plaza,
-          );
+      const plazaVisitante = plazasPartido.find(
+        (plaza) =>
+          plaza.partido_id === partido.id && plaza.lado === "VISITANTE",
+      );
 
-        if (
-          id
-        ) {
-          equiposIDs.add(
-            id,
-          );
-        }
-      }
+      const localID = equipoDePlaza(plazaLocal);
 
-      const {
-        data:
-          equiposData,
-        error:
-          equiposError,
-      } =
-        await supabaseAdmin
-          .from(
-            "equipos",
-          )
-          .select(
-            "id,nombre,escudo",
-          )
-          .in(
-            "id",
-            Array.from(
-              equiposIDs,
-            ),
-          );
+      const visitanteID = equipoDePlaza(plazaVisitante);
+
+      const resultado = resultadosPorPartido.get(partido.id);
+
+      let resultadoEquipo: ResultadoEquipo = "PENDIENTE";
+
+      // ==================================================
+      // RESULTADO DEL EQUIPO
+      //
+      // La comprobación se hace directamente sobre los
+      // marcadores para que TypeScript sepa que ambos son
+      // number y no puedan ser null.
+      // ==================================================
 
       if (
-        equiposError
+        resultado &&
+        resultado.confirmado &&
+        typeof resultado.marcador_local === "number" &&
+        typeof resultado.marcador_visitante === "number"
       ) {
-        throw equiposError;
-      }
+        const marcadorLocal: number = resultado.marcador_local;
 
-      const equiposPorID =
-        new Map<
-          string,
-          EquipoPublico
-        >(
-          (
-            equiposData ??
-            []
-          ).map(
-            item => [
-              item.id,
+        const marcadorVisitante: number = resultado.marcador_visitante;
 
-              {
-                id:
-                  item.id,
+        const favor: number =
+          localID === equipoID ? marcadorLocal : marcadorVisitante;
 
-                nombre:
-                  item.nombre ??
-                  "Equip",
+        const contra: number =
+          localID === equipoID ? marcadorVisitante : marcadorLocal;
 
-                escudo:
-                  item.escudo ??
-                  null,
-              },
-            ],
-          ),
-        );
-
-      // ======================================================
-      // CONVERTIR PARTIDOS
-      // ======================================================
-
-      const partidosPublicos:
-        PartidoPublico[] =
-        partidos.map(
-          partido => {
-            const plazaLocal =
-              plazasPartido.find(
-                plaza =>
-                  plaza.partido_id ===
-                    partido.id &&
-                  plaza.lado ===
-                    "LOCAL",
-              );
-
-            const plazaVisitante =
-              plazasPartido.find(
-                plaza =>
-                  plaza.partido_id ===
-                    partido.id &&
-                  plaza.lado ===
-                    "VISITANTE",
-              );
-
-            const localID =
-              equipoDePlaza(
-                plazaLocal,
-              );
-
-            const visitanteID =
-              equipoDePlaza(
-                plazaVisitante,
-              );
-
-            const resultado =
-              resultadosPorPartido.get(
-                partido.id,
-              );
-
-            let resultadoEquipo:
-              ResultadoEquipo =
-              "PENDIENTE";
-
-            // ==================================================
-            // RESULTADO DEL EQUIPO
-            //
-            // La comprobación se hace directamente sobre los
-            // marcadores para que TypeScript sepa que ambos son
-            // number y no puedan ser null.
-            // ==================================================
-
-            if (
-              resultado &&
-              resultado.confirmado &&
-              typeof resultado.marcador_local ===
-                "number" &&
-              typeof resultado.marcador_visitante ===
-                "number"
-            ) {
-              const marcadorLocal:
-                number =
-                resultado.marcador_local;
-
-              const marcadorVisitante:
-                number =
-                resultado.marcador_visitante;
-
-              const favor:
-                number =
-                localID ===
-                equipoID
-                  ? marcadorLocal
-                  : marcadorVisitante;
-
-              const contra:
-                number =
-                localID ===
-                equipoID
-                  ? marcadorVisitante
-                  : marcadorLocal;
-
-              if (
-                favor >
-                contra
-              ) {
-                resultadoEquipo =
-                  "GANADO";
-              } else if (
-                favor <
-                contra
-              ) {
-                resultadoEquipo =
-                  "PERDIDO";
-              } else {
-                resultadoEquipo =
-                  "EMPATADO";
-              }
-            }
-
-            const estado =
-              normalizarEstado(
-                partido.estado,
-              );
-
-            const finalizado =
-              Boolean(
-                partido.finalizado_at,
-              ) ||
-              resultado
-                ?.confirmado ===
-                true ||
-              estado ===
-                "FINALIZADO" ||
-              estado ===
-                "CERRADO";
-
-            const enCurso =
-              estado ===
-                "EN_CURSO" ||
-              estado ===
-                "EN CURSO";
-
-            return {
-              id:
-                partido.id,
-
-              codigo:
-                partido.codigo,
-
-              nombre:
-                partido.nombre,
-
-              jornada:
-                partido.jornada,
-
-              estado:
-                partido.estado,
-
-              fechaHora:
-                partido.fecha_hora,
-
-              pista:
-                partido.pista,
-
-              local:
-                localID
-                  ? equiposPorID.get(
-                      localID,
-                    ) ??
-                    null
-                  : null,
-
-              visitante:
-                visitanteID
-                  ? equiposPorID.get(
-                      visitanteID,
-                    ) ??
-                    null
-                  : null,
-
-              resultadoLocal:
-                resultado
-                  ?.marcador_local ??
-                null,
-
-              resultadoVisitante:
-                resultado
-                  ?.marcador_visitante ??
-                null,
-
-              resultadoConfirmado:
-                resultado
-                  ?.confirmado ??
-                false,
-
-              finalizado,
-
-              enCurso,
-
-              resultadoEquipo,
-            };
-          },
-        );
-
-      // ======================================================
-      // RESUMEN
-      // ======================================================
-
-      const resumen = {
-        pj:
-          0,
-
-        pg:
-          0,
-
-        pe:
-          0,
-
-        pp:
-          0,
-
-        favor:
-          0,
-
-        contra:
-          0,
-
-        diferencia:
-          0,
-      };
-
-      for (
-        const partido
-        of partidosPublicos
-      ) {
-        if (
-          !partido
-            .resultadoConfirmado ||
-          typeof partido
-            .resultadoLocal !==
-            "number" ||
-          typeof partido
-            .resultadoVisitante !==
-            "number"
-        ) {
-          continue;
-        }
-
-        resumen.pj++;
-
-        const esLocal =
-          partido.local?.id ===
-          equipoID;
-
-        const marcadorLocal:
-          number =
-          partido.resultadoLocal;
-
-        const marcadorVisitante:
-          number =
-          partido.resultadoVisitante;
-
-        const favor:
-          number =
-          esLocal
-            ? marcadorLocal
-            : marcadorVisitante;
-
-        const contra:
-          number =
-          esLocal
-            ? marcadorVisitante
-            : marcadorLocal;
-
-        resumen.favor +=
-          favor;
-
-        resumen.contra +=
-          contra;
-
-        if (
-          favor >
-          contra
-        ) {
-          resumen.pg++;
-        } else if (
-          favor <
-          contra
-        ) {
-          resumen.pp++;
+        if (favor > contra) {
+          resultadoEquipo = "GANADO";
+        } else if (favor < contra) {
+          resultadoEquipo = "PERDIDO";
         } else {
-          resumen.pe++;
+          resultadoEquipo = "EMPATADO";
         }
       }
 
-      resumen.diferencia =
-        resumen.favor -
-        resumen.contra;
+      const estado = normalizarEstado(partido.estado);
 
-      // ======================================================
-      // ÚLTIMOS PARTIDOS
-      // ======================================================
+      const finalizado =
+        Boolean(partido.finalizado_at) ||
+        resultado?.confirmado === true ||
+        estado === "FINALIZADO" ||
+        estado === "CERRADO";
 
-      const ultimosPartidos =
-        partidosPublicos
-          .filter(
-            partido =>
-              partido.resultadoConfirmado,
-          )
-          .sort(
-            (
-              a,
-              b,
-            ) => {
-              const partidoA =
-                partidos.find(
-                  item =>
-                    item.id ===
-                    a.id,
-                );
+      const enCurso = estado === "EN_CURSO" || estado === "EN CURSO";
 
-              const partidoB =
-                partidos.find(
-                  item =>
-                    item.id ===
-                    b.id,
-                );
+      return {
+        id: partido.id,
 
-              const fechaA =
-                partidoA
-                  ? tiempoPartido(
-                      partidoA,
-                    )
-                  : null;
+        codigo: partido.codigo,
 
-              const fechaB =
-                partidoB
-                  ? tiempoPartido(
-                      partidoB,
-                    )
-                  : null;
+        nombre: partido.nombre,
 
-              if (
-                fechaA !==
-                  null &&
-                fechaB !==
-                  null &&
-                fechaA !==
-                  fechaB
-              ) {
-                return (
-                  fechaB -
-                  fechaA
-                );
-              }
+        jornada: partido.jornada,
 
-              return (
-                (
-                  partidoB?.orden ??
-                  0
-                ) -
-                (
-                  partidoA?.orden ??
-                  0
-                )
-              );
-            },
-          )
-          .slice(
-            0,
-            5,
-          );
+        estado: partido.estado,
 
-      // ======================================================
-      // PRÓXIMO PARTIDO
-      // ======================================================
+        fechaHora: partido.fecha_hora,
 
-      const pendientes =
-        partidosPublicos
-          .filter(
-            partido =>
-              !partido.finalizado,
-          )
-          .sort(
-            (
-              a,
-              b,
-            ) => {
-              const partidoA =
-                partidos.find(
-                  item =>
-                    item.id ===
-                    a.id,
-                );
+        pista: partido.pista,
 
-              const partidoB =
-                partidos.find(
-                  item =>
-                    item.id ===
-                    b.id,
-                );
+        local: localID ? (equiposPorID.get(localID) ?? null) : null,
 
-              const fechaA =
-                partidoA
-                  ? tiempoPartido(
-                      partidoA,
-                    )
-                  : null;
+        visitante: visitanteID ? (equiposPorID.get(visitanteID) ?? null) : null,
 
-              const fechaB =
-                partidoB
-                  ? tiempoPartido(
-                      partidoB,
-                    )
-                  : null;
+        resultadoLocal: resultado?.marcador_local ?? null,
 
-              if (
-                fechaA !==
-                  null &&
-                fechaB !==
-                  null &&
-                fechaA !==
-                  fechaB
-              ) {
-                return (
-                  fechaA -
-                  fechaB
-                );
-              }
+        resultadoVisitante: resultado?.marcador_visitante ?? null,
 
-              if (
-                fechaA !==
-                  null &&
-                fechaB ===
-                  null
-              ) {
-                return -1;
-              }
+        resultadoConfirmado: resultado?.confirmado ?? false,
 
-              if (
-                fechaA ===
-                  null &&
-                fechaB !==
-                  null
-              ) {
-                return 1;
-              }
+        finalizado,
 
-              return (
-                (
-                  partidoA?.orden ??
-                  0
-                ) -
-                (
-                  partidoB?.orden ??
-                  0
-                )
-              );
-            },
-          );
+        enCurso,
 
-      const proximoPartido =
-        pendientes[0] ??
-        null;
-
-      // ======================================================
-      // ACTA: GOLES + DISCIPLINA
-      // ======================================================
-
-      const maximosAnotadores:
-        {
-          jugadorID:
-            string | null;
-
-          nombre:
-            string;
-
-          goles:
-            number;
-        }[] =
-        [];
-
-      const disciplina = {
-        amarillas:
-          0,
-
-        rojas:
-          0,
+        resultadoEquipo,
       };
+    });
 
-      const {
-        data:
-          eventosData,
-        error:
-          eventosError,
-      } =
-        await supabaseAdmin
-          .from(
-            "acta_eventos",
-          )
-          .select(`
+    // ======================================================
+    // RESUMEN
+    // ======================================================
+
+    const resumen = {
+      pj: 0,
+
+      pg: 0,
+
+      pe: 0,
+
+      pp: 0,
+
+      favor: 0,
+
+      contra: 0,
+
+      diferencia: 0,
+    };
+
+    for (const partido of partidosPublicos) {
+      if (
+        !partido.resultadoConfirmado ||
+        typeof partido.resultadoLocal !== "number" ||
+        typeof partido.resultadoVisitante !== "number"
+      ) {
+        continue;
+      }
+
+      resumen.pj++;
+
+      const esLocal = partido.local?.id === equipoID;
+
+      const marcadorLocal: number = partido.resultadoLocal;
+
+      const marcadorVisitante: number = partido.resultadoVisitante;
+
+      const favor: number = esLocal ? marcadorLocal : marcadorVisitante;
+
+      const contra: number = esLocal ? marcadorVisitante : marcadorLocal;
+
+      resumen.favor += favor;
+
+      resumen.contra += contra;
+
+      if (favor > contra) {
+        resumen.pg++;
+      } else if (favor < contra) {
+        resumen.pp++;
+      } else {
+        resumen.pe++;
+      }
+    }
+
+    resumen.diferencia = resumen.favor - resumen.contra;
+
+    // ======================================================
+    // ÚLTIMOS PARTIDOS
+    // ======================================================
+
+    const ultimosPartidos = partidosPublicos
+      .filter((partido) => partido.resultadoConfirmado)
+      .sort((a, b) => {
+        const partidoA = partidos.find((item) => item.id === a.id);
+
+        const partidoB = partidos.find((item) => item.id === b.id);
+
+        const fechaA = partidoA ? tiempoPartido(partidoA) : null;
+
+        const fechaB = partidoB ? tiempoPartido(partidoB) : null;
+
+        if (fechaA !== null && fechaB !== null && fechaA !== fechaB) {
+          return fechaB - fechaA;
+        }
+
+        return (partidoB?.orden ?? 0) - (partidoA?.orden ?? 0);
+      })
+      .slice(0, 5);
+
+    // ======================================================
+    // PRÓXIMO PARTIDO
+    // ======================================================
+
+    const pendientes = partidosPublicos
+      .filter((partido) => !partido.finalizado)
+      .sort((a, b) => {
+        const partidoA = partidos.find((item) => item.id === a.id);
+
+        const partidoB = partidos.find((item) => item.id === b.id);
+
+        const fechaA = partidoA ? tiempoPartido(partidoA) : null;
+
+        const fechaB = partidoB ? tiempoPartido(partidoB) : null;
+
+        if (fechaA !== null && fechaB !== null && fechaA !== fechaB) {
+          return fechaA - fechaB;
+        }
+
+        if (fechaA !== null && fechaB === null) {
+          return -1;
+        }
+
+        if (fechaA === null && fechaB !== null) {
+          return 1;
+        }
+
+        return (partidoA?.orden ?? 0) - (partidoB?.orden ?? 0);
+      });
+
+    const proximoPartido = pendientes[0] ?? null;
+
+    // ======================================================
+    // ACTA: GOLES + DISCIPLINA
+    // ======================================================
+
+    const maximosAnotadores: {
+      jugadorID: string | null;
+
+      nombre: string;
+
+      goles: number;
+    }[] = [];
+
+    const disciplina = {
+      amarillas: 0,
+
+      rojas: 0,
+    };
+
+    const { data: eventosData, error: eventosError } = await supabaseAdmin
+      .from("acta_eventos")
+      .select(
+        `
             partido_id,
             tipo_evento,
             equipo_id,
             jugador_id,
             jugador_nombre,
             estado
-          `)
-          .in(
-            "partido_id",
-            partidosIDs,
-          )
-          .eq(
-            "equipo_id",
-            equipoID,
-          )
-          .eq(
-            "estado",
-            "ACTIVO",
-          )
-          .in(
-            "tipo_evento",
-            [
-              "GOL",
-              "PENALTI_MARCADO",
-              "TARJETA_AMARILLA",
-              "TARJETA_ROJA",
-            ],
-          );
+          `,
+      )
+      .in("partido_id", partidosIDs)
+      .eq("equipo_id", equipoID)
+      .eq("estado", "ACTIVO")
+      .in("tipo_evento", [
+        "GOL",
+        "PENALTI_MARCADO",
+        "TARJETA_AMARILLA",
+        "TARJETA_ROJA",
+      ]);
+
+    if (eventosError) {
+      throw eventosError;
+    }
+
+    const eventos = (eventosData ?? []) as EventoDB[];
+
+    const golesPorJugador = new Map<
+      string,
+      {
+        jugadorID: string | null;
+
+        nombre: string;
+
+        goles: number;
+      }
+    >();
+
+    for (const evento of eventos) {
+      if (evento.tipo_evento === "TARJETA_AMARILLA") {
+        disciplina.amarillas++;
+
+        continue;
+      }
+
+      if (evento.tipo_evento === "TARJETA_ROJA") {
+        disciplina.rojas++;
+
+        continue;
+      }
 
       if (
-        eventosError
+        evento.tipo_evento !== "GOL" &&
+        evento.tipo_evento !== "PENALTI_MARCADO"
       ) {
-        throw eventosError;
+        continue;
       }
 
-      const eventos =
-        (
-          eventosData ??
-          []
-        ) as EventoDB[];
-
-      const golesPorJugador =
-        new Map<
-          string,
-          {
-            jugadorID:
-              string | null;
-
-            nombre:
-              string;
-
-            goles:
-              number;
-          }
-        >();
-
-      for (
-        const evento
-        of eventos
-      ) {
-        if (
-          evento.tipo_evento ===
-          "TARJETA_AMARILLA"
-        ) {
-          disciplina.amarillas++;
-
-          continue;
-        }
-
-        if (
-          evento.tipo_evento ===
-          "TARJETA_ROJA"
-        ) {
-          disciplina.rojas++;
-
-          continue;
-        }
-
-        if (
-          evento.tipo_evento !==
-            "GOL" &&
-          evento.tipo_evento !==
-            "PENALTI_MARCADO"
-        ) {
-          continue;
-        }
-
-        if (
-          !evento.jugador_nombre
-        ) {
-          continue;
-        }
-
-        const clave =
-          evento.jugador_id ??
-          `nom:${evento.jugador_nombre}`;
-
-        const actual =
-          golesPorJugador.get(
-            clave,
-          ) ?? {
-            jugadorID:
-              evento.jugador_id,
-
-            nombre:
-              evento.jugador_nombre,
-
-            goles:
-              0,
-          };
-
-        actual.goles++;
-
-        golesPorJugador.set(
-          clave,
-          actual,
-        );
+      if (!evento.jugador_nombre) {
+        continue;
       }
 
-      maximosAnotadores.push(
-        ...Array.from(
-          golesPorJugador.values(),
-        )
-          .sort(
-            (
-              a,
-              b,
-            ) =>
-              b.goles -
-                a.goles ||
-              a.nombre.localeCompare(
-                b.nombre,
-                "ca",
-              ),
-          )
-          .slice(
-            0,
-            5,
-          ),
-      );
+      const clave = evento.jugador_id ?? `nom:${evento.jugador_nombre}`;
 
-      // ======================================================
-      // RESPUESTA
-      // ======================================================
+      const actual = golesPorJugador.get(clave) ?? {
+        jugadorID: evento.jugador_id,
 
-      return Response.json(
-        {
-          data: {
-            torneo: {
-              id:
-                torneoRespuesta.data.id,
+        nombre: evento.jugador_nombre,
 
-              nombre:
-                torneoRespuesta.data.nombre,
+        goles: 0,
+      };
 
-              deporte:
-                torneoRespuesta.data.deporte,
-            },
+      actual.goles++;
 
-            edicion: {
-              id:
-                edicionRespuesta.data.id,
-
-              nombre:
-                edicionRespuesta.data.nombre,
-            },
-
-            equipo: {
-              id:
-                equipo.id,
-
-              nombre:
-                equipo.nombre ??
-                "Equip",
-
-              escudo:
-                equipo.escudo,
-
-              capitan:
-                nombreCompleto(
-                  capitan,
-                ),
-            },
-
-            esFutbol,
-
-            grupo,
-
-            plantilla,
-
-            resumen,
-
-            proximoPartido,
-
-            ultimosPartidos,
-
-            maximosAnotadores,
-
-            disciplina,
-          },
-        },
-        {
-          headers: {
-            "Cache-Control":
-              "no-store",
-          },
-        },
-      );
-    } catch (
-      error
-    ) {
-      console.error(
-        "Error carregant la pàgina pública de l'equip:",
-        error,
-      );
-
-      return Response.json(
-        {
-          mensaje:
-            "No s'ha pogut carregar l'equip.",
-        },
-        {
-          status: 500,
-
-          headers: {
-            "Cache-Control":
-              "no-store",
-          },
-        },
-      );
+      golesPorJugador.set(clave, actual);
     }
-  };
+
+    maximosAnotadores.push(
+      ...Array.from(golesPorJugador.values())
+        .sort(
+          (a, b) => b.goles - a.goles || a.nombre.localeCompare(b.nombre, "ca"),
+        )
+        .slice(0, 5),
+    );
+
+    // ======================================================
+    // RESPUESTA
+    // ======================================================
+
+    return Response.json(
+      {
+        data: {
+          torneo: {
+            id: torneoRespuesta.data.id,
+
+            nombre: torneoRespuesta.data.nombre,
+
+            deporte: torneoRespuesta.data.deporte,
+          },
+
+          edicion: {
+            id: edicionRespuesta.data.id,
+
+            nombre: edicionRespuesta.data.nombre,
+          },
+
+          equipo: {
+            id: equipo.id,
+
+            nombre: equipo.nombre ?? "Equip",
+
+            escudo: equipo.escudo,
+
+            capitan: nombreCompleto(capitan),
+          },
+
+          esFutbol,
+
+          grupo,
+
+          plantilla,
+
+          resumen,
+
+          proximoPartido,
+
+          ultimosPartidos,
+
+          maximosAnotadores,
+
+          disciplina,
+        },
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      },
+    );
+  } catch (error) {
+    console.error("Error carregant la pàgina pública de l'equip:", error);
+
+    return Response.json(
+      {
+        mensaje: "No s'ha pogut carregar l'equip.",
+      },
+      {
+        status: 500,
+
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      },
+    );
+  }
+};

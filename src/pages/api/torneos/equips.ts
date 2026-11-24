@@ -546,7 +546,8 @@ export const GET: APIRoute = async ({ url }) => {
       .select("id,edicion_id,estado")
       .eq("edicion_id", edicionID)
       .eq("tipo", "EQUIPO")
-      .eq("estado", "APROBADO");
+      .eq("estado", "APROBADO")
+      .is("archivado_at", null);
 
     if (formulariosError) {
       throw formulariosError;

@@ -65,6 +65,7 @@ export default function PasoEntrenador({
 
             <p className="mt-1 text-sm leading-6 text-neutral">
               Pots indicar una persona responsable de l'equip com a entrenador.
+              Si n'afegeixes un, hauràs d'indicar el seu curs i grup, si escau.
             </p>
           </div>
         </div>
@@ -117,7 +118,7 @@ export default function PasoEntrenador({
         maximo={1}
         mostrarCurso
         mostrarGenero={false}
-        cursoObligatorio={false}
+        cursoObligatorio={true}
         generoObligatorio={false}
         emailObligatorio
         soloLectura={soloLectura}
